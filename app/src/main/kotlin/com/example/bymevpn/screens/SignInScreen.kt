@@ -51,6 +51,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -75,6 +76,8 @@ import com.example.bymevpn.components.GradientBackground
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -91,6 +94,9 @@ fun SignInScreen(
     onSignInSuccess: (email: String, isGoogle: Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val isRu = LocaleManager.isRussian(context)
+
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -113,20 +119,20 @@ fun SignInScreen(
 
         val trimmedEmail = email.trim()
         if (trimmedEmail.isEmpty()) {
-            emailError = "Please enter your email"
+            emailError = if (isRu) "Введите адрес эл. почты" else "Please enter your email"
             valid = false
         } else if (!EMAIL_REGEX.matches(trimmedEmail)) {
-            emailError = "Invalid email format (e.g. name@domain.com)"
+            emailError = if (isRu) "Неверный формат почты (например, name@domain.com)" else "Invalid email format (e.g. name@domain.com)"
             valid = false
         } else {
             emailError = null
         }
 
         if (password.isEmpty()) {
-            passwordError = "Please enter your password"
+            passwordError = if (isRu) "Введите пароль" else "Please enter your password"
             valid = false
         } else if (password.length < 8) {
-            passwordError = "Password must be at least 8 characters"
+            passwordError = if (isRu) "Пароль должен содержать от 8 символов" else "Password must be at least 8 characters"
             valid = false
         } else {
             passwordError = null
@@ -134,12 +140,19 @@ fun SignInScreen(
 
         if (valid) {
             authError = null
+            // Check in database or register new account
+            AccountRepository.loginOrRegister(trimmedEmail, isGoogle = false)
             scope.launch {
-                snackbarHostState.showSnackbar("Signing in to ByMeVPN...")
+                snackbarHostState.showSnackbar(
+                    if (isRu) "Вход в ByMeVPN..." else "Signing in to ByMeVPN..."
+                )
             }
             onSignInSuccess(trimmedEmail, false)
         } else {
-            authError = "Invalid credentials. If you forgot your password, please reset it below."
+            authError = if (isRu)
+                "Неверные данные. Если вы забыли пароль, восстановите его ниже."
+            else
+                "Invalid credentials. If you forgot your password, please reset it below."
         }
     }
 
@@ -210,7 +223,7 @@ fun SignInScreen(
 
                     // 3. Slogan: crisp, high contrast Slate-300
                     Text(
-                        text = "Speed. Anonymity. Honesty.",
+                        text = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty.",
                         color = Color(0xFFCBD5E1),
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Medium,
@@ -228,7 +241,7 @@ fun SignInScreen(
                             if (emailError != null) emailError = null
                             if (authError != null) authError = null
                         },
-                        hintText = "Email",
+                        hintText = if (isRu) "Эл. почта" else "Email",
                         leadingIcon = { MailIcon(color = Color(0xFF94A3B8)) },
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next,
@@ -259,7 +272,7 @@ fun SignInScreen(
                             if (passwordError != null) passwordError = null
                             if (authError != null) authError = null
                         },
-                        hintText = "Password (min 8 chars)",
+                        hintText = if (isRu) "Пароль (от 8 символов)" else "Password (min 8 chars)",
                         leadingIcon = { LockIcon(color = Color(0xFF94A3B8)) },
                         trailingIcon = {
                             IconButton(
@@ -323,7 +336,7 @@ fun SignInScreen(
                         horizontalArrangement = Arrangement.End
                     ) {
                         Text(
-                            text = "Forgot Password?",
+                            text = if (isRu) "Забыли пароль?" else "Forgot Password?",
                             color = Color(0xFF00D4FF),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold,
@@ -338,7 +351,7 @@ fun SignInScreen(
 
                     // 6. Primary Action: "Sign In" Button
                     SignInGradientButton(
-                        label = "Sign In",
+                        label = if (isRu) "Войти" else "Sign In",
                         onClick = { validateAndSubmit() },
                         testTag = "sign_in_button"
                     )
@@ -356,7 +369,7 @@ fun SignInScreen(
                             thickness = 1.dp
                         )
                         Text(
-                            text = "OR",
+                            text = if (isRu) "ИЛИ" else "OR",
                             color = Color(0xFF94A3B8),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -388,7 +401,7 @@ fun SignInScreen(
                                 fontWeight = FontWeight.Normal
                             )
                         ) {
-                            append("Don't have an account? ")
+                            append(if (isRu) "Нет аккаунта? " else "Don't have an account? ")
                         }
                         withStyle(
                             SpanStyle(
@@ -397,7 +410,7 @@ fun SignInScreen(
                                 fontWeight = FontWeight.ExtraBold
                             )
                         ) {
-                            append("Sign Up")
+                            append(if (isRu) "Зарегистрироваться" else "Sign Up")
                         }
                     }
 
@@ -597,6 +610,8 @@ private fun GoogleAuthButton(
     modifier: Modifier = Modifier,
     testTag: String = "google_auth_btn"
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isRu = LocaleManager.isRussian(context)
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
@@ -629,7 +644,7 @@ private fun GoogleAuthButton(
             GoogleLogoIcon(size = 22.dp)
             Spacer(modifier = Modifier.width(12.dp))
             Text(
-                text = "Continue with Google",
+                text = if (isRu) "Войти через Google" else "Continue with Google",
                 color = Color.White,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
@@ -648,6 +663,9 @@ private fun ForgotPasswordDialog(
     onDismiss: () -> Unit,
     onResetSuccess: (newPass: String, email: String) -> Unit
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isRu = LocaleManager.isRussian(context)
+
     var step by remember { mutableIntStateOf(1) }
     var resetEmail by remember { mutableStateOf(initialEmail) }
     var verificationCode by remember { mutableStateOf("") }
@@ -694,7 +712,11 @@ private fun ForgotPasswordDialog(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = if (step == 1) "Reset Password" else "Enter Verification Code",
+                        text = if (step == 1) {
+                            if (isRu) "Сброс пароля" else "Reset Password"
+                        } else {
+                            if (isRu) "Код подтверждения" else "Enter Verification Code"
+                        },
                         color = Color.White,
                         fontSize = 19.sp,
                         fontWeight = FontWeight.Bold
@@ -703,10 +725,17 @@ private fun ForgotPasswordDialog(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = if (step == 1)
-                            "Enter the email associated with your account. We'll send you a 6-digit confirmation code."
-                        else
-                            "We sent a 6-digit code to $resetEmail. Enter the code and your new password.",
+                        text = if (step == 1) {
+                            if (isRu)
+                                "Введите адрес эл. почты аккаунта. Мы отправим 6-значный проверочный код."
+                            else
+                                "Enter the email associated with your account. We'll send you a 6-digit confirmation code."
+                        } else {
+                            if (isRu)
+                                "Мы отправили 6-значный код на $resetEmail. Введите его и новый пароль."
+                            else
+                                "We sent a 6-digit code to $resetEmail. Enter the code and your new password."
+                        },
                         color = Color(0xFF94A3B8),
                         fontSize = 13.sp,
                         textAlign = TextAlign.Center
@@ -721,7 +750,7 @@ private fun ForgotPasswordDialog(
                                 resetEmail = it
                                 errorMessage = null
                             },
-                            hintText = "Your email address",
+                            hintText = if (isRu) "Ваша эл. почта" else "Your email address",
                             leadingIcon = { MailIcon(color = Color(0xFF94A3B8)) },
                             keyboardType = KeyboardType.Email,
                             imeAction = ImeAction.Done,
@@ -739,7 +768,7 @@ private fun ForgotPasswordDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Quick Fill: $generatedCode",
+                                text = if (isRu) "Быстрая вставка: $generatedCode" else "Quick Fill: $generatedCode",
                                 color = Color(0xFF00D4FF),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
@@ -754,7 +783,7 @@ private fun ForgotPasswordDialog(
                                 verificationCode = it
                                 errorMessage = null
                             },
-                            hintText = "6-Digit Code (e.g. $generatedCode)",
+                            hintText = if (isRu) "6-значный код (например, $generatedCode)" else "6-Digit Code (e.g. $generatedCode)",
                             leadingIcon = { LockIcon(color = Color(0xFF94A3B8)) },
                             keyboardType = KeyboardType.Number,
                             isError = errorMessage != null,
@@ -769,7 +798,7 @@ private fun ForgotPasswordDialog(
                                 newPassword = it
                                 errorMessage = null
                             },
-                            hintText = "New Password (min 8 chars)",
+                            hintText = if (isRu) "Новый пароль (от 8 символов)" else "New Password (min 8 chars)",
                             leadingIcon = { LockIcon(color = Color(0xFF94A3B8)) },
                             visualTransformation = PasswordVisualTransformation(),
                             keyboardType = KeyboardType.Password,
@@ -780,7 +809,11 @@ private fun ForgotPasswordDialog(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = if (isTimerRunning) "Resend code in ${countdown}s" else "Resend code",
+                            text = if (isTimerRunning) {
+                                if (isRu) "Повторить через ${countdown}с" else "Resend code in ${countdown}s"
+                            } else {
+                                if (isRu) "Отправить код повторно" else "Resend code"
+                            },
                             color = if (isTimerRunning) Color(0xFF64758E) else Color(0xFF26E875),
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -816,7 +849,7 @@ private fun ForgotPasswordDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Cancel",
+                                text = if (isRu) "Отмена" else "Cancel",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 14.5.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -837,7 +870,7 @@ private fun ForgotPasswordDialog(
                                     if (step == 1) {
                                         val trimmed = resetEmail.trim()
                                         if (trimmed.isEmpty() || !EMAIL_REGEX.matches(trimmed)) {
-                                            errorMessage = "Please enter a valid email"
+                                            errorMessage = if (isRu) "Введите корректный email" else "Please enter a valid email"
                                         } else {
                                             step = 2
                                             isTimerRunning = true
@@ -845,9 +878,9 @@ private fun ForgotPasswordDialog(
                                         }
                                     } else {
                                         if (verificationCode.trim() != generatedCode) {
-                                            errorMessage = "Invalid code. Click 'Quick Fill' to test."
+                                            errorMessage = if (isRu) "Неверный код" else "Invalid code. Click 'Quick Fill' to test."
                                         } else if (newPassword.length < 8) {
-                                            errorMessage = "Password must be at least 8 chars"
+                                            errorMessage = if (isRu) "Пароль должен быть от 8 символов" else "Password must be at least 8 chars"
                                         } else {
                                             onResetSuccess(newPassword, resetEmail)
                                         }
@@ -857,7 +890,11 @@ private fun ForgotPasswordDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (step == 1) "Send Code" else "Confirm",
+                                text = if (step == 1) {
+                                    if (isRu) "Отправить код" else "Send Code"
+                                } else {
+                                    if (isRu) "Подтвердить" else "Confirm"
+                                },
                                 color = Color(0xFF031015),
                                 fontSize = 14.5.sp,
                                 fontWeight = FontWeight.Bold

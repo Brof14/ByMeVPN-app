@@ -54,6 +54,8 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -66,6 +68,12 @@ import com.example.bymevpn.components.CountryFlagView
 import com.example.bymevpn.components.GlobeIcon
 import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.components.TelegramLogoIcon
+import com.example.bymevpn.components.WebsiteLogoIcon
+import com.example.bymevpn.components.YouTubeLogoIcon
+import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.AppLanguage
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.vpn.AVAILABLE_SERVERS
 import com.example.bymevpn.vpn.VpnManager
 import com.example.bymevpn.vpn.VpnServer
@@ -86,6 +94,13 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+
+    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(context)
+
+    val currentUserAccount by AccountRepository.currentUser.collectAsState()
+    val displayEmail = currentUserAccount?.email ?: userEmail
+    val displayGoogle = currentUserAccount?.isGoogle ?: isGoogleAuth
 
     val vpnSessionState by VpnManager.sessionState.collectAsState()
     val isConnected = vpnSessionState.isConnected
@@ -210,7 +225,7 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Servers",
+                        text = if (isRu) "Серверы" else "Servers",
                         color = if (currentNavTab == "servers") Color(0xFF26E875) else Color(0xFF64748B),
                         fontSize = 12.sp,
                         fontWeight = if (currentNavTab == "servers") FontWeight.Bold else FontWeight.Medium
@@ -235,7 +250,7 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Account",
+                        text = if (isRu) "Аккаунт" else "Account",
                         color = if (currentNavTab == "account") Color(0xFF26E875) else Color(0xFF64748B),
                         fontSize = 12.sp,
                         fontWeight = if (currentNavTab == "account") FontWeight.Bold else FontWeight.Medium
@@ -392,9 +407,9 @@ fun HomeScreen(
 
                     Text(
                         text = when {
-                            isConnecting -> "Requesting tunnel authorization..."
-                            isConnected -> "Connected & Secure (AES-256)"
-                            else -> "Tap logo to connect"
+                            isConnecting -> if (isRu) "Запрос авторизации туннеля..." else "Requesting tunnel authorization..."
+                            isConnected -> if (isRu) "Подключено и защищено (AES-256)" else "Connected & Secure (AES-256)"
+                            else -> if (isRu) "Нажмите на логотип для подключения" else "Tap logo to connect"
                         },
                         color = when {
                             isConnecting -> Color(0xFF00D4FF)
@@ -433,8 +448,27 @@ fun HomeScreen(
 
                         // Country • City & IP / Ping
                         Column(modifier = Modifier.weight(1f)) {
+                            val serverCountryName = if (isRu) {
+                                when (selectedServer.countryCode) {
+                                    "NL" -> "Нидерланды"
+                                    "DE" -> "Германия"
+                                    else -> selectedServer.country
+                                }
+                            } else {
+                                selectedServer.country
+                            }
+                            val serverCityName = if (isRu) {
+                                when (selectedServer.city) {
+                                    "Amsterdam" -> "Амстердам"
+                                    "Frankfurt" -> "Франкфурт"
+                                    else -> selectedServer.city
+                                }
+                            } else {
+                                selectedServer.city
+                            }
+
                             Text(
-                                text = "${selectedServer.country} • ${selectedServer.city}",
+                                text = "$serverCountryName • $serverCityName",
                                 color = Color.White,
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold
@@ -489,7 +523,7 @@ fun HomeScreen(
                         ChangeServerIcon(color = Color.White, size = 18.dp)
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Change Server",
+                            text = if (isRu) "Выбрать сервер" else "Change Server",
                             color = Color.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
@@ -521,7 +555,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Select VPN Server",
+                            text = if (isRu) "Выберите VPN сервер" else "Select VPN Server",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -540,6 +574,22 @@ fun HomeScreen(
 
                     AVAILABLE_SERVERS.forEach { server ->
                         val isSelected = server == selectedServer
+                        val sCountry = if (isRu) {
+                            when (server.countryCode) {
+                                "NL" -> "Нидерланды"
+                                "DE" -> "Германия"
+                                else -> server.country
+                            }
+                        } else server.country
+
+                        val sCity = if (isRu) {
+                            when (server.city) {
+                                "Amsterdam" -> "Амстердам"
+                                "Frankfurt" -> "Франкфурт"
+                                else -> server.city
+                            }
+                        } else server.city
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -568,7 +618,7 @@ fun HomeScreen(
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
                                     Text(
-                                        text = "${server.country} • ${server.city}",
+                                        text = "$sCountry • $sCity",
                                         color = Color.White,
                                         fontSize = 14.5.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
@@ -603,13 +653,16 @@ fun HomeScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .widthIn(max = 440.dp)
                     .clip(RoundedCornerShape(24.dp))
                     .background(Color(0xFF0C162A))
                     .border(1.2.dp, Color(0xFF1E355B), RoundedCornerShape(24.dp))
                     .padding(20.dp)
             ) {
                 Column(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
@@ -618,7 +671,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Account Profile",
+                            text = if (isRu) "Профиль аккаунта" else "Account Profile",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
@@ -636,80 +689,113 @@ fun HomeScreen(
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     // User avatar & email
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
+                            .size(60.dp)
                             .clip(CircleShape)
                             .background(Color(0xFF142442)),
                         contentAlignment = Alignment.Center
                     ) {
-                        AccountIcon(color = Color(0xFF26E875), size = 38.dp)
+                        AccountIcon(color = Color(0xFF26E875), size = 36.dp)
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = userEmail,
+                        text = displayEmail,
                         color = Color.White,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
 
-                    if (isGoogleAuth) {
-                        Spacer(modifier = Modifier.height(6.dp))
+                    if (displayGoogle) {
+                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
+                                .clip(RoundedCornerShape(10.dp))
                                 .background(Color(0xFF122038))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
                         ) {
-                            GoogleLogoIcon(size = 14.dp)
-                            Spacer(modifier = Modifier.width(6.dp))
+                            GoogleLogoIcon(size = 13.dp)
+                            Spacer(modifier = Modifier.width(5.dp))
                             Text(
-                                text = "Google Account Connected",
+                                text = if (isRu) "Аккаунт Google подключен" else "Google Account Connected",
                                 color = Color(0xFF94A3B8),
-                                fontSize = 11.5.sp
+                                fontSize = 11.sp
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // Plan details
+                    // Subscription & Plan details from database
+                    val userAcc = currentUserAccount
+                    val hasSub = userAcc?.hasSubscription ?: true
+                    val planName = userAcc?.planName ?: "ByMeVPN Pro Unlimited"
+                    val daysLeft = userAcc?.daysRemaining ?: 28
+                    val hoursLeft = userAcc?.hoursRemaining ?: 14
+                    val expDate = userAcc?.expirationDate ?: "15.10.2026"
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(14.dp))
                             .background(Color(0xFF070E1C))
+                            .border(1.dp, Color(0xFF152542), RoundedCornerShape(14.dp))
                             .padding(14.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Subscription", color = Color(0xFF94A3B8), fontSize = 13.sp)
-                            Text("ByMeVPN Pro Unlimited", color = Color(0xFF26E875), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Service Core", color = Color(0xFF94A3B8), fontSize = 13.sp)
-                            Text("Android VpnService TUN", color = Color.White, fontSize = 13.sp)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("Status", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text(if (isRu) "Подписка" else "Subscription", color = Color(0xFF94A3B8), fontSize = 13.sp)
                             Text(
-                                if (isConnected) "Protected (Active)" else "Disconnected",
+                                text = planName,
+                                color = if (hasSub) Color(0xFF26E875) else Color(0xFFFFB74D),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(if (isRu) "Осталось времени" else "Time Remaining", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text(
+                                text = if (hasSub) {
+                                    if (isRu) "$daysLeft дн. $hoursLeft ч. (до $expDate)" else "$daysLeft d $hoursLeft h (until $expDate)"
+                                } else {
+                                    if (isRu) "Истекла (Купить на сайте)" else "Expired (Renew on site)"
+                                },
+                                color = if (hasSub) Color.White else Color(0xFFFF6B6B),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(if (isRu) "Статус VPN" else "VPN Status", color = Color(0xFF94A3B8), fontSize = 13.sp)
+                            Text(
+                                text = if (isConnected) {
+                                    if (isRu) "Защищено (Активно)" else "Protected (Active)"
+                                } else {
+                                    if (isRu) "Отключено" else "Disconnected"
+                                },
                                 color = if (isConnected) Color(0xFF26E875) else Color(0xFFFF6B6B),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold
@@ -717,13 +803,171 @@ fun HomeScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Language Selector (Russian, English, System default)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF070E1C))
+                            .border(1.dp, Color(0xFF152542), RoundedCornerShape(14.dp))
+                            .padding(14.dp)
+                    ) {
+                        Text(
+                            text = if (isRu) "Язык приложения" else "App Language",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            AppLanguage.values().forEach { lang ->
+                                val isSelected = currentLanguage == lang
+                                val label = when (lang) {
+                                    AppLanguage.RUSSIAN -> if (isRu) "Русский" else "Russian"
+                                    AppLanguage.ENGLISH -> "English"
+                                    AppLanguage.SYSTEM -> if (isRu) "Как в системе" else "System"
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isSelected) Color(0xFF1B3864) else Color(0xFF0D172B))
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) Color(0xFF00D4FF) else Color(0xFF162542),
+                                            RoundedCornerShape(10.dp)
+                                        )
+                                        .clickable {
+                                            LocaleManager.setLanguage(lang)
+                                        }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) Color(0xFF00D4FF) else Color(0xFF94A3B8),
+                                        fontSize = 11.5.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Official Community Links
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF070E1C))
+                            .border(1.dp, Color(0xFF152542), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp, vertical = 10.dp)
+                    ) {
+                        Text(
+                            text = if (isRu) "Наши ресурсы и контакты" else "Official Links & Support",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Telegram link
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF0E1A30))
+                                .clickable {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPN"))
+                                    context.startActivity(intent)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TelegramLogoIcon(size = 18.dp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("Telegram", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("@ByMeVPN", color = Color(0xFF00D4FF), fontSize = 11.sp)
+                                }
+                            }
+                            Text("↗", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Official Website link
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF0E1A30))
+                                .clickable {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://bymevpn-site.duckdns.org"))
+                                    context.startActivity(intent)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                WebsiteLogoIcon(size = 18.dp, color = Color(0xFF26E875))
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(if (isRu) "Официальный сайт" else "Official Website", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("bymevpn-site.duckdns.org", color = Color(0xFF26E875), fontSize = 11.sp)
+                                }
+                            }
+                            Text("↗", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // YouTube channel link
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF0E1A30))
+                                .clickable {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://www.youtube.com/@ByMeVPN"))
+                                    context.startActivity(intent)
+                                }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                YouTubeLogoIcon(size = 18.dp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text("YouTube", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("@ByMeVPN", color = Color(0xFFFF4D4D), fontSize = 11.sp)
+                                }
+                            }
+                            Text("↗", color = Color(0xFF94A3B8), fontSize = 14.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     // Log Out Button
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
+                            .height(44.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF2A1520))
                             .border(1.dp, Color(0xFF661E2E), RoundedCornerShape(12.dp))
@@ -731,6 +975,7 @@ fun HomeScreen(
                                 if (isConnected) {
                                     VpnManager.stopVpn(context)
                                 }
+                                AccountRepository.logout()
                                 showAccountDialog = false
                                 onLogOut()
                             }
@@ -738,9 +983,9 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Log Out",
+                            text = if (isRu) "Выйти из аккаунта" else "Log Out",
                             color = Color(0xFFFF6B6B),
-                            fontSize = 14.5.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }

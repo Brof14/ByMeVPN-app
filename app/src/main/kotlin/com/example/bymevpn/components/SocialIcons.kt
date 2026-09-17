@@ -127,3 +127,85 @@ fun AppleLogoIcon(
         drawPath(path = p, color = color, style = Fill)
     }
 }
+
+/**
+ * High-contrast Telegram plane vector icon.
+ */
+@Composable
+fun TelegramLogoIcon(
+    modifier: Modifier = Modifier,
+    size: Dp = 24.dp,
+    color: Color = Color(0xFF2AABEE)
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+
+        val p = Path().apply {
+            moveTo(w * 0.15f, h * 0.48f)
+            lineTo(w * 0.85f, h * 0.18f)
+            lineTo(w * 0.72f, h * 0.82f)
+            lineTo(w * 0.46f, h * 0.62f)
+            lineTo(w * 0.38f, h * 0.70f)
+            lineTo(w * 0.40f, h * 0.55f)
+            lineTo(w * 0.75f, h * 0.28f)
+            lineTo(w * 0.32f, h * 0.52f)
+            close()
+        }
+        drawPath(path = p, color = color, style = Fill)
+    }
+}
+
+/**
+ * YouTube play button vector icon.
+ */
+@Composable
+fun YouTubeLogoIcon(
+    modifier: Modifier = Modifier,
+    size: Dp = 24.dp
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+
+        // Outer rounded red rect
+        val rectPath = Path().apply {
+            addRoundRect(
+                androidx.compose.ui.geometry.RoundRect(
+                    left = 0f,
+                    top = h * 0.15f,
+                    right = w,
+                    bottom = h * 0.85f,
+                    radiusX = 6.dp.toPx(),
+                    radiusY = 6.dp.toPx()
+                )
+            )
+        }
+        drawPath(path = rectPath, color = Color(0xFFFF0000), style = Fill)
+
+        // Inner white play triangle
+        val triPath = Path().apply {
+            moveTo(w * 0.40f, h * 0.35f)
+            lineTo(w * 0.68f, h * 0.50f)
+            lineTo(w * 0.40f, h * 0.65f)
+            close()
+        }
+        drawPath(path = triPath, color = Color.White, style = Fill)
+    }
+}
+
+/**
+ * Website globe vector icon with subtle glowing cyan tint.
+ */
+@Composable
+fun WebsiteLogoIcon(
+    modifier: Modifier = Modifier,
+    size: Dp = 24.dp,
+    color: Color = Color(0xFF00D4FF)
+) {
+    GlobeIcon(
+        modifier = modifier,
+        color = color,
+        size = size
+    )
+}

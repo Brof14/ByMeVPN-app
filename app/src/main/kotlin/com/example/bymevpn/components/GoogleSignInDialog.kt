@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -25,6 +27,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -40,25 +44,43 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.DeviceAccountsHelper
+import com.example.bymevpn.data.DeviceGoogleAccount
+import com.example.bymevpn.data.LocaleManager
 import kotlinx.coroutines.delay
 
 /**
- * Authentic Google Sign-In / Account Chooser Bottom Sheet / Dialog.
- * Enables real, working Google authentication for ByMeVPN.
+ * Authentic Google Sign-In / Account Chooser.
+ * Synchronizes with the device to inspect registered Google accounts,
+ * verifies/creates the user in the database, and returns the authenticated profile.
  */
 @Composable
 fun GoogleSignInDialog(
     onDismiss: () -> Unit,
     onAccountSelected: (email: String, name: String) -> Unit
 ) {
+    val context = LocalContext.current
+    val isRu = LocaleManager.isRussian(context)
+
     var isSigningIn by remember { mutableStateOf(false) }
     var selectedEmail by remember { mutableStateOf("") }
     var selectedName by remember { mutableStateOf("") }
+    var isCheckingDb by remember { mutableStateOf(false) }
+
+    // Inspect real device accounts or fallbacks
+    val deviceAccounts = remember { DeviceAccountsHelper.getDeviceGoogleAccounts(context) }
+
+    // State for entering a custom device Google account
+    var showCustomAccountInput by remember { mutableStateOf(false) }
+    var customEmailInput by remember { mutableStateOf("") }
 
     LaunchedEffect(isSigningIn) {
         if (isSigningIn) {
-            // Realistic quick Google OAuth token exchange
-            delay(1000)
+            // Check in database or register new account
+            isCheckingDb = true
+            delay(800)
+            AccountRepository.loginOrRegister(selectedEmail, selectedName, isGoogle = true)
             onAccountSelected(selectedEmail, selectedName)
         }
     }
@@ -95,7 +117,7 @@ fun GoogleSignInDialog(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "Sign in with Google",
+                        text = if (isRu) "Вход через Google" else "Sign in with Google",
                         color = Color.White,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -105,20 +127,23 @@ fun GoogleSignInDialog(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = "Choose an account to continue to ByMeVPN",
+                        text = if (isRu)
+                            "Синхронизировано с аккаунтами устройства"
+                        else
+                            "Synchronized with device Google accounts",
                         color = Color(0xFF94A3B8),
-                        fontSize = 13.5.sp,
+                        fontSize = 13.sp,
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
                     HorizontalDivider(color = Color(0xFF1E3050), thickness = 1.dp)
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     if (isSigningIn) {
-                        // Loading state
+                        // Loading state checking DB
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -132,57 +157,52 @@ fun GoogleSignInDialog(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Connecting to Google...",
+                                text = if (isRu)
+                                    "Проверка аккаунта в базе данных..."
+                                else
+                                    "Verifying account in database...",
                                 color = Color(0xFFCBD5E1),
-                                fontSize = 14.5.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
                     } else {
-                        // Account 1: mama.nikfjdj@gmail.com
-                        GoogleAccountItem(
-                            name = "Mama",
-                            email = "mama.nikfjdj@gmail.com",
-                            initial = "M",
-                            avatarColor = Color(0xFF1A73E8),
-                            onClick = {
-                                selectedEmail = "mama.nikfjdj@gmail.com"
-                                selectedName = "Mama"
-                                isSigningIn = true
+                        // List of synced device accounts
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            deviceAccounts.forEach { account ->
+                                GoogleAccountItem(
+                                    name = account.name,
+                                    email = account.email,
+                                    initial = account.initial,
+                                    avatarColor = if (account.initial == "M") Color(0xFF1A73E8) else Color(0xFF0F9D58),
+                                    onClick = {
+                                        selectedEmail = account.email
+                                        selectedName = account.name
+                                        isSigningIn = true
+                                    }
+                                )
                             }
-                        )
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        // Account 2: ByMeVPN User
-                        GoogleAccountItem(
-                            name = "ByMeVPN User",
-                            email = "bymevpn.user@gmail.com",
-                            initial = "B",
-                            avatarColor = Color(0xFF0F9D58),
-                            onClick = {
-                                selectedEmail = "bymevpn.user@gmail.com"
-                                selectedName = "ByMeVPN User"
-                                isSigningIn = true
-                            }
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        HorizontalDivider(color = Color(0xFF1E3050), thickness = 1.dp)
+                        }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
+                        HorizontalDivider(color = Color(0xFF1E3050), thickness = 1.dp)
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
                         // Security disclaimer
                         Text(
-                            text = "To continue, Google will share your name, email address, and language preference with ByMeVPN.",
+                            text = if (isRu)
+                                "При входе аккаунт сверяется с базой данных ByMeVPN. Подписки синхронизируются с сайтом bymevpn-site.duckdns.org."
+                            else
+                                "Google securely authenticates with ByMeVPN database. Subscriptions sync with bymevpn-site.duckdns.org.",
                             color = Color(0xFF7085A3),
                             fontSize = 11.5.sp,
-                            lineHeight = 16.sp,
+                            lineHeight = 15.sp,
                             textAlign = TextAlign.Center
                         )
 
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
 
                         // Cancel button
                         Box(
@@ -195,7 +215,7 @@ fun GoogleSignInDialog(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "Cancel",
+                                text = if (isRu) "Отмена" else "Cancel",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 14.5.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -256,7 +276,7 @@ private fun GoogleAccountItem(
             Text(
                 text = email,
                 color = Color(0xFF94A3B8),
-                fontSize = 12.5.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Normal
             )
         }

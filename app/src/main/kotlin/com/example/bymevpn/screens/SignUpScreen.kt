@@ -47,6 +47,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -61,7 +62,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bymevpn.components.AppleLogoIcon
 import com.example.bymevpn.components.EyeIcon
 import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.GoogleSignInDialog
@@ -69,6 +69,8 @@ import com.example.bymevpn.components.GradientBackground
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.LocaleManager
 import kotlinx.coroutines.launch
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
@@ -84,6 +86,9 @@ fun SignUpScreen(
     onSignUpSuccess: (email: String, isGoogle: Boolean) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val isRu = LocaleManager.isRussian(context)
+
     var emailOrPhone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -103,28 +108,32 @@ fun SignUpScreen(
 
         val trimmedAccount = emailOrPhone.trim()
         if (trimmedAccount.isEmpty()) {
-            accountError = "Please enter your email or phone"
+            accountError = if (isRu) "Введите адрес эл. почты или телефон" else "Please enter your email or phone"
             valid = false
         } else if (!EMAIL_REGEX.matches(trimmedAccount) && !PHONE_REGEX.matches(trimmedAccount)) {
-            accountError = "Invalid email format or phone number"
+            accountError = if (isRu) "Неверный формат почты или телефона" else "Invalid email format or phone number"
             valid = false
         } else {
             accountError = null
         }
 
         if (password.isEmpty()) {
-            passwordError = "Please enter your password"
+            passwordError = if (isRu) "Введите пароль" else "Please enter your password"
             valid = false
         } else if (password.length < 8) {
-            passwordError = "Password must be at least 8 characters"
+            passwordError = if (isRu) "Пароль должен содержать от 8 символов" else "Password must be at least 8 characters"
             valid = false
         } else {
             passwordError = null
         }
 
         if (valid) {
+            // Check in database / register account
+            AccountRepository.loginOrRegister(trimmedAccount, isGoogle = false)
             scope.launch {
-                snackbarHostState.showSnackbar("Account created! Welcome to ByMeVPN.")
+                snackbarHostState.showSnackbar(
+                    if (isRu) "Аккаунт создан! Добро пожаловать в ByMeVPN." else "Account created! Welcome to ByMeVPN."
+                )
             }
             onSignUpSuccess(trimmedAccount, false)
         }
@@ -197,7 +206,7 @@ fun SignUpScreen(
 
                     // 3. Slogan: crisp, high-contrast Slate 300
                     Text(
-                        text = "Speed. Anonymity. Honesty.",
+                        text = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty.",
                         color = Color(0xFFCBD5E1),
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Medium,
@@ -214,7 +223,7 @@ fun SignUpScreen(
                             emailOrPhone = it
                             if (accountError != null) accountError = null
                         },
-                        hintText = "Email or Phone number",
+                        hintText = if (isRu) "Эл. почта или телефон" else "Email or Phone number",
                         leadingIcon = { MailIcon(color = Color(0xFF94A3B8)) },
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next,
@@ -244,7 +253,7 @@ fun SignUpScreen(
                             password = it
                             if (passwordError != null) passwordError = null
                         },
-                        hintText = "Password (min 8 chars)",
+                        hintText = if (isRu) "Пароль (от 8 символов)" else "Password (min 8 chars)",
                         leadingIcon = { LockIcon(color = Color(0xFF94A3B8)) },
                         trailingIcon = {
                             IconButton(
@@ -282,7 +291,7 @@ fun SignUpScreen(
 
                     // 6. Primary Action: "Create Account"
                     SignUpGradientButton(
-                        label = "Create Account",
+                        label = if (isRu) "Создать аккаунт" else "Create Account",
                         onClick = { validateAndSubmit() },
                         testTag = "create_account_button"
                     )
@@ -300,7 +309,7 @@ fun SignUpScreen(
                             thickness = 1.dp
                         )
                         Text(
-                            text = "OR",
+                            text = if (isRu) "ИЛИ" else "OR",
                             color = Color(0xFF94A3B8),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -315,31 +324,31 @@ fun SignUpScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // 8. Social Login: Google and Apple side-by-side
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    // 8. Social Login: Google Sign-Up Button
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF0D172A))
+                            .border(width = 1.2.dp, color = Color(0xFF1E3458), shape = RoundedCornerShape(14.dp))
+                            .clickable { showGoogleDialog = true }
+                            .testTag("google_signup_button"),
+                        contentAlignment = Alignment.Center
                     ) {
-                        // Google registration button
-                        SocialSquareButton(
-                            onClick = { showGoogleDialog = true },
-                            modifier = Modifier.weight(1f),
-                            testTag = "google_signup_button"
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
                         ) {
-                            GoogleLogoIcon(size = 24.dp)
-                        }
-
-                        // Apple registration button
-                        SocialSquareButton(
-                            onClick = {
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Apple ID is available on iOS devices. Try Google Sign-In!")
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            testTag = "apple_signup_button"
-                        ) {
-                            AppleLogoIcon(size = 24.dp)
+                            GoogleLogoIcon(size = 22.dp)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (isRu) "Регистрация через Google" else "Sign up with Google",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.2.sp
+                            )
                         }
                     }
 
@@ -354,7 +363,7 @@ fun SignUpScreen(
                                 fontWeight = FontWeight.Normal
                             )
                         ) {
-                            append("Already have an account? ")
+                            append(if (isRu) "Уже есть аккаунт? " else "Already have an account? ")
                         }
                         withStyle(
                             SpanStyle(
@@ -363,7 +372,7 @@ fun SignUpScreen(
                                 fontWeight = FontWeight.ExtraBold
                             )
                         ) {
-                            append("Sign in")
+                            append(if (isRu) "Войти" else "Sign in")
                         }
                     }
 

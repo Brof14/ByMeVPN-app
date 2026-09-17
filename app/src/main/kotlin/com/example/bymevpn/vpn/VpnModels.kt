@@ -11,10 +11,7 @@ data class VpnServer(
 
 val AVAILABLE_SERVERS = listOf(
     VpnServer("Netherlands", "Amsterdam", "NL", "18.110.221.14", 12),
-    VpnServer("Germany", "Frankfurt", "DE", "159.69.112.5", 16),
-    VpnServer("United States", "New York", "US", "104.244.42.1", 24),
-    VpnServer("United Kingdom", "London", "GB", "185.199.108.153", 20),
-    VpnServer("Japan", "Tokyo", "JP", "133.130.120.40", 82)
+    VpnServer("Germany", "Frankfurt", "DE", "159.69.112.5", 16)
 )
 
 data class VpnSessionState(
