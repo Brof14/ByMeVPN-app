@@ -16,18 +16,24 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.screens.AccountScreen
 import com.example.bymevpn.screens.HomeScreen
+import com.example.bymevpn.screens.SettingsScreen
 import com.example.bymevpn.screens.SignInScreen
 import com.example.bymevpn.screens.SignUpScreen
 import com.example.bymevpn.screens.WelcomeScreen
 import com.example.bymevpn.theme.ByMeVPNTheme
+import com.example.bymevpn.vpn.VpnManager
 
 enum class AppScreen {
     Welcome,
     SignUp,
     SignIn,
-    Home
+    Home,
+    Settings,
+    Account
 }
 
 class MainActivity : ComponentActivity() {
@@ -45,24 +51,27 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppNav() {
+    val context = LocalContext.current
     val currentUser by AccountRepository.currentUser.collectAsState()
+
     var currentScreen by remember {
         mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.Welcome)
     }
-    var currentUserEmail by remember { mutableStateOf(currentUser?.email ?: "mama.nikfjdj@gmail.com") }
-    var isGoogleAccount by remember { mutableStateOf(currentUser?.isGoogle ?: true) }
 
     LaunchedEffect(currentUser) {
         val user = currentUser
-        if (user != null) {
-            currentUserEmail = user.email
-            isGoogleAccount = user.isGoogle
+        if (user != null && (currentScreen == AppScreen.Welcome || currentScreen == AppScreen.SignIn || currentScreen == AppScreen.SignUp)) {
             currentScreen = AppScreen.Home
+        } else if (user == null && currentScreen != AppScreen.Welcome && currentScreen != AppScreen.SignIn && currentScreen != AppScreen.SignUp) {
+            currentScreen = AppScreen.Welcome
         }
     }
 
     BackHandler(enabled = currentScreen != AppScreen.Welcome && currentScreen != AppScreen.Home) {
-        currentScreen = AppScreen.Welcome
+        currentScreen = when (currentScreen) {
+            AppScreen.Settings, AppScreen.Account -> AppScreen.Home
+            else -> AppScreen.Welcome
+        }
     }
 
     AnimatedContent(
@@ -75,44 +84,44 @@ fun MainAppNav() {
         when (screen) {
             AppScreen.Welcome -> {
                 WelcomeScreen(
-                    onSignUpClick = {
-                        currentScreen = AppScreen.SignUp
-                    },
-                    onLogInClick = {
-                        currentScreen = AppScreen.SignIn
-                    }
+                    onSignUpClick = { currentScreen = AppScreen.SignUp },
+                    onLogInClick = { currentScreen = AppScreen.SignIn }
                 )
             }
             AppScreen.SignUp -> {
                 SignUpScreen(
-                    onSignInClick = {
-                        currentScreen = AppScreen.SignIn
-                    },
-                    onSignUpSuccess = { email, isGoogle ->
-                        currentUserEmail = email
-                        isGoogleAccount = isGoogle
-                        currentScreen = AppScreen.Home
-                    }
+                    onSignInClick = { currentScreen = AppScreen.SignIn },
+                    onSignUpSuccess = { currentScreen = AppScreen.Home }
                 )
             }
             AppScreen.SignIn -> {
                 SignInScreen(
-                    onSignUpClick = {
-                        currentScreen = AppScreen.SignUp
-                    },
-                    onSignInSuccess = { email, isGoogle ->
-                        currentUserEmail = email
-                        isGoogleAccount = isGoogle
-                        currentScreen = AppScreen.Home
-                    }
+                    onSignUpClick = { currentScreen = AppScreen.SignUp },
+                    onSignInSuccess = { currentScreen = AppScreen.Home }
                 )
             }
             AppScreen.Home -> {
                 HomeScreen(
-                    userEmail = currentUserEmail,
-                    isGoogleAuth = isGoogleAccount,
+                    onNavigateToAccount = { currentScreen = AppScreen.Account },
+                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
                     onLogOut = {
-                        AccountRepository.logout()
+                        VpnManager.stopVpn(context)
+                        AccountRepository.logout(context)
+                        currentScreen = AppScreen.Welcome
+                    }
+                )
+            }
+            AppScreen.Settings -> {
+                SettingsScreen(
+                    onBackClick = { currentScreen = AppScreen.Home }
+                )
+            }
+            AppScreen.Account -> {
+                AccountScreen(
+                    onBackClick = { currentScreen = AppScreen.Home },
+                    onLogOut = {
+                        VpnManager.stopVpn(context)
+                        AccountRepository.logout(context)
                         currentScreen = AppScreen.Welcome
                     }
                 )
