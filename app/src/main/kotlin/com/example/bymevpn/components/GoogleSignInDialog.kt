@@ -79,8 +79,8 @@ fun GoogleSignInDialog(
         if (isSigningIn) {
             // Check in database or register new account
             isCheckingDb = true
-            delay(800)
-            AccountRepository.loginOrRegister(selectedEmail, selectedName, isGoogle = true)
+            delay(600)
+            AccountRepository.loginWithGoogle(context, selectedEmail, selectedName)
             onAccountSelected(selectedEmail, selectedName)
         }
     }

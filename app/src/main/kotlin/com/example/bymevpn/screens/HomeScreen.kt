@@ -975,7 +975,7 @@ fun HomeScreen(
                                 if (isConnected) {
                                     VpnManager.stopVpn(context)
                                 }
-                                AccountRepository.logout()
+                                AccountRepository.logout(context)
                                 showAccountDialog = false
                                 onLogOut()
                             }

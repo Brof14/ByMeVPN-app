@@ -10,10 +10,13 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.screens.HomeScreen
 import com.example.bymevpn.screens.SignInScreen
 import com.example.bymevpn.screens.SignUpScreen
@@ -30,6 +33,7 @@ enum class AppScreen {
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        AccountRepository.init(applicationContext)
         enableEdgeToEdge()
         setContent {
             ByMeVPNTheme {
@@ -41,11 +45,23 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainAppNav() {
-    var currentScreen by remember { mutableStateOf(AppScreen.Welcome) }
-    var currentUserEmail by remember { mutableStateOf("mama.nikfjdj@gmail.com") }
-    var isGoogleAccount by remember { mutableStateOf(true) }
+    val currentUser by AccountRepository.currentUser.collectAsState()
+    var currentScreen by remember {
+        mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.Welcome)
+    }
+    var currentUserEmail by remember { mutableStateOf(currentUser?.email ?: "mama.nikfjdj@gmail.com") }
+    var isGoogleAccount by remember { mutableStateOf(currentUser?.isGoogle ?: true) }
 
-    BackHandler(enabled = currentScreen != AppScreen.Welcome) {
+    LaunchedEffect(currentUser) {
+        val user = currentUser
+        if (user != null) {
+            currentUserEmail = user.email
+            isGoogleAccount = user.isGoogle
+            currentScreen = AppScreen.Home
+        }
+    }
+
+    BackHandler(enabled = currentScreen != AppScreen.Welcome && currentScreen != AppScreen.Home) {
         currentScreen = AppScreen.Welcome
     }
 
@@ -96,6 +112,7 @@ fun MainAppNav() {
                     userEmail = currentUserEmail,
                     isGoogleAuth = isGoogleAccount,
                     onLogOut = {
+                        AccountRepository.logout()
                         currentScreen = AppScreen.Welcome
                     }
                 )

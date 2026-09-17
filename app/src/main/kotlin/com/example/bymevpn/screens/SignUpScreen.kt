@@ -128,14 +128,20 @@ fun SignUpScreen(
         }
 
         if (valid) {
-            // Check in database / register account
-            AccountRepository.loginOrRegister(trimmedAccount, isGoogle = false)
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    if (isRu) "Аккаунт создан! Добро пожаловать в ByMeVPN." else "Account created! Welcome to ByMeVPN."
-                )
+            val (user, err) = AccountRepository.registerWithEmail(context, trimmedAccount, password)
+            if (user != null) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        if (isRu) "Аккаунт создан! Добро пожаловать в ByMeVPN." else "Account created! Welcome to ByMeVPN."
+                    )
+                }
+                onSignUpSuccess(user.email, false)
+            } else {
+                accountError = if (isRu)
+                    "Пользователь с таким email уже зарегистрирован. Войдите в аккаунт."
+                else
+                    "An account with this email already exists. Please sign in."
             }
-            onSignUpSuccess(trimmedAccount, false)
         }
     }
 

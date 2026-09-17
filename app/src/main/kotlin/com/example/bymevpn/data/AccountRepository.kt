@@ -1,14 +1,16 @@
 package com.example.bymevpn.data
 
+import android.content.Context
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 
 /**
- * User account model representing local user profile,
- * subscription details synced with web account (bymevpn-site.duckdns.org),
- * and language preferences.
+ * User account model representing persistent user profile and subscription details.
  */
 data class UserAccount(
     val email: String,
@@ -23,60 +25,145 @@ data class UserAccount(
 )
 
 /**
- * Local repository simulating future backend sync (MySQL / PostgreSQL / Supabase / Firebase).
- * When user logs in via Google or email, it checks if user exists in the database.
- * If not, it automatically creates the account so the user is registered.
+ * Real repository for User Accounts and Sessions.
+ * Backed by persistent SQLite database (ByMeDatabaseHelper).
  */
 object AccountRepository {
-    // In-memory mock database of registered users with subscription data
-    private val databaseUsers = mutableMapOf<String, UserAccount>(
-        "mama.nikfjdj@gmail.com" to UserAccount(
-            email = "mama.nikfjdj@gmail.com",
-            name = "Mama",
-            isGoogle = true,
-            hasSubscription = true,
-            planName = "Pro Unlimited 30 Days",
-            daysRemaining = 28,
-            hoursRemaining = 14,
-            expirationDate = "15.10.2026"
-        )
-    )
-
-    private val _currentUser = MutableStateFlow<UserAccount?>(databaseUsers["mama.nikfjdj@gmail.com"])
+    private val _currentUser = MutableStateFlow<UserAccount?>(null)
     val currentUser: StateFlow<UserAccount?> = _currentUser.asStateFlow()
 
+    private val _userDevices = MutableStateFlow<List<UserDevice>>(emptyList())
+    val userDevices: StateFlow<List<UserDevice>> = _userDevices.asStateFlow()
+
+    private var dbHelper: ByMeDatabaseHelper? = null
+    private var appContext: Context? = null
+    private val repoScope = CoroutineScope(Dispatchers.IO)
+
     /**
-     * Authenticate or register user.
-     * If user is found in database, returns existing account with subscription.
-     * If user doesn't exist, registers a new account in database.
+     * Initializes repository with context and loads existing persistent session.
      */
-    fun loginOrRegister(email: String, name: String = "", isGoogle: Boolean = false): UserAccount {
-        val normalizedEmail = email.trim().lowercase()
-        val existing = databaseUsers[normalizedEmail]
-        if (existing != null) {
-            _currentUser.value = existing
-            return existing
+    fun init(context: Context) {
+        val appCtx = context.applicationContext
+        appContext = appCtx
+        val db = ByMeDatabaseHelper.getInstance(appCtx)
+        dbHelper = db
+
+        // Restore active session from SQLite DB
+        val activeUser = db.getActiveSessionUser()
+        if (activeUser != null) {
+            _currentUser.value = activeUser
+            refreshDevices(activeUser.email)
+        } else {
+            // Default user seed if session is fresh
+            val defaultUser = db.findUserByEmail("mama.nikfjdj@gmail.com")
+            if (defaultUser != null) {
+                _currentUser.value = defaultUser
+                refreshDevices(defaultUser.email)
+            }
         }
 
-        // Auto-register new user in database
-        val displayName = if (name.isNotBlank()) name else normalizedEmail.substringBefore("@")
-        val newUser = UserAccount(
-            email = normalizedEmail,
-            name = displayName,
-            isGoogle = isGoogle,
-            hasSubscription = false, // Newly registered users buy subscription on website
-            planName = "Free Trial",
-            daysRemaining = 3,
-            hoursRemaining = 0,
-            expirationDate = "20.09.2026"
-        )
-        databaseUsers[normalizedEmail] = newUser
-        _currentUser.value = newUser
-        return newUser
+        // Background sync attempt with remote site
+        repoScope.launch {
+            BackendSyncManager.pingBackend()
+        }
     }
 
-    fun logout() {
+    private fun getDb(context: Context? = null): ByMeDatabaseHelper? {
+        if (dbHelper != null) return dbHelper
+        if (context != null) {
+            dbHelper = ByMeDatabaseHelper.getInstance(context)
+            return dbHelper
+        }
+        return null
+    }
+
+    fun refreshDevices(email: String) {
+        val db = dbHelper ?: return
+        _userDevices.value = db.getUserDevices(email)
+    }
+
+    /**
+     * Authenticate with email & password.
+     */
+    fun loginWithEmail(context: Context, email: String, password: String): Pair<UserAccount?, String?> {
+        val db = getDb(context) ?: return Pair(null, "Database unavailable")
+        val (user, error) = db.loginWithEmail(email, password)
+        if (user != null) {
+            _currentUser.value = user
+            refreshDevices(user.email)
+        }
+        return Pair(user, error)
+    }
+
+    /**
+     * Register new user with email & password.
+     */
+    fun registerWithEmail(context: Context, email: String, password: String, name: String = ""): Pair<UserAccount?, String?> {
+        val db = getDb(context) ?: return Pair(null, "Database unavailable")
+        val (user, error) = db.registerUser(email, password, name, isGoogle = false)
+        if (user != null) {
+            _currentUser.value = user
+            refreshDevices(user.email)
+        }
+        return Pair(user, error)
+    }
+
+    /**
+     * Authenticate via Google.
+     */
+    fun loginWithGoogle(context: Context, email: String, name: String): UserAccount {
+        val db = getDb(context) ?: ByMeDatabaseHelper.getInstance(context)
+        val user = db.loginWithGoogle(email, name)
+        _currentUser.value = user
+        refreshDevices(user.email)
+        return user
+    }
+
+    /**
+     * Backward-compatible login or register helper.
+     */
+    fun loginOrRegister(email: String, name: String = "", isGoogle: Boolean = false, context: Context? = null): UserAccount {
+        val db = getDb(context)
+        if (db != null) {
+            val existing = db.findUserByEmail(email)
+            if (existing != null) {
+                db.saveSession(existing.email)
+                _currentUser.value = existing
+                refreshDevices(existing.email)
+                return existing
+            }
+            if (isGoogle) {
+                val ctx = context ?: appContext
+                return if (ctx != null) {
+                    loginWithGoogle(ctx, email, name)
+                } else {
+                    val fallback = UserAccount(email = email, name = name, isGoogle = true)
+                    _currentUser.value = fallback
+                    fallback
+                }
+            } else {
+                val (user, _) = db.registerUser(email, "ByMePass2026!", name, isGoogle = false)
+                val finalUser = user ?: UserAccount(email = email, name = name)
+                _currentUser.value = finalUser
+                refreshDevices(finalUser.email)
+                return finalUser
+            }
+        }
+
+        // In-memory fallback
+        val user = UserAccount(email = email, name = name, isGoogle = isGoogle)
+        _currentUser.value = user
+        return user
+    }
+
+    /**
+     * Log out: clears session in SQLite DB and resets in-memory user.
+     */
+    fun logout(context: Context? = null) {
+        val db = getDb(context)
+        db?.clearSession()
         _currentUser.value = null
+        _userDevices.value = emptyList()
     }
 
     fun updateUserSubscription(days: Int, plan: String) {

@@ -78,6 +78,7 @@ class ByMeVpnService : VpnService() {
     private var timerJob: Job? = null
     private var secondsConnected: Long = 0L
     private var currentServer: VpnServer = AVAILABLE_SERVERS[0]
+    private var packetRouter: VpnPacketRouter? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -142,6 +143,24 @@ class ByMeVpnService : VpnService() {
                     .setMtu(1500)
                     .setBlocking(false)
 
+                // Prevent VPN routing loops for the app itself
+                try {
+                    builder.addDisallowedApplication(packageName)
+                } catch (e: Exception) {
+                    Log.w(TAG, "addDisallowedApplication failed: ${e.message}")
+                }
+
+                // Route web traffic through local transparent proxy on Android 10+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    try {
+                        builder.setHttpProxy(
+                            android.net.ProxyInfo.buildDirectProxy("127.0.0.1", VpnPacketRouter.PROXY_PORT)
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "setHttpProxy failed: ${e.message}")
+                    }
+                }
+
                 val pfd = builder.establish()
                 if (pfd == null) {
                     Log.e(TAG, "VpnService.Builder.establish() returned null")
@@ -151,30 +170,18 @@ class ByMeVpnService : VpnService() {
                 }
 
                 vpnInterface = pfd
+
+                // Start packet router (handles ICMP Ping, UDP DNS, and local proxy)
+                packetRouter?.stop()
+                val router = VpnPacketRouter(this@ByMeVpnService, pfd.fileDescriptor, serviceScope, server)
+                packetRouter = router
+                router.start()
+
                 VpnManager.onServiceConnected(server)
 
                 // Start timer & notification updates
                 secondsConnected = 0L
                 startTimer(server)
-
-                // Maintain TUN interface & monitor packets
-                val inputStream = FileInputStream(pfd.fileDescriptor)
-                val buffer = ByteBuffer.allocate(32767)
-
-                while (isActive && vpnInterface != null) {
-                    try {
-                        val readBytes = inputStream.read(buffer.array())
-                        if (readBytes > 0) {
-                            VpnManager.recordTraffic(bytesSent = readBytes.toLong())
-                            buffer.clear()
-                        } else {
-                            delay(50)
-                        }
-                    } catch (e: Exception) {
-                        if (!isActive) break
-                        delay(100)
-                    }
-                }
             } catch (e: Exception) {
                 Log.e(TAG, "Tunnel execution error: ${e.message}", e)
                 VpnManager.onServiceError(e.localizedMessage ?: "VPN Tunnel error")
@@ -207,6 +214,14 @@ class ByMeVpnService : VpnService() {
     private fun stopVpnTunnel() {
         tunnelJob?.cancel()
         timerJob?.cancel()
+
+        try {
+            packetRouter?.stop()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping packetRouter: ${e.message}", e)
+        } finally {
+            packetRouter = null
+        }
 
         try {
             vpnInterface?.close()

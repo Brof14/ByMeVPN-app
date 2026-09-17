@@ -140,14 +140,27 @@ fun SignInScreen(
 
         if (valid) {
             authError = null
-            // Check in database or register new account
-            AccountRepository.loginOrRegister(trimmedEmail, isGoogle = false)
-            scope.launch {
-                snackbarHostState.showSnackbar(
-                    if (isRu) "Вход в ByMeVPN..." else "Signing in to ByMeVPN..."
-                )
+            val (user, err) = AccountRepository.loginWithEmail(context, trimmedEmail, password)
+            if (user != null) {
+                scope.launch {
+                    snackbarHostState.showSnackbar(
+                        if (isRu) "Вход выполнен успешно!" else "Signed in successfully!"
+                    )
+                }
+                onSignInSuccess(user.email, user.isGoogle)
+            } else {
+                authError = when (err) {
+                    "User not found" -> if (isRu)
+                        "Пользователь с таким email не найден. Пожалуйста, зарегистрируйтесь."
+                    else
+                        "Account with this email not found. Please register."
+                    "Incorrect password" -> if (isRu)
+                        "Неверный пароль. Попробуйте снова или восстановите пароль."
+                    else
+                        "Incorrect password. Please try again or reset your password."
+                    else -> if (isRu) "Ошибка авторизации. Проверьте данные." else "Sign in failed. Check credentials."
+                }
             }
-            onSignInSuccess(trimmedEmail, false)
         } else {
             authError = if (isRu)
                 "Неверные данные. Если вы забыли пароль, восстановите его ниже."
