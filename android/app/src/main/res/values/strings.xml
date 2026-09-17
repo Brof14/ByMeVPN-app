@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ByMeVPN</string>
+    <string name="brand_part_1">ByMe</string>
+    <string name="brand_part_2">VPN</string>
+    <string name="slogan">Speed. Anonymity. Honesty.</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="log_in">Log In</string>
+    <string name="snack_sign_up">Transition to Sign Up</string>
+    <string name="snack_log_in">Transition to Log In</string>
+    <string name="shield_logo_desc">ByMeVPN Shield Logo with Infinity Symbol</string>
+    <string name="page_indicator_desc">Page indicator, step 2 of 3</string>
+</resources>
