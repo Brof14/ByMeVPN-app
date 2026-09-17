@@ -1,62 +1,60 @@
 package com.example.bymevpn.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import com.example.bymevpn.theme.AppColors
 
 /**
- * Three-dot indicator bar where the active step is rendered as an elongated bright pill.
+ * 4 circular page indicator dots matching the screenshot 1:1.
+ * Dot 2 (index 1) is active with white glow.
  */
 @Composable
 fun PageIndicator(
-    total: Int = 3,
+    total: Int = 4,
     active: Int = 1,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .testTag("page_indicator")
-            .semantics { contentDescription = "Page $active of $total" },
+            .semantics { contentDescription = "Page ${active + 1} of $total" },
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
         for (i in 0 until total) {
             val isActive = i == active
-            val dotWidth by animateDpAsState(
-                targetValue = if (isActive) 20.dp else 6.dp,
-                animationSpec = tween(300),
-                label = "dot_width"
-            )
-            val dotColor by animateColorAsState(
-                targetValue = if (isActive) AppColors.White else AppColors.SloganGrey.copy(alpha = 0.45f),
-                animationSpec = tween(300),
-                label = "dot_color"
-            )
+            val dotSize = if (isActive) 7.5.dp else 5.5.dp
+            val dotColor = if (isActive) Color.White else Color(0xFF19263E)
 
             Box(
                 modifier = Modifier
-                    .padding(horizontal = 3.5.dp)
-                    .width(dotWidth)
-                    .height(6.dp)
-                    .clip(RoundedCornerShape(3.dp))
+                    .padding(horizontal = 4.5.dp)
+                    .size(dotSize)
+                    .then(
+                        if (isActive) {
+                            Modifier.shadow(
+                                elevation = 4.dp,
+                                shape = CircleShape,
+                                ambientColor = Color.White.copy(alpha = 0.5f),
+                                spotColor = Color.White.copy(alpha = 0.5f)
+                            )
+                        } else Modifier
+                    )
+                    .clip(CircleShape)
                     .background(dotColor)
             )
         }

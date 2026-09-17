@@ -1,177 +1,235 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-/// Shield logo drawn entirely with CustomPaint.
-/// size = widget width; height is automatically 1.18× width.
+/// ByMeVPN Shield logo matching the reference screenshot 1:1.
+/// Features a precision-engineered arched gradient shield outline,
+/// deep interior contrast, and a 3D crossover ribbon (X) in the center.
 class ShieldLogo extends StatelessWidget {
-  const ShieldLogo({super.key, this.size = 210});
+  const ShieldLogo({super.key, this.size = 212});
   final double size;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size * 1.18,
-    child: CustomPaint(painter: _ShieldPainter()),
-  );
+  Widget build(BuildContext context) {
+    final h = size * 1.18;
+    return SizedBox(
+      width: size,
+      height: h,
+      child: CustomPaint(
+        painter: _ShieldPainter(),
+      ),
+    );
+  }
 }
 
 class _ShieldPainter extends CustomPainter {
-  // ─── helpers ────────────────────────────────────────────────────────────────
-  Shader _shader(Rect r) => AppGradients.shieldRim.createShader(r);
-  Shader _metallicShader(Rect r) => AppGradients.shieldMetallic.createShader(r);
-  Shader _glassShader(Rect r) => AppGradients.shieldGlass.createShader(r);
+  Path _createShieldPath(double w, double h, double inset) {
+    final effW = w - inset * 2.0;
+    final effH = h - inset * 2.0;
+    final crestH = effH * 0.045; // Arched crest height
+    final cr = effW * 0.16; // Corner radius
 
-  /// Builds the shield outline path inside a [w]×[h] rectangle.
-  /// The shield has rounded top corners and a pointed bottom.
-  Path _shield(double w, double h) {
-    const cr = 0.13; // corner-radius fraction of width
     final p = Path();
-    // top-left arc start → top-right arc start
-    p.moveTo(w * cr, 0);
-    p.lineTo(w * (1 - cr), 0);
-    // top-right rounded corner
-    p.quadraticBezierTo(w, 0, w, h * cr);
-    // right side → bottom-right curve
-    p.lineTo(w, h * .44);
-    p.cubicTo(w, h * .72, w * .78, h * .88, w * .5, h * .985);
-    // bottom-left curve → left side
-    p.cubicTo(w * .22, h * .88, 0, h * .72, 0, h * .44);
-    p.lineTo(0, h * cr);
-    // top-left rounded corner
-    p.quadraticBezierTo(0, 0, w * cr, 0);
+    // Top-center arched crest
+    p.moveTo(inset + effW * 0.50, inset);
+
+    // Arch to top-right corner
+    p.quadraticBezierTo(
+      inset + effW * 0.78,
+      inset + crestH * 0.35,
+      inset + effW - cr,
+      inset + crestH,
+    );
+    // Rounded top-right corner
+    p.quadraticBezierTo(
+      inset + effW,
+      inset + crestH,
+      inset + effW,
+      inset + crestH + cr,
+    );
+    // Right side slightly bowed outwards
+    p.lineTo(inset + effW, inset + effH * 0.38);
+    // Right curve tapering to bottom tip
+    p.cubicTo(
+      inset + effW,
+      inset + effH * 0.70,
+      inset + effW * 0.80,
+      inset + effH * 0.88,
+      inset + effW * 0.50,
+      inset + effH,
+    );
+    // Left curve tapering up from bottom tip
+    p.cubicTo(
+      inset + effW * 0.20,
+      inset + effH * 0.88,
+      inset,
+      inset + effH * 0.70,
+      inset,
+      inset + effH * 0.38,
+    );
+    // Left side
+    p.lineTo(inset, inset + crestH + cr);
+    // Rounded top-left corner
+    p.quadraticBezierTo(
+      inset,
+      inset + crestH,
+      inset + cr,
+      inset + crestH,
+    );
+    // Arch to top-center crest
+    p.quadraticBezierTo(
+      inset + effW * 0.22,
+      inset + crestH * 0.35,
+      inset + effW * 0.50,
+      inset,
+    );
     p.close();
+
     return p;
   }
 
-
-
   @override
   void paint(Canvas canvas, Size size) {
-    final W = size.width;
-    final H = size.height;
-    final fullRect = Offset.zero & size;
+    final w = size.width;
+    final h = size.height;
+    final shieldRect = Rect.fromLTWH(0, 0, w, h);
 
-    // ── 1. Outer glowing rim with premium gradient ─────────────────────────────
-    canvas.drawPath(
-      _shield(W, H),
-      Paint()
-        ..shader = _shader(fullRect)
-        ..style = PaintingStyle.fill
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0), // Soft glow
-    );
+    final shieldStrokeW = w * 0.118;
+    final halfStroke = shieldStrokeW / 2.0;
 
-    // ── 2. Premium metallic 3D body ──────────────────────────────────────────
-    const inset = 0.12;
-    final iW = W * (1 - inset * 2);
-    final iH = H * (1 - inset * 2.2);
+    final shieldPath = _createShieldPath(w, h, halfStroke);
 
-    // Metallic gradient fill
-    canvas.save();
-    canvas.translate(W * inset, H * inset);
-    canvas.drawPath(
-      _shield(iW, iH),
-      Paint()
-        ..shader = _metallicShader(Rect.fromLTWH(0, 0, iW, iH))
-        ..style = PaintingStyle.fill,
-    );
-    canvas.restore();
+    // 0. Dark inner fill inside shield for rich contrast and depth
+    final innerPath = _createShieldPath(w, h, halfStroke + 2.0);
+    final innerPaint = Paint()
+      ..shader = const LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color(0xFF0C1B38),
+          Color(0xFF050B18),
+        ],
+      ).createShader(shieldRect)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(innerPath, innerPaint);
 
-    // ── 3. Premium glassmorphism overlay ─────────────────────────────────────
-    const glassInset = 0.08;
-    final gW = W * (1 - glassInset * 2);
-    final gH = H * (1 - glassInset * 2);
-
-    canvas.save();
-    canvas.translate(W * glassInset, H * glassInset);
-    canvas.drawPath(
-      _shield(gW, gH),
-      Paint()
-        ..shader = _glassShader(Rect.fromLTWH(0, 0, gW, gH))
-        ..style = PaintingStyle.fill
-        ..blendMode = BlendMode.softLight,
-    );
-    canvas.restore();
-
-    // ── 4. Sharp infinity symbol (∞) ──────────────────────────────────────────
-    _drawInfinity(canvas, W, H);
-
-    // ── 5. Additional glow effect ─────────────────────────────────────────────
-    _drawGlowEffect(canvas, W, H);
-  }
-
-  /// Additional premium glow effect around the shield
-  void _drawGlowEffect(Canvas canvas, double W, double H) {
-    const glowInset = 0.18;
-    final glowW = W * (1 - glowInset * 2);
-    final glowH = H * (1 - glowInset * 2);
-
+    // 1. Ambient soft neon glow behind the shield rim
     final glowPaint = Paint()
-      ..shader = _shader(Rect.fromLTWH(0, 0, glowW, glowH))
+      ..shader = AppGradients.shield.createShader(shieldRect)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = W * 0.06
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12.0)
-      ..colorFilter = ColorFilter.mode(
-          AppColors.cyanGlow.withValues(alpha: 0.2), BlendMode.srcIn);
+      ..strokeWidth = shieldStrokeW * 1.45
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 13.0)
+      ..color = Colors.white.withValues(alpha: 0.40);
 
-    canvas.save();
-    canvas.translate(W * glowInset, H * glowInset);
-    canvas.drawPath(_shield(glowW, glowH), glowPaint);
-    canvas.restore();
+    canvas.drawPath(shieldPath, glowPaint);
+
+    // 2. Crisp main shield rim
+    final shieldPaint = Paint()
+      ..shader = AppGradients.shield.createShader(shieldRect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = shieldStrokeW
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(shieldPath, shieldPaint);
+
+    // 3. Central 3D Crossover Ribbon (X)
+    _drawCrossoverRibbon(canvas, w, h);
   }
 
+  void _drawCrossoverRibbon(Canvas canvas, double w, double h) {
+    final cx = w * 0.50;
+    final cy = h * 0.44;
 
+    final x0 = w * 0.215;
+    final y0 = h * 0.122;
+    final k = 0.65; // Bézier control coefficient for perfect 45° S-curve
+    final strokeW = w * 0.115;
 
-  void _drawInfinity(Canvas canvas, double W, double H) {
-    // Center of the symbol — vertically centred inside the shield body (~45% down)
-    final cx = W * .50;
-    final cy = H * .465;
+    final ribbonRect = Rect.fromCenter(
+      center: Offset(cx, cy),
+      width: x0 * 2.8,
+      height: y0 * 2.8,
+    );
 
-    // Loop dimensions - adjusted to match reference
-    final lx = W * .22;   // half-width of one loop's oval
-    final ly = H * .11;   // half-height of one loop
+    // Strand 1: Top-Left (-x0, -y0) to Bottom-Right (+x0, +y0)
+    final strand1 = Path();
+    strand1.moveTo(cx - x0, cy - y0);
+    strand1.cubicTo(
+      cx - x0 + k * x0,
+      cy - y0,
+      cx + x0 - k * x0,
+      cy + y0,
+      cx + x0,
+      cy + y0,
+    );
 
-    final strokeW = W * .085;
+    // Strand 2: Bottom-Left (-x0, +y0) to Top-Right (+x0, -y0)
+    final strand2 = Path();
+    strand2.moveTo(cx - x0, cy + y0);
+    strand2.cubicTo(
+      cx - x0 + k * x0,
+      cy + y0,
+      cx + x0 - k * x0,
+      cy - y0,
+      cx + x0,
+      cy - y0,
+    );
 
-    final paint = Paint()
-      ..shader = _shader(Rect.fromCenter(
-          center: Offset(cx, cy), width: W * .8, height: H * .35))
+    final ribbonShader = AppGradients.ribbon.createShader(ribbonRect);
+
+    // Ambient glow behind the ribbons
+    final glowPaint = Paint()
+      ..shader = ribbonShader
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeW * 1.35
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9.0)
+      ..color = Colors.white.withValues(alpha: 0.38);
+
+    canvas.drawPath(strand1, glowPaint);
+    canvas.drawPath(strand2, glowPaint);
+
+    // Sharp main ribbon stroke
+    final mainPaint = Paint()
+      ..shader = ribbonShader
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeW
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    // Left loop — drawn as two cubic beziers meeting at the centre cross-point
-    final left = Path();
-    left.moveTo(cx, cy);
-    left.cubicTo(
-      cx - lx * .5, cy - ly * 2.2,
-      cx - lx * 2.0, cy - ly * 2.2,
-      cx - lx * 2.0, cy,
-    );
-    left.cubicTo(
-      cx - lx * 2.0, cy + ly * 2.2,
-      cx - lx * .5, cy + ly * 2.2,
-      cx, cy,
+    // Draw Strand 1 (underneath)
+    canvas.drawPath(strand1, mainPaint);
+
+    // Realistic drop shadow under Strand 2 where it crosses Strand 1
+    // Short path segment around the center intersection (t ~ 0.35 to 0.65)
+    final shadowPath = Path();
+    shadowPath.moveTo(cx - x0 * 0.35, cy + y0 * 0.35);
+    shadowPath.cubicTo(
+      cx - x0 * 0.12,
+      cy + y0 * 0.12,
+      cx + x0 * 0.12,
+      cy - y0 * 0.12,
+      cx + x0 * 0.35,
+      cy - y0 * 0.35,
     );
 
-    // Right loop
-    final right = Path();
-    right.moveTo(cx, cy);
-    right.cubicTo(
-      cx + lx * .5, cy - ly * 2.2,
-      cx + lx * 2.0, cy - ly * 2.2,
-      cx + lx * 2.0, cy,
-    );
-    right.cubicTo(
-      cx + lx * 2.0, cy + ly * 2.2,
-      cx + lx * .5, cy + ly * 2.2,
-      cx, cy,
-    );
+    final shadowPaint = Paint()
+      ..color = const Color(0xB0020612)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeW * 1.25
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.5);
 
-    canvas.drawPath(left, paint);
-    canvas.drawPath(right, paint);
+    canvas.drawPath(shadowPath, shadowPaint);
+
+    // Draw Strand 2 (on top)
+    canvas.drawPath(strand2, mainPaint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

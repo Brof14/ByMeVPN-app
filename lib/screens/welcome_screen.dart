@@ -3,30 +3,22 @@ import '../theme/app_theme.dart';
 import '../widgets/gradient_background.dart';
 import '../widgets/gradient_button.dart';
 import '../widgets/shield_logo.dart';
+import 'sign_up_screen.dart';
+import 'sign_in_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
   static const routeName = '/';
 
-  void _snack(BuildContext ctx, String msg) =>
-      ScaffoldMessenger.of(ctx)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(
-          content: Text(msg),
-          duration: const Duration(seconds: 2),
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        ));
-
   @override
   Widget build(BuildContext context) {
-    final mq   = MediaQuery.of(context);
-    final sw   = mq.size.width;
-    final sh   = mq.size.height;
+    final mq = MediaQuery.of(context);
+    final sw = mq.size.width;
+    final sh = mq.size.height;
 
-    // Logo: ~48 % of screen width, clamped to a sensible range
-    final logoW = (sw * .48).clamp(180.0, 240.0);
-    // Horizontal padding: ~6 % each side
-    final hPad  = sw * .06;
+    // Shield logo scaled accurately (~53% screen width)
+    final logoSize = (sw * 0.53).clamp(195.0, 230.0);
+    final hPad = (sw * 0.065).clamp(22.0, 28.0);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -38,97 +30,73 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // ── Premium top spacing ────────────────────────────────────
-                  SizedBox(height: sh * .048),
+                  SizedBox(height: sh * 0.05),
 
-                  // ─── Animated shield logo with premium effects ────────────────
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 800),
-                    curve: Curves.elasticOut,
-                    child: ShieldLogo(size: logoW),
-                  ),
+                  // ByMeVPN Shield Logo
+                  ShieldLogo(size: logoSize),
 
-                  SizedBox(height: sh * .055),
+                  SizedBox(height: sh * 0.04),
 
-                  // ─── Animated brand text with glow ────────────────────────────
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 1000),
-                    curve: Curves.easeOut,
-                    opacity: 1.0,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 1200),
-                      curve: Curves.bounceOut,
-                      child: RichText(
-                        text: TextSpan(children: [
-                          TextSpan(text: 'ByMe', style: AppTextStyles.brandWhite),
-                          TextSpan(text: 'VPN',  style: AppTextStyles.brandGreen),
-                        ]),
-                      ),
+                  // Brand Text: "ByMe" (White) + "VPN" (Emerald Green)
+                  RichText(
+                    textAlign: TextAlign.center,
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: 'ByMe',
+                          style: AppTextStyles.brandWhite,
+                        ),
+                        TextSpan(
+                          text: 'VPN',
+                          style: AppTextStyles.brandGreen,
+                        ),
+                      ],
                     ),
                   ),
 
-                  SizedBox(height: sh * .02),
+                  const SizedBox(height: 10),
 
-                  // ─── Animated slogan ─────────────────────────────────────────
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 1100),
-                    curve: Curves.easeOut,
-                    opacity: 1.0,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 1000),
-                      curve: Curves.easeOutBack,
-                      child: Text(
-                        'Speed. Anonymity. Honesty.',
-                        style: AppTextStyles.slogan,
-                      ),
-                    ),
+                  // Slogan: "Speed. Anonymity. Honesty."
+                  Text(
+                    'Speed. Anonymity. Honesty.',
+                    style: AppTextStyles.slogan,
+                    textAlign: TextAlign.center,
                   ),
 
-                  // ─── Push remaining content to bottom ───────────────────────
+                  // Pushes buttons to bottom
                   const Spacer(),
 
-                  // ─── Premium page indicator dots ───────────────────────────
-                  const AnimatedOpacity(
-                    duration: Duration(milliseconds: 1200),
-                    curve: Curves.easeOut,
-                    opacity: 1.0,
-                    child: _Dots(total: 3, active: 1),
-                  ),
-
-                  SizedBox(height: sh * .025),
-
-                  // ─── Premium action buttons with hover effects ───────────────
-                  AnimatedOpacity(
-                    duration: const Duration(milliseconds: 1300),
-                    curve: Curves.easeOut,
-                    opacity: 1.0,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.elasticOut,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GradientButton(
-                              label: 'Sign Up',
-                              gradient: AppGradients.signUp,
-                              onTap: () => _snack(context, 'Transition to Sign Up'),
-                            ),
-                          ),
-                          SizedBox(width: sw * .045),
-                          Expanded(
-                            child: GradientButton(
-                              label: 'Log In',
-                              gradient: AppGradients.logIn,
-                              darkLabel: true,
-                              onTap: () => _snack(context, 'Transition to Log In'),
-                            ),
-                          ),
-                        ],
+                  // Action Buttons: Sign Up & Log In side-by-side
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GradientButton(
+                          label: 'Sign Up',
+                          gradient: AppGradients.signUp,
+                          onTap: () {
+                            Navigator.of(context).pushNamed(SignUpScreen.routeName);
+                          },
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GradientButton(
+                          label: 'Log In',
+                          gradient: AppGradients.logIn,
+                          onTap: () {
+                            Navigator.of(context).pushNamed(SignInScreen.routeName);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
 
-                  SizedBox(height: sh * .055),
+                  const SizedBox(height: 20),
+
+                  // 4 Dots: Dot 2 is active white with glow
+                  const _PageDots(total: 4, activeIndex: 1),
+
+                  SizedBox(height: sh * 0.025),
                 ],
               ),
             ),
@@ -139,28 +107,43 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-/// Three small dots; active dot is wider and brighter.
-class _Dots extends StatelessWidget {
-  const _Dots({required this.total, required this.active});
+class _PageDots extends StatelessWidget {
+  const _PageDots({
+    required this.total,
+    required this.activeIndex,
+  });
+
   final int total;
-  final int active;
+  final int activeIndex;
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: List.generate(total, (i) {
-      final on = i == active;
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3.5),
-        width:  on ? 20 : 6,
-        height: 6,
-        decoration: BoxDecoration(
-          color: on
-              ? AppColors.white
-              : AppColors.sloganGrey.withValues(alpha: .45),
-          borderRadius: BorderRadius.circular(3),
-        ),
-      );
-    }),
-  );
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(total, (i) {
+        final isActive = i == activeIndex;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4.5),
+          width: isActive ? 7.5 : 5.5,
+          height: isActive ? 7.5 : 5.5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isActive
+                ? AppColors.white
+                : const Color(0xFF19263E),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      blurRadius: 4.0,
+                      spreadRadius: 1.0,
+                    ),
+                  ]
+                : null,
+          ),
+        );
+      }),
+    );
+  }
 }

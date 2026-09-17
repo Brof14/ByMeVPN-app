@@ -1,76 +1,54 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
+/// Screen background featuring deep midnight navy gradient
+/// with a soft, subtle radial ambient glow centered behind the shield logo.
 class GradientBackground extends StatelessWidget {
   const GradientBackground({super.key, required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+
     return Stack(
       children: [
-        // Base gradient background
-        DecoratedBox(
-          decoration: const BoxDecoration(gradient: AppGradients.background),
-          child: child,
-        ),
-
-        // Abstract geometric glow overlay
-        Positioned.fill(
-          child: CustomPaint(
-            painter: _AbstractGlowPainter(),
+        // 1. Base vertical navy gradient
+        Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: AppGradients.background,
           ),
         ),
+
+        // 2. Soft radial ambient glow behind the shield
+        Positioned(
+          top: size.height * 0.08,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: Container(
+              width: size.width * 0.85,
+              height: size.width * 0.85,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF102855).withValues(alpha: 0.65),
+                    const Color(0xFF0C1B3E).withValues(alpha: 0.25),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.45, 1.0],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // 3. Child content
+        Positioned.fill(child: child),
       ],
     );
   }
-}
-
-/// Custom painter for abstract geometric glow effects
-class _AbstractGlowPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final W = size.width;
-    final H = size.height;
-
-    // Subtle geometric abstract glow
-    final glowPaint = Paint()
-      ..shader = AppGradients.abstractGlow.createShader(Rect.fromLTWH(0, 0, W, H))
-      ..style = PaintingStyle.fill
-      ..blendMode = BlendMode.softLight
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30.0);
-
-    // Create subtle geometric shapes for glow effect
-    const shapeCount = 5;
-    for (int i = 0; i < shapeCount; i++) {
-      final centerX = W * (0.2 + (i * 0.15));
-      final centerY = H * (0.3 + (i * 0.1));
-      final radius = W * (0.1 + (i * 0.02));
-
-      canvas.drawCircle(
-        Offset(centerX, centerY),
-        radius,
-        glowPaint..color = AppColors.glassLight.withValues(alpha: 0.3 - (i * 0.05)),
-      );
-    }
-
-    // Additional diagonal glow lines
-    for (int i = 0; i < 3; i++) {
-      final startX = W * (i * 0.3);
-      final startY = H * (0.1 + (i * 0.2));
-      final endX = W * (0.8 - (i * 0.2));
-      final endY = H * (0.9 - (i * 0.2));
-
-      final paint = glowPaint..color = AppColors.cyanGlow.withValues(alpha: 0.1 - (i * 0.03));
-      paint.strokeWidth = 2.0 + (i * 2.0);
-      canvas.drawLine(
-        Offset(startX, startY),
-        Offset(endX, endY),
-        paint,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter old) => false;
 }

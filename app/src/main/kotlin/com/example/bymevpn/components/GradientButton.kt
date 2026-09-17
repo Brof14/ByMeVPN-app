@@ -20,16 +20,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.bymevpn.theme.AppTypography
+import androidx.compose.ui.unit.sp
 
 /**
- * Custom interactive gradient action button with press animations and soft glow shadows.
+ * Action button with gradient background, squircle corners, and crisp typography.
  */
 @Composable
 fun GradientButton(
@@ -37,31 +37,23 @@ fun GradientButton(
     gradient: Brush,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    darkLabel: Boolean = false,
+    textColor: Color = Color.White,
+    shadowColor: Color = Color(0x400062FF),
     testTag: String = "gradient_button"
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.96f else 1.0f,
-        animationSpec = tween(150),
+        targetValue = if (isPressed) 0.97f else 1.0f,
+        animationSpec = tween(100),
         label = "btn_scale"
     )
-
-    val shadowElevation = if (isPressed) 4.dp else 10.dp
-    val shadowColor = if (darkLabel) Color.Transparent else Color(0x401A7FFF)
 
     Box(
         modifier = modifier
             .scale(scale)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(16.dp),
-                ambientColor = shadowColor,
-                spotColor = shadowColor
-            )
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(brush = gradient)
             .clickable(
                 interactionSource = interactionSource,
@@ -70,14 +62,17 @@ fun GradientButton(
                 onClick = onClick
             )
             .defaultMinSize(minHeight = 48.dp)
-            .height(56.dp)
+            .height(52.dp)
             .fillMaxWidth()
             .testTag(testTag),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            style = if (darkLabel) AppTypography.BtnDark else AppTypography.BtnWhite,
+            color = textColor,
+            fontSize = 16.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.2.sp,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }
