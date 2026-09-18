@@ -13,20 +13,22 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
-import com.example.bymevpn.R
 import com.example.bymevpn.components.GradientBackground
 import com.example.bymevpn.components.GradientButton
 import com.example.bymevpn.components.PageIndicator
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppGradients
 import com.example.bymevpn.theme.AppTypography
 
@@ -39,8 +41,13 @@ fun WelcomeScreen(
     onLogInClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val signUpText = stringResource(R.string.sign_up)
-    val logInText = stringResource(R.string.log_in)
+    val context = LocalContext.current
+    val currentLang by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(context, currentLang)
+
+    val signUpText = if (isRu) "Регистрация" else "Sign Up"
+    val logInText = if (isRu) "Войти" else "Log In"
+    val sloganText = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty."
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -91,7 +98,7 @@ fun WelcomeScreen(
 
                     // Slogan: "Speed. Anonymity. Honesty."
                     Text(
-                        text = "Speed. Anonymity. Honesty.",
+                        text = sloganText,
                         style = AppTypography.Slogan,
                         modifier = Modifier.testTag("brand_slogan")
                     )

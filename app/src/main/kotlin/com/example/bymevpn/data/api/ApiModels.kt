@@ -53,8 +53,13 @@ data class ServerNode(
     val flag: String,
     val pingMs: Int = 25,
     val loadPercent: Int = 30,
-    val isPremium: Boolean = false
-)
+    val isPremium: Boolean = false,
+    val countryEn: String = country,
+    val cityEn: String = city
+) {
+    fun localizedCountry(isRu: Boolean): String = if (isRu) country else countryEn
+    fun localizedCity(isRu: Boolean): String = if (isRu) city else cityEn
+}
 
 data class VpnSessionConfig(
     val protocol: String = "vless",
@@ -123,16 +128,39 @@ object ApiJsonParsers {
         val list = mutableListOf<ServerNode>()
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
+            val cCode = obj.optString("country_code", "NL").uppercase()
+            val countryRu = obj.optString("country", when (cCode) {
+                "NL" -> "Нидерланды"
+                "DE" -> "Германия"
+                else -> "Глобальный"
+            })
+            val countryEn = obj.optString("country_en", when (cCode) {
+                "NL" -> "Netherlands"
+                "DE" -> "Germany"
+                else -> obj.optString("country", "Global")
+            })
+            val cityRu = obj.optString("city", when (cCode) {
+                "NL" -> "Амстердам"
+                "DE" -> "Франкфурт"
+                else -> ""
+            })
+            val cityEn = obj.optString("city_en", when (cCode) {
+                "NL" -> "Amsterdam"
+                "DE" -> "Frankfurt"
+                else -> cityRu
+            })
             list.add(
                 ServerNode(
                     nodeCode = obj.getString("node_code"),
-                    country = obj.optString("country", "Global"),
-                    countryCode = obj.optString("country_code", "NL"),
-                    city = obj.optString("city", ""),
+                    country = countryRu,
+                    countryCode = cCode.lowercase(),
+                    city = cityRu,
                     flag = obj.optString("flag", "🌐"),
                     pingMs = obj.optInt("ping_ms", 25),
                     loadPercent = obj.optInt("load_percent", 35),
-                    isPremium = obj.optBoolean("is_premium", false)
+                    isPremium = obj.optBoolean("is_premium", false),
+                    countryEn = countryEn,
+                    cityEn = cityEn
                 )
             )
         }

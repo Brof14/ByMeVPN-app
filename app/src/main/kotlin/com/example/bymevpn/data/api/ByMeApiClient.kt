@@ -180,8 +180,28 @@ class ByMeApiClient(private val context: Context) {
     }
 
     private fun getDefaultServers(): List<ServerNode> = listOf(
-        ServerNode("nl-ams-01", "Нидерланды", "nl", "Амстердам", "🇳🇱", 26, 32),
-        ServerNode("de-fra-01", "Германия", "de", "Франкфурт", "🇩🇪", 29, 38)
+        ServerNode(
+            nodeCode = "nl-ams-01",
+            country = "Нидерланды",
+            countryCode = "nl",
+            city = "Амстердам",
+            flag = "🇳🇱",
+            pingMs = 26,
+            loadPercent = 32,
+            countryEn = "Netherlands",
+            cityEn = "Amsterdam"
+        ),
+        ServerNode(
+            nodeCode = "de-fra-01",
+            country = "Германия",
+            countryCode = "de",
+            city = "Франкфурт",
+            flag = "🇩🇪",
+            pingMs = 29,
+            loadPercent = 38,
+            countryEn = "Germany",
+            cityEn = "Frankfurt"
+        )
     )
 
     suspend fun createVpnSession(nodeCode: String): VpnSessionConfig {

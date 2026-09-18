@@ -185,7 +185,12 @@ fun AccountScreen(
 
                 // Subscription & Circular Progress Card
                 val status = subscription?.status ?: "none"
-                val planName = subscription?.planName ?: (if (isRu) "Базовый доступ" else "Free Account")
+                val rawPlanName = subscription?.planName
+                val planName = when {
+                    rawPlanName == "Admin VIP (Безлимит)" -> if (isRu) "Admin VIP (Безлимит)" else "Admin VIP (Unlimited)"
+                    rawPlanName != null -> rawPlanName
+                    else -> if (isRu) "Базовый доступ" else "Free Account"
+                }
                 val secondsRemaining = subscription?.secondsRemaining ?: 0L
                 val daysRemaining = (secondsRemaining / 86400).coerceAtLeast(0)
                 val totalPeriodDays = 30f
@@ -415,8 +420,13 @@ fun AccountScreen(
                                             )
                                         }
                                     }
+                                    val localizedLastActive = if (device.lastActive == "Сейчас") {
+                                        if (isRu) "Сейчас" else "Active now"
+                                    } else {
+                                        device.lastActive
+                                    }
                                     Text(
-                                        text = "${device.platform} • ${device.lastActive}",
+                                        text = "${device.platform} • $localizedLastActive",
                                         color = Color(0xFF64748B),
                                         fontSize = 11.5.sp
                                     )

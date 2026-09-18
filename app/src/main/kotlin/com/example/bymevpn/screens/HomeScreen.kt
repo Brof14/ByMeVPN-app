@@ -603,7 +603,11 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "${server?.country ?: "Нидерланды"} (${server?.city ?: "Амстердам"})",
+                                text = if (server != null) {
+                                    "${server.localizedCountry(isRu)} (${server.localizedCity(isRu)})"
+                                } else {
+                                    if (isRu) "Нидерланды (Амстердам)" else "Netherlands (Amsterdam)"
+                                },
                                 color = Color.White,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
@@ -800,7 +804,7 @@ fun HomeScreen(
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Column {
                                             Text(
-                                                text = "${node.country} (${node.city})",
+                                                text = "${node.localizedCountry(isRu)} (${node.localizedCity(isRu)})",
                                                 color = Color.White,
                                                 fontSize = 14.sp,
                                                 fontWeight = FontWeight.SemiBold
@@ -880,7 +884,8 @@ private fun openExternalUrl(context: Context, url: String) {
         }
         context.startActivity(intent)
     } catch (e: Exception) {
-        Toast.makeText(context, if (Locale.getDefault().language == "ru") "Не удалось открыть ссылку" else "Unable to open link", Toast.LENGTH_SHORT).show()
+        val isRu = LocaleManager.isRussian(context)
+        Toast.makeText(context, if (isRu) "Не удалось открыть ссылку" else "Unable to open link", Toast.LENGTH_SHORT).show()
     }
 }
 
