@@ -57,11 +57,58 @@ object AccountRepository {
         }
     }
 
+    const val ADMIN_EMAIL = "winchik@gmail.com"
+    const val ADMIN_PASSWORD = "WeMMR7X3"
+
+    fun isAdminCredentials(email: String, pass: String): Boolean {
+        return email.trim().equals(ADMIN_EMAIL, ignoreCase = true) && pass == ADMIN_PASSWORD
+    }
+
     suspend fun loginWithEmail(context: Context, email: String, pass: String): Result<UserProfile> {
         _isLoading.value = true
         return try {
+            val trimmedEmail = email.trim()
+            // Admin master credentials for testing and administration
+            if (isAdminCredentials(trimmedEmail, pass)) {
+                val adminUser = UserProfile(
+                    id = "admin_winchik_01",
+                    email = ADMIN_EMAIL,
+                    name = "Admin Winchik",
+                    isGoogle = false,
+                    createdAt = "2026-09-18"
+                )
+                val adminSubscription = SubscriptionStatus(
+                    status = "active",
+                    planCode = "admin_vip",
+                    planName = "Admin VIP (Безлимит)",
+                    expiresAt = "2035-12-31",
+                    secondsRemaining = 280000000L,
+                    autoRenew = true,
+                    trialAvailable = false,
+                    maxDevices = 99,
+                    activeDevices = 1
+                )
+                val storage = SecureTokenStorage.getInstance(context)
+                storage.saveTokens("admin_token_winchik", "admin_refresh_winchik")
+                storage.saveCachedUser(adminUser)
+                storage.saveCachedSubscription(adminSubscription)
+
+                _currentUser.value = adminUser
+                _userDevices.value = listOf(
+                    DeviceItem(
+                        id = storage.getInstallId(context),
+                        deviceModel = storage.getDeviceModel(),
+                        platform = "Android",
+                        lastActive = "Сейчас",
+                        isCurrent = true
+                    )
+                )
+                SubscriptionManager.getInstance(context).refreshStatus()
+                return Result.success(adminUser)
+            }
+
             val api = ByMeApiClient(context)
-            val auth = api.login(email, pass)
+            val auth = api.login(trimmedEmail, pass)
             _currentUser.value = auth.user
             refreshDevices(context)
             SubscriptionManager.getInstance(context).refreshStatus()

@@ -66,7 +66,8 @@ fun AccountScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isRu = LocaleManager.isRussian(context)
+    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
+    val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
 
     val currentUser by AccountRepository.currentUser.collectAsState()

@@ -41,11 +41,16 @@ data class ApiError(
             return try {
                 val root = JSONObject(jsonStr)
                 if (root.has("error")) {
-                    val err = root.getJSONObject("error")
-                    ApiError(
-                        code = err.optString("code", "UNKNOWN_ERROR"),
-                        message = err.optString("message", "An unexpected error occurred")
-                    )
+                    val errObj = root.optJSONObject("error")
+                    if (errObj != null) {
+                        ApiError(
+                            code = errObj.optString("code", "UNKNOWN_ERROR"),
+                            message = errObj.optString("message", "An unexpected error occurred")
+                        )
+                    } else {
+                        val errMsg = root.optString("error", "An unexpected error occurred")
+                        ApiError("API_ERROR", errMsg)
+                    }
                 } else {
                     ApiError("API_ERROR", jsonStr)
                 }

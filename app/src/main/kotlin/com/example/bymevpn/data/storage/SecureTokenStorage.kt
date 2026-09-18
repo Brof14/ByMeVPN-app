@@ -15,7 +15,6 @@ import java.util.UUID
  * Secure persistent store using AndroidX EncryptedSharedPreferences (AES-256-GCM).
  * Securely persists:
  * - JWT Access and Refresh tokens
- * - Locally generated WireGuard private and public keypair
  * - Cached User profile and Subscription status
  * - Stable Install ID for anti-fraud
  */
@@ -34,8 +33,6 @@ class SecureTokenStorage private constructor(context: Context) {
         private const val PREFS_NAME = "bymevpn_secure_vault"
         private const val KEY_ACCESS_TOKEN = "jwt_access_token"
         private const val KEY_REFRESH_TOKEN = "jwt_refresh_token"
-        private const val KEY_WG_PRIVATE_KEY = "wg_private_key"
-        private const val KEY_WG_PUBLIC_KEY = "wg_public_key"
         private const val KEY_CACHED_USER = "cached_user_profile"
         private const val KEY_CACHED_SUB = "cached_subscription_status"
         private const val KEY_INSTALL_ID = "app_install_id"
@@ -78,16 +75,6 @@ class SecureTokenStorage private constructor(context: Context) {
             .apply()
     }
 
-    fun saveWireGuardKeys(privateKey: String, publicKey: String) {
-        prefs.edit()
-            .putString(KEY_WG_PRIVATE_KEY, privateKey)
-            .putString(KEY_WG_PUBLIC_KEY, publicKey)
-            .apply()
-    }
-
-    fun getWireGuardPrivateKey(): String? = prefs.getString(KEY_WG_PRIVATE_KEY, null)
-    fun getWireGuardPublicKey(): String? = prefs.getString(KEY_WG_PUBLIC_KEY, null)
-
     fun saveCachedUser(user: UserProfile) {
         val obj = JSONObject().apply {
             put("id", user.id)
@@ -108,7 +95,7 @@ class SecureTokenStorage private constructor(context: Context) {
                 email = obj.optString("email", ""),
                 name = obj.optString("name", "User"),
                 isGoogle = obj.optBoolean("is_google", false),
-                createdAt = obj.optString("created_at", null)
+                createdAt = obj.optString("created_at").ifEmpty { null }
             )
         } catch (e: Exception) {
             null

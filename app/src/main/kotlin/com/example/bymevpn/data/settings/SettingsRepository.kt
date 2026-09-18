@@ -12,7 +12,8 @@ import kotlinx.coroutines.flow.map
 private val Context.dataStore by preferencesDataStore(name = "bymevpn_settings")
 
 data class AppSettings(
-    val protocol: String = "WireGuard",
+    val protocol: String = "VLESS + Reality",
+    val bypassRussianTraffic: Boolean = true, // Default ON: Russian traffic bypasses VPN directly
     val autoConnectOnBoot: Boolean = false,
     val autoConnectOpenWifi: Boolean = false,
     val autoReconnect: Boolean = true,
@@ -28,6 +29,7 @@ class SettingsRepository(private val context: Context) {
 
     companion object {
         private val KEY_PROTOCOL = stringPreferencesKey("protocol")
+        private val KEY_BYPASS_RU = booleanPreferencesKey("bypass_ru")
         private val KEY_AUTO_BOOT = booleanPreferencesKey("auto_boot")
         private val KEY_AUTO_WIFI = booleanPreferencesKey("auto_wifi")
         private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
@@ -50,7 +52,8 @@ class SettingsRepository(private val context: Context) {
 
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         AppSettings(
-            protocol = prefs[KEY_PROTOCOL] ?: "WireGuard",
+            protocol = prefs[KEY_PROTOCOL] ?: "VLESS + Reality",
+            bypassRussianTraffic = prefs[KEY_BYPASS_RU] ?: true,
             autoConnectOnBoot = prefs[KEY_AUTO_BOOT] ?: false,
             autoConnectOpenWifi = prefs[KEY_AUTO_WIFI] ?: false,
             autoReconnect = prefs[KEY_AUTO_RECONNECT] ?: true,
@@ -61,6 +64,10 @@ class SettingsRepository(private val context: Context) {
             showSpeedInNotification = prefs[KEY_SHOW_SPEED] ?: true,
             connectionNotifications = prefs[KEY_NOTIF_ENABLED] ?: true
         )
+    }
+
+    suspend fun updateBypassRussianTraffic(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_BYPASS_RU] = enabled }
     }
 
     suspend fun updateAutoBoot(enabled: Boolean) {

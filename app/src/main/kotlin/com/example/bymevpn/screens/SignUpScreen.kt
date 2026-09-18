@@ -37,6 +37,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,7 +86,8 @@ fun SignUpScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isRu = LocaleManager.isRussian(context)
+    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
+    val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
@@ -353,7 +355,13 @@ fun SignUpScreen(
                                     if (result.isSuccess) {
                                         onSignUpSuccess()
                                     } else {
-                                        authError = result.exceptionOrNull()?.message
+                                        val rawErr = result.exceptionOrNull()?.message
+                                        authError = if (rawErr != null && rawErr.contains("Google Web Client ID")) {
+                                            if (isRu) "Вход через Google требует Web Client ID в Google Cloud. Зарегистрируйтесь по Email или войдите под аккаунтом администратора."
+                                            else "Google Sign-In requires Web Client ID configured in Google Cloud. Register with email or sign in with admin account."
+                                        } else {
+                                            rawErr
+                                        }
                                     }
                                 }
                             },

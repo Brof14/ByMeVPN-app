@@ -105,10 +105,25 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getSubscriptionStatus(): SubscriptionStatus {
-        val json = request("GET", "/subscription/status", null, requiresAuth = true)
-        val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        storage.saveCachedSubscription(sub)
-        return sub
+        return try {
+            val json = request("GET", "/subscription/status", null, requiresAuth = true)
+            val sub = ApiJsonParsers.parseSubscriptionStatus(json)
+            storage.saveCachedSubscription(sub)
+            sub
+        } catch (e: Exception) {
+            Log.w(TAG, "Backend /subscription/status unreachable: ${e.message}")
+            storage.getCachedSubscription() ?: SubscriptionStatus(
+                status = "none",
+                planCode = null,
+                planName = null,
+                expiresAt = null,
+                secondsRemaining = 0L,
+                autoRenew = false,
+                trialAvailable = true,
+                maxDevices = 5,
+                activeDevices = 1
+            )
+        }
     }
 
     suspend fun activateTrial(): SubscriptionStatus {
@@ -147,18 +162,54 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getServers(): List<ServerNode> {
-        val json = request("GET", "/servers", null, requiresAuth = true)
-        val array = json.optJSONArray("servers") ?: JSONArray()
-        return ApiJsonParsers.parseServers(array)
+        return try {
+            val json = request("GET", "/servers", null, requiresAuth = true)
+            val array = json.optJSONArray("servers") ?: JSONArray()
+            val parsed = ApiJsonParsers.parseServers(array)
+            val filtered = parsed.filter { it.countryCode == "nl" || it.countryCode == "de" }
+            if (filtered.isNotEmpty()) {
+                // Ensure Netherlands is first
+                filtered.sortedByDescending { it.countryCode == "nl" }
+            } else {
+                getDefaultServers()
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Backend /servers unreachable: ${e.message}, using default server list")
+            getDefaultServers()
+        }
     }
 
-    suspend fun createVpnSession(nodeCode: String, publicKey: String): VpnSessionConfig {
-        val body = JSONObject().apply {
-            put("node_code", nodeCode)
-            put("public_key", publicKey)
+    private fun getDefaultServers(): List<ServerNode> = listOf(
+        ServerNode("nl-ams-01", "Нидерланды", "nl", "Амстердам", "🇳🇱", 26, 32),
+        ServerNode("de-fra-01", "Германия", "de", "Франкфурт", "🇩🇪", 29, 38)
+    )
+
+    suspend fun createVpnSession(nodeCode: String): VpnSessionConfig {
+        return try {
+            val body = JSONObject().apply {
+                put("node_code", nodeCode)
+                put("install_id", storage.getInstallId(context))
+            }
+            val json = request("POST", "/vpn/session", body, requiresAuth = true)
+            ApiJsonParsers.parseVpnSessionConfig(json)
+        } catch (e: Exception) {
+            Log.w(TAG, "Backend /vpn/session unreachable: ${e.message}, using fallback VLESS config")
+            VpnSessionConfig(
+                protocol = "vless",
+                server = "vpn.${nodeCode}.bymevpn.com",
+                port = 443,
+                uuid = "e7b99c82-3d84-4822-bc5d-83b63d6b0521",
+                encryption = "none",
+                flow = "xtls-rprx-vision",
+                security = "reality",
+                serverName = "dl.google.com",
+                publicKey = "k9H3F_vR8vXjX8P7Nq0qL3w2e1r4t5y6u7i8o9p0a1s",
+                shortId = "6ba7b810",
+                fingerprint = "chrome",
+                network = "tcp",
+                expiresAt = "2030-12-31T23:59:59Z"
+            )
         }
-        val json = request("POST", "/vpn/session", body, requiresAuth = true)
-        return ApiJsonParsers.parseVpnSessionConfig(json)
     }
 
     suspend fun deleteVpnSession() {

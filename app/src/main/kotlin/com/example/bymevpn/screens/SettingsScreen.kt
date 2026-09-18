@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,11 +47,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.bymevpn.components.ChatSupportIcon
+import com.example.bymevpn.components.FaqDialog
 import com.example.bymevpn.components.GradientBackground
+import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AppLanguage
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.settings.AppSettings
@@ -71,13 +79,14 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isRu = LocaleManager.isRussian(context)
+    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
+    val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val settingsRepo = remember { SettingsRepository.getInstance(context) }
     val settings by settingsRepo.settingsFlow.collectAsState(initial = AppSettings())
-    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
     val scope = rememberCoroutineScope()
 
     var showAppPicker by remember { mutableStateOf(false) }
+    var showFaqDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -119,148 +128,108 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // SECTION 1: VPN & Connection
-                SettingsSectionTitle(text = if (isRu) "Соединение и протокол" else "Connection & Protocol")
+                // SECTION 1: Russian traffic bypass (Priority)
+                SettingsSectionTitle(text = if (isRu) "Умная маршрутизация" else "Smart Routing")
                 SettingsCard {
-                    // Protocol selector (WireGuard locked)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                text = if (isRu) "VPN Протокол" else "VPN Protocol",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Text(
-                                text = "WireGuard (ChaCha20-Poly1305, Noise IK)",
-                                color = Color(0xFF26E875),
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                    SettingsSwitchRow(
+                        title = if (isRu) "Обход российских сайтов (РФ напрямую)" else "Bypass Russian websites (Direct RU)",
+                        subtitle = if (isRu)
+                            "Госуслуги, банки (Сбер, Т-Банк, ВТБ), Яндекс и сайты .ru работают напрямую без VPN на полной скорости, а зарубежные сайты — через VPN."
+                        else
+                            "Russian services, banks and .ru domains route directly at maximum provider speed; all other traffic goes through VPN.",
+                        checked = settings.bypassRussianTraffic,
+                        onCheckedChange = { scope.launch { settingsRepo.updateBypassRussianTraffic(it) } }
+                    )
 
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF132B45))
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text("WireGuard", color = Color(0xFF00D4FF), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Warning notice
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF261D10))
+                            .border(1.dp, Color(0xFFE5A118).copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.Top) {
+                            Text("⚠️", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isRu)
+                                    "Выключать не рекомендуется: российские банки и государственные сайты могут блокировать вход с зарубежных IP-адресов."
+                                else
+                                    "Disabling is not recommended: Russian banks and local services may restrict access from foreign IP addresses.",
+                                color = Color(0xFFFFD580),
+                                fontSize = 11.5.sp,
+                                lineHeight = 16.sp
+                            )
                         }
                     }
+                }
 
-                    SettingsDivider()
+                Spacer(modifier = Modifier.height(20.dp))
 
+                // SECTION 2: General simple settings
+                SettingsSectionTitle(text = if (isRu) "Основные параметры" else "General")
+                SettingsCard {
                     // Auto connect on boot
                     SettingsSwitchRow(
-                        title = if (isRu) "Автоподключение при старте" else "Auto-connect on device boot",
-                        subtitle = if (isRu) "Запускать VPN при включении устройства" else "Start VPN when device restarts",
+                        title = if (isRu) "Автоподключение при старте" else "Auto-connect on boot",
+                        subtitle = if (isRu) "Запускать защиту при включении телефона" else "Start VPN when device restarts",
                         checked = settings.autoConnectOnBoot,
                         onCheckedChange = { scope.launch { settingsRepo.updateAutoBoot(it) } }
                     )
 
                     SettingsDivider()
 
-                    // Auto connect on open Wi-Fi
+                    // Split tunneling / Exclude apps
                     SettingsSwitchRow(
-                        title = if (isRu) "Защита в открытых Wi-Fi" else "Auto-connect on open Wi-Fi",
-                        subtitle = if (isRu) "Автоматически шифровать небезопасные сети" else "Encrypt unsecured public networks",
-                        checked = settings.autoConnectOpenWifi,
-                        onCheckedChange = { scope.launch { settingsRepo.updateAutoWifi(it) } }
-                    )
-
-                    SettingsDivider()
-
-                    // Auto reconnect on drop
-                    SettingsSwitchRow(
-                        title = if (isRu) "Автоматическое переподключение" else "Auto-reconnect",
-                        subtitle = if (isRu) "Восстанавливать связь при смене сети" else "Restore tunnel on network drop",
-                        checked = settings.autoReconnect,
-                        onCheckedChange = { scope.launch { settingsRepo.updateAutoReconnect(it) } }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // SECTION 2: Security & Kill Switch
-                SettingsSectionTitle(text = if (isRu) "Безопасность" else "Security")
-                SettingsCard {
-                    SettingsSwitchRow(
-                        title = "Kill Switch",
+                        title = if (isRu) "Исключить приложения" else "Exclude applications",
                         subtitle = if (isRu)
-                            "Блокировать весь трафик вне VPN при обрыве соединения"
+                            "Выбрать приложения, которые будут работать без VPN"
                         else
-                            "Block all unencrypted traffic if connection drops",
-                        checked = settings.killSwitch,
-                        onCheckedChange = { scope.launch { settingsRepo.updateKillSwitch(it) } }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // SECTION 3: Split Tunneling
-                SettingsSectionTitle(text = if (isRu) "Раздельное туннелирование" else "Split Tunneling")
-                SettingsCard {
-                    SettingsSwitchRow(
-                        title = if (isRu) "Исключить выбранные приложения" else "Exclude selected applications",
-                        subtitle = if (isRu)
-                            "Трафик выбранных приложений пойдет в обход VPN напрямую"
-                        else
-                            "Selected apps will bypass VPN and route directly",
+                            "Selected apps will bypass VPN tunnel",
                         checked = settings.splitTunnelingEnabled,
                         onCheckedChange = { scope.launch { settingsRepo.updateSplitTunneling(it) } }
                     )
 
                     if (settings.splitTunnelingEnabled) {
-                        SettingsDivider()
+                        Spacer(modifier = Modifier.height(8.dp))
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF13223D))
                                 .clickable { showAppPicker = true }
-                                .padding(vertical = 6.dp),
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
-                                Text(
-                                    text = if (isRu) "Список исключенных приложений" else "Manage excluded apps",
-                                    color = Color.White,
-                                    fontSize = 14.5.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = if (isRu)
-                                        "Исключено: ${settings.excludedApps.size} приложений"
-                                    else
-                                        "Excluded: ${settings.excludedApps.size} apps",
-                                    color = Color(0xFF00D4FF),
-                                    fontSize = 12.sp
-                                )
-                            }
-                            Text("Выбрать →", color = Color(0xFF26E875), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (isRu)
+                                    "Выбрано приложений: ${settings.excludedApps.size}"
+                                else
+                                    "Excluded apps: ${settings.excludedApps.size}",
+                                color = Color(0xFF00D4FF),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = if (isRu) "Настроить →" else "Configure →",
+                                color = Color(0xFF26E875),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // SECTION 4: Interface & Language
-                SettingsSectionTitle(text = if (isRu) "Интерфейс и уведомления" else "Interface & Notifications")
+                // SECTION 3: Language
+                SettingsSectionTitle(text = if (isRu) "Язык приложения" else "Language")
                 SettingsCard {
-                    // Language selector
-                    Text(
-                        text = if (isRu) "Язык интерфейса" else "Interface Language",
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -298,31 +267,190 @@ fun SettingsScreen(
                             }
                         }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // SECTION 4: FAQ & Support (Help and Answers)
+                SettingsSectionTitle(text = if (isRu) "Справка и поддержка" else "Help & Support")
+                SettingsCard {
+                    // FAQ
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showFaqDialog = true }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF00D4FF).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("❓", fontSize = 17.sp)
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = if (isRu) "Часто задаваемые вопросы (FAQ)" else "Frequently Asked Questions",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (isRu) "Ответы о банках, скорости и безопасности" else "Answers about speed, banks and security",
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+                        Text("→", color = Color(0xFF00D4FF), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
 
                     SettingsDivider()
 
-                    // Notifications toggle
-                    SettingsSwitchRow(
-                        title = if (isRu) "Уведомления о статусе" else "Connection notifications",
-                        subtitle = if (isRu) "Отображать уведомление о подключении" else "Show persistent notification while active",
-                        checked = settings.connectionNotifications,
-                        onCheckedChange = { scope.launch { settingsRepo.updateNotifications(it) } }
-                    )
+                    // Telegram Support Bot
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNSupportBot")).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    // Ignored
+                                }
+                            }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF00D4FF).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                ChatSupportIcon(size = 18.dp, color = Color(0xFF00D4FF))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = if (isRu) "Поддержка в Telegram" else "Telegram Support Bot",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "@ByMeVPNSupportBot",
+                                    color = Color(0xFF00D4FF),
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+                        Text("↗", color = Color(0xFF00D4FF), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
 
                     SettingsDivider()
 
-                    // Speed display in notification
-                    SettingsSwitchRow(
-                        title = if (isRu) "Скорость в уведомлении" else "Show speed in notification",
-                        subtitle = if (isRu) "Отображать текущий трафик и скорость" else "Display upload/download rate",
-                        checked = settings.showSpeedInNotification,
-                        onCheckedChange = { scope.launch { settingsRepo.updateShowSpeed(it) } }
-                    )
+                    // Telegram Official Channel
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                try {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPN")).apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                } catch (e: Exception) {
+                                    // Ignored
+                                }
+                            }
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF2AABEE).copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                TelegramLogoIcon(size = 18.dp, color = Color(0xFF2AABEE))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    text = if (isRu) "Официальный Telegram канал" else "Official Telegram Channel",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = "@ByMeVPN",
+                                    color = Color(0xFF2AABEE),
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+                        Text("↗", color = Color(0xFF2AABEE), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // SECTION 5: About
+                SettingsCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ShieldLogo(
+                            size = 32.dp,
+                            isActive = true,
+                            glowAlpha = 0.9f
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = buildAnnotatedString {
+                                    withStyle(SpanStyle(color = Color.White)) {
+                                        append("ByMe")
+                                    }
+                                    withStyle(SpanStyle(color = Color(0xFF26E875))) {
+                                        append("VPN")
+                                    }
+                                },
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = if (isRu) "Версия 1.0.0 • Защищенное соединение" else "Version 1.0.0 • Secure tunnel",
+                                color = Color(0xFF64748B),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
             }
         }
+    }
+
+    if (showFaqDialog) {
+        FaqDialog(onDismiss = { showFaqDialog = false })
     }
 
     if (showAppPicker) {
@@ -421,7 +549,8 @@ private fun SplitTunnelingAppDialog(
     onSave: (Set<String>) -> Unit
 ) {
     val context = LocalContext.current
-    val isRu = LocaleManager.isRussian(context)
+    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
+    val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     var appList by remember { mutableStateOf<List<InstalledAppItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var currentSelection by remember { mutableStateOf(selectedPackages.toMutableSet()) }

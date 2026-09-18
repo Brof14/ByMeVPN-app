@@ -209,3 +209,42 @@ fun WebsiteLogoIcon(
         size = size
     )
 }
+
+/**
+ * Chat Support vector icon (speech bubble with dot indicator).
+ */
+@Composable
+fun ChatSupportIcon(
+    modifier: Modifier = Modifier,
+    size: Dp = 24.dp,
+    color: Color = Color(0xFF00D4FF)
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+
+        val bubble = Path().apply {
+            moveTo(w * 0.16f, h * 0.20f)
+            lineTo(w * 0.84f, h * 0.20f)
+            quadraticTo(w * 0.94f, h * 0.20f, w * 0.94f, h * 0.35f)
+            lineTo(w * 0.94f, h * 0.65f)
+            quadraticTo(w * 0.94f, h * 0.80f, w * 0.84f, h * 0.80f)
+            lineTo(w * 0.45f, h * 0.80f)
+            lineTo(w * 0.22f, h * 0.94f)
+            lineTo(w * 0.26f, h * 0.80f)
+            lineTo(w * 0.16f, h * 0.80f)
+            quadraticTo(w * 0.06f, h * 0.80f, w * 0.06f, h * 0.65f)
+            lineTo(w * 0.06f, h * 0.35f)
+            quadraticTo(w * 0.06f, h * 0.20f, w * 0.16f, h * 0.20f)
+            close()
+        }
+        drawPath(path = bubble, color = color, style = Fill)
+
+        val dotRadius = w * 0.045f
+        val dotY = h * 0.50f
+        drawCircle(color = Color(0xFF081224), radius = dotRadius, center = Offset(w * 0.34f, dotY))
+        drawCircle(color = Color(0xFF081224), radius = dotRadius, center = Offset(w * 0.50f, dotY))
+        drawCircle(color = Color(0xFF081224), radius = dotRadius, center = Offset(w * 0.66f, dotY))
+    }
+}
+

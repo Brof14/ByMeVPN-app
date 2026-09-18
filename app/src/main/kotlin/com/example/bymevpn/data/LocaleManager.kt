@@ -9,7 +9,15 @@ import java.util.Locale
 enum class AppLanguage(val code: String, val titleEn: String, val titleRu: String) {
     SYSTEM("system", "System Default", "Как в системе"),
     RUSSIAN("ru", "Russian (Русский)", "Русский"),
-    ENGLISH("en", "English", "English")
+    ENGLISH("en", "English", "English");
+
+    companion object {
+        fun fromCode(code: String): AppLanguage = when (code.lowercase()) {
+            "ru" -> RUSSIAN
+            "en" -> ENGLISH
+            else -> SYSTEM
+        }
+    }
 }
 
 object LocaleManager {
@@ -23,8 +31,8 @@ object LocaleManager {
     /**
      * Helper to determine whether Russian should be displayed given current language and device locale.
      */
-    fun isRussian(context: Context? = null): Boolean {
-        return when (_currentLanguage.value) {
+    fun isRussian(context: Context? = null, language: AppLanguage = _currentLanguage.value): Boolean {
+        return when (language) {
             AppLanguage.RUSSIAN -> true
             AppLanguage.ENGLISH -> false
             AppLanguage.SYSTEM -> {

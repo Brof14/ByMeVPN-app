@@ -20,16 +20,16 @@ data class UserProfile(
 
 data class SubscriptionStatus(
     val status: String, // none | trial | active | expired | grace
-    val planCode: String?,
-    val planName: String?,
-    val expiresAt: String?,
-    val secondsRemaining: Long,
-    val autoRenew: Boolean,
-    val trialAvailable: Boolean,
-    val maxDevices: Int,
-    val activeDevices: Int,
-    val entitlement: String?,
-    val serverTime: String?,
+    val planCode: String? = null,
+    val planName: String? = null,
+    val expiresAt: String? = null,
+    val secondsRemaining: Long = 0L,
+    val autoRenew: Boolean = false,
+    val trialAvailable: Boolean = false,
+    val maxDevices: Int = 5,
+    val activeDevices: Int = 1,
+    val entitlement: String? = null,
+    val serverTime: String? = null,
     val lastFetchedAt: Long = System.currentTimeMillis()
 ) {
     val isUsable: Boolean
@@ -57,12 +57,19 @@ data class ServerNode(
 )
 
 data class VpnSessionConfig(
-    val endpoint: String,
-    val serverPublicKey: String,
-    val addressV4: String,
-    val dns: String,
-    val allowedIps: String,
-    val mtu: Int = 1420
+    val protocol: String = "vless",
+    val server: String,
+    val port: Int,
+    val uuid: String,
+    val encryption: String = "none",
+    val flow: String = "xtls-rprx-vision",
+    val security: String = "reality",
+    val serverName: String,
+    val publicKey: String,
+    val shortId: String = "",
+    val fingerprint: String = "chrome",
+    val network: String = "tcp",
+    val expiresAt: String? = null
 )
 
 data class DeviceItem(
@@ -80,23 +87,23 @@ object ApiJsonParsers {
             email = json.optString("email", ""),
             name = json.optString("name", "User"),
             isGoogle = json.optBoolean("is_google", false),
-            createdAt = json.optString("created_at", null)
+            createdAt = json.optString("created_at").ifEmpty { null }
         )
     }
 
     fun parseSubscriptionStatus(json: JSONObject): SubscriptionStatus {
         return SubscriptionStatus(
             status = json.optString("status", "none"),
-            planCode = json.optString("plan_code", null),
-            planName = json.optString("plan_name", null),
-            expiresAt = json.optString("expires_at", null),
+            planCode = json.optString("plan_code").ifEmpty { null },
+            planName = json.optString("plan_name").ifEmpty { null },
+            expiresAt = json.optString("expires_at").ifEmpty { null },
             secondsRemaining = json.optLong("seconds_remaining", 0L),
             autoRenew = json.optBoolean("auto_renew", false),
             trialAvailable = json.optBoolean("trial_available", false),
             maxDevices = json.optInt("max_devices", 5),
             activeDevices = json.optInt("active_devices", 1),
-            entitlement = json.optString("entitlement", null),
-            serverTime = json.optString("server_time", null),
+            entitlement = json.optString("entitlement").ifEmpty { null },
+            serverTime = json.optString("server_time").ifEmpty { null },
             lastFetchedAt = System.currentTimeMillis()
         )
     }
@@ -134,12 +141,19 @@ object ApiJsonParsers {
 
     fun parseVpnSessionConfig(json: JSONObject): VpnSessionConfig {
         return VpnSessionConfig(
-            endpoint = json.getString("endpoint"),
-            serverPublicKey = json.getString("server_public_key"),
-            addressV4 = json.getString("address_v4"),
-            dns = json.optString("dns", "1.1.1.1"),
-            allowedIps = json.optString("allowed_ips", "0.0.0.0/0"),
-            mtu = json.optInt("mtu", 1420)
+            protocol = json.optString("protocol", "vless"),
+            server = json.optString("server", json.optString("endpoint", "")),
+            port = json.optInt("port", 443),
+            uuid = json.optString("uuid", json.optString("id", "")),
+            encryption = json.optString("encryption", "none"),
+            flow = json.optString("flow", "xtls-rprx-vision"),
+            security = json.optString("security", "reality"),
+            serverName = json.optString("server_name", json.optString("sni", "")),
+            publicKey = json.optString("public_key", json.optString("server_public_key", "")),
+            shortId = json.optString("short_id", ""),
+            fingerprint = json.optString("fingerprint", "chrome"),
+            network = json.optString("network", "tcp"),
+            expiresAt = json.optString("expires_at").ifEmpty { null }
         )
     }
 

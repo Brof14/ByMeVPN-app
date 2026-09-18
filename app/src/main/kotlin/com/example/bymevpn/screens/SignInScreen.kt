@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -37,6 +38,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -85,7 +87,8 @@ fun SignInScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isRu = LocaleManager.isRussian(context)
+    val currentLanguage by LocaleManager.currentLanguage.collectAsState()
+    val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
@@ -317,7 +320,13 @@ fun SignInScreen(
                                     if (result.isSuccess) {
                                         onSignInSuccess()
                                     } else {
-                                        authError = result.exceptionOrNull()?.message
+                                        val rawErr = result.exceptionOrNull()?.message
+                                        authError = if (rawErr != null && rawErr.contains("Google Web Client ID")) {
+                                            if (isRu) "Вход через Google требует Web Client ID в Google Cloud. Войдите по Email или используйте аккаунт администратора ниже."
+                                            else "Google Sign-In requires Web Client ID in Google Cloud. Sign in with Email or use Admin account below."
+                                        } else {
+                                            rawErr
+                                        }
                                     }
                                 }
                             },
