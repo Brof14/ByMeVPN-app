@@ -2,6 +2,8 @@
 
 ## Overview
 
+This README is old, don't read it!
+
 ByMeVPN is a premium mobile application featuring a high-tech VPN service with a sophisticated dark mode interface. The app showcases modern UI/UX design principles with glassmorphism effects, 3D graphics, and smooth animations.
 
 ## Design Features
