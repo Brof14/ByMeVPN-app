@@ -120,8 +120,9 @@ fun HomeScreen(
     val isConnected = vpnState == VpnConnectionState.CONNECTED
     val isConnecting = vpnState == VpnConnectionState.CONNECTING
 
-    // Load servers from API on launch
+    // Load servers from API on launch and sync VPN service state
     LaunchedEffect(Unit) {
+        vpnManager.syncWithServiceState()
         vpnManager.loadServers()
         subManager.refreshStatus()
     }

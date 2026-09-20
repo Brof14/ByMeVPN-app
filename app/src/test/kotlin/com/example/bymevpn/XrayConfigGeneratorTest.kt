@@ -3,7 +3,6 @@ package com.example.bymevpn
 import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.vpn.xray.XrayConfigGenerator
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
@@ -28,11 +27,18 @@ class XrayConfigGeneratorTest {
 
         val json = XrayConfigGenerator.generateJson(config)
 
-        // Check inbounds
+        // Check inbounds: TUN + SOCKS + HTTP
         val inbounds = json.getJSONArray("inbounds")
-        assertEquals(2, inbounds.length())
-        assertEquals("socks-in", inbounds.getJSONObject(0).getString("tag"))
-        assertEquals(10808, inbounds.getJSONObject(0).getInt("port"))
+        assertEquals(3, inbounds.length())
+
+        val tunInbound = inbounds.getJSONObject(0)
+        assertEquals("tun", tunInbound.getString("tag"))
+        assertEquals("tun", tunInbound.getString("protocol"))
+        assertEquals(1500, tunInbound.getJSONObject("settings").getInt("MTU"))
+
+        val socksInbound = inbounds.getJSONObject(1)
+        assertEquals("socks-in", socksInbound.getString("tag"))
+        assertEquals(10808, socksInbound.getInt("port"))
 
         // Check outbounds
         val outbounds = json.getJSONArray("outbounds")
@@ -59,5 +65,9 @@ class XrayConfigGeneratorTest {
         assertEquals("0123456789abcdef0123456789abcdef0123456789a=", reality.getString("publicKey"))
         assertEquals("123456", reality.getString("shortId"))
         assertEquals("chrome", reality.getString("fingerprint"))
+
+        // Check stats and policy
+        assertNotNull(json.optJSONObject("stats"))
+        assertNotNull(json.optJSONObject("policy"))
     }
 }

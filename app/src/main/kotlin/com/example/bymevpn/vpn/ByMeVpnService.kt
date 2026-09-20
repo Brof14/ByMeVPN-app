@@ -15,7 +15,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.bymevpn.MainActivity
 import com.example.bymevpn.R
+import com.example.bymevpn.data.api.ServerNode
+import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.data.settings.SettingsRepository
+import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -24,8 +27,8 @@ import kotlinx.coroutines.launch
 
 /**
  * Standard Android VpnService for ByMeVPN.
- * Configures system TUN interface, DNS, MTU, split-tunneling (addDisallowedApplication),
- * and foreground lifecycle notifications for Xray VLESS + Reality.
+ * Configures system TUN interface, routes, DNS, split-tunneling,
+ * and launches native Xray-core (libv2ray) with the active TUN file descriptor.
  */
 class ByMeVpnService : VpnService() {
 
@@ -40,11 +43,24 @@ class ByMeVpnService : VpnService() {
         const val NOTIFICATION_ID = 2024
         const val CHANNEL_ID = "bymevpn_active_tunnel"
 
-        fun start(context: Context, serverName: String = "", serverCountry: String = "") {
+        @Volatile
+        var isServiceRunning = false
+            private set
+
+        @Volatile
+        var activeServer: ServerNode? = null
+            private set
+
+        @Volatile
+        var pendingSessionConfig: VpnSessionConfig? = null
+
+        fun start(context: Context, server: ServerNode, sessionConfig: VpnSessionConfig) {
+            activeServer = server
+            pendingSessionConfig = sessionConfig
             val intent = Intent(context, ByMeVpnService::class.java).apply {
                 action = ACTION_CONNECT
-                putExtra(EXTRA_SERVER_NAME, serverName)
-                putExtra(EXTRA_SERVER_COUNTRY, serverCountry)
+                putExtra(EXTRA_SERVER_NAME, server.city.ifEmpty { server.country })
+                putExtra(EXTRA_SERVER_COUNTRY, server.country)
             }
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -54,6 +70,7 @@ class ByMeVpnService : VpnService() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting VPN service: ${e.message}", e)
+                VpnManager.getInstance(context).onTunnelFailed("Failed to start VPN service: ${e.message}")
             }
         }
 
@@ -101,13 +118,60 @@ class ByMeVpnService : VpnService() {
                 }
 
                 serviceScope.launch {
-                    establishTunInterface()
+                    val config = pendingSessionConfig
+                    if (config == null) {
+                        Log.e(TAG, "No pending session configuration provided")
+                        stopSelf()
+                        VpnManager.getInstance(applicationContext).onTunnelFailed("No session configuration provided")
+                        return@launch
+                    }
+
+                    val tun = establishTunInterface()
+                    if (tun == null) {
+                        Log.e(TAG, "Failed to establish Android TUN interface")
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                        VpnManager.getInstance(applicationContext).onTunnelFailed("Failed to establish TUN interface")
+                        return@launch
+                    }
+
+                    tunInterface = tun
+                    val tunFd = tun.fd
+                    Log.i(TAG, "TUN interface established (fd=$tunFd). Starting native Xray-core...")
+
+                    val engine = XrayVpnEngine.getInstance(applicationContext)
+                    val result = engine.startTunnel(config, tunFd)
+
+                    if (result.isSuccess) {
+                        isServiceRunning = true
+                        Log.i(TAG, "Xray tunnel active! Traffic is routing through VLESS+Reality.")
+                        VpnManager.getInstance(applicationContext).onTunnelConnected(activeServer)
+                    } else {
+                        val error = result.exceptionOrNull()?.message ?: "Xray core failed to start"
+                        Log.e(TAG, "Failed to start Xray tunnel: $error")
+                        tearDownTunInterface()
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                        isServiceRunning = false
+                        VpnManager.getInstance(applicationContext).onTunnelFailed(error)
+                    }
                 }
             }
             ACTION_DISCONNECT -> {
-                tearDownTunInterface()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                serviceScope.launch {
+                    try {
+                        XrayVpnEngine.getInstance(applicationContext).disconnect()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error disconnecting Xray: ${e.message}")
+                    }
+                    tearDownTunInterface()
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                    isServiceRunning = false
+                    activeServer = null
+                    pendingSessionConfig = null
+                    VpnManager.getInstance(applicationContext).onTunnelDisconnected()
+                }
             }
         }
 
@@ -115,11 +179,11 @@ class ByMeVpnService : VpnService() {
     }
 
     /**
-     * Builds and configures system TUN interface according to VLESS + Reality standards,
+     * Builds and configures system TUN interface for VLESS + Reality,
      * applying MTU, routes, DNS, and Split-tunneling rules.
      */
-    private suspend fun establishTunInterface() {
-        try {
+    private suspend fun establishTunInterface(): ParcelFileDescriptor? {
+        return try {
             val builder = Builder()
                 .setSession("ByMeVPN (VLESS + Reality)")
                 .setMtu(1500)
@@ -144,7 +208,7 @@ class ByMeVpnService : VpnService() {
                 }
             }
 
-            // Exclude self from VPN tunnel to prevent loops
+            // Exclude self from VPN tunnel to prevent network loops
             try {
                 builder.addDisallowedApplication(packageName)
             } catch (e: Exception) {
@@ -152,10 +216,10 @@ class ByMeVpnService : VpnService() {
             }
 
             tunInterface?.close()
-            tunInterface = builder.establish()
-            Log.i(TAG, "TUN interface established successfully: fd=${tunInterface?.fd}")
+            builder.establish()
         } catch (e: Exception) {
             Log.e(TAG, "Failed to establish TUN interface: ${e.message}", e)
+            null
         }
     }
 
@@ -163,7 +227,7 @@ class ByMeVpnService : VpnService() {
         try {
             tunInterface?.close()
             tunInterface = null
-            Log.i(TAG, "TUN interface closed successfully")
+            Log.i(TAG, "TUN interface closed")
         } catch (e: Exception) {
             Log.w(TAG, "Error closing TUN interface: ${e.message}")
         }
@@ -218,15 +282,25 @@ class ByMeVpnService : VpnService() {
     }
 
     override fun onRevoke() {
-        VpnManager.getInstance(applicationContext).disconnect()
-        tearDownTunInterface()
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        Log.w(TAG, "VPN permission revoked by system")
+        serviceScope.launch {
+            try {
+                XrayVpnEngine.getInstance(applicationContext).disconnect()
+            } catch (_: Exception) {}
+            tearDownTunInterface()
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            isServiceRunning = false
+            activeServer = null
+            pendingSessionConfig = null
+            VpnManager.getInstance(applicationContext).onTunnelDisconnected()
+        }
         super.onRevoke()
     }
 
     override fun onDestroy() {
         tearDownTunInterface()
+        isServiceRunning = false
         super.onDestroy()
     }
 }

@@ -6,36 +6,33 @@ import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.vpn.VpnConnectionState
 import com.example.bymevpn.vpn.VpnEngine
 import com.example.bymevpn.vpn.VpnStatistics
+import go.Seq
+import libv2ray.CoreCallbackHandler
+import libv2ray.CoreController
+import libv2ray.Libv2ray
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * Concrete implementation of VpnEngine coordinating Xray-core VLESS + Reality tunnel.
- *
- * BLOCKED:
- * реальный Xray-движок недоступен в этой среде.
- * Почему:
- * 1. В среде сборки AI Studio Build репозитории зависимостей ограничены google() и mavenCentral().
- *    Библиотеки Xray/V2Ray для Android (например, com.github.2dust:AndroidLibXrayLite или libv2ray)
- *    не публикуются в Maven Central и требуют подключения JitPack репозитория.
- * 2. В проекте отсутствуют скомпилированные нативные библиотеки Xray-core (.so для arm64-v8a, x86_64)
- *    в app/src/main/jniLibs/ и отсутствует tun2socks-стек (hev-socks5-tunnel / libtun2socks) для перенаправления
- *    IP-пакетов из системного TUN-интерфейса в SOCKS5/VLESS прокси Xray.
- * Где добавить:
- * 1. Настроить репозиторий JitPack в settings.gradle.kts и добавить зависимость Xray AAR (или поместить собранный
- *    AAR с нативными .so в папку app/libs).
- * 2. Интегрировать tun2socks в ByMeVpnService для связки ParcelFileDescriptor TUN с локальным портом Xray (127.0.0.1:10808).
- * 3. Переводить VpnConnectionState.CONNECTED только после подтверждения успешного старта Xray-core и туннелирования трафика.
+ * Real Xray-core VpnEngine implementation for Android.
+ * Integrates libv2ray (native Xray-core Go library) to manage VLESS + Reality tunnels
+ * over the system TUN file descriptor.
  */
 class XrayVpnEngine private constructor(private val context: Context) : VpnEngine {
 
     companion object {
         private const val TAG = "XrayVpnEngine"
-
-        const val BLOCKED_REASON = "VPN-движок недоступен в этой сборке (отсутствуют нативные библиотеки Xray-core и tun2socks)"
 
         @Volatile
         private var INSTANCE: XrayVpnEngine? = null
@@ -53,53 +50,197 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
     private val _statistics = MutableStateFlow(VpnStatistics())
     override val statistics: StateFlow<VpnStatistics> = _statistics.asStateFlow()
 
-    override val isRunning: Boolean
-        get() = _state.value == VpnConnectionState.CONNECTED || _state.value == VpnConnectionState.CONNECTING
-
+    private val envInitialized = AtomicBoolean(false)
+    private var coreController: CoreController? = null
     private var activeConfig: VpnSessionConfig? = null
+    private var statsJob: Job? = null
+    private val engineScope = CoroutineScope(Dispatchers.IO)
+
+    override val isRunning: Boolean
+        get() = (coreController?.isRunning == true) && (_state.value == VpnConnectionState.CONNECTED)
 
     /**
-     * Connects to VLESS + Reality server using provided session configuration.
-     * In accordance with the BLOCKED protocol, returns failure because native Xray-core
-     * and tun2socks libraries are not compiled into this application build.
+     * Initializes libv2ray native environment and routing assets once.
      */
-    suspend fun startTunnel(config: VpnSessionConfig): Result<Unit> = withContext(Dispatchers.IO) {
+    fun initCoreEnv() {
+        if (envInitialized.compareAndSet(false, true)) {
+            try {
+                Seq.setContext(context.applicationContext)
+                val assetDir = context.getDir("assets", Context.MODE_PRIVATE)
+                copyAssetsToStorage(context, assetDir)
+                Libv2ray.initCoreEnv(assetDir.absolutePath, "ByMeVPN_DeviceId")
+                val version = Libv2ray.checkVersionX()
+                Log.i(TAG, "Xray core environment initialized. Version: $version")
+            } catch (e: Throwable) {
+                Log.e(TAG, "Failed to initialize Xray core env: ${e.message}", e)
+                envInitialized.set(false)
+            }
+        }
+    }
+
+    private fun copyAssetsToStorage(context: Context, destDir: File) {
+        val assetManager = context.assets
+        listOf("geoip.dat", "geosite.dat").forEach { assetName ->
+            try {
+                val outFile = File(destDir, assetName)
+                if (!outFile.exists() || outFile.length() == 0L) {
+                    assetManager.open(assetName).use { input ->
+                        FileOutputStream(outFile).use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    Log.d(TAG, "Extracted asset: $assetName to ${outFile.absolutePath}")
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "Asset $assetName not extracted: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Starts the Xray-core processing loop with the provided VLESS + Reality session config and TUN fd.
+     * Only returns success if the coreController confirms isRunning == true.
+     */
+    suspend fun startTunnel(config: VpnSessionConfig, tunFd: Int): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             _state.value = VpnConnectionState.CONNECTING
             activeConfig = config
 
-            // 1. Validate session config from real backend
             if (config.server.isBlank() || config.uuid.isBlank() || config.publicKey.isBlank()) {
                 throw IllegalArgumentException("Invalid VLESS configuration: server, uuid, or publicKey missing")
             }
 
-            // 2. Validate generation of Xray configuration JSON
-            val xrayConfigJson = XrayConfigGenerator.generateString(config)
-            Log.d(TAG, "Generated Xray VLESS config for ${config.server}:${config.port}")
+            initCoreEnv()
 
-            // 3. Truthfully report BLOCKED status - DO NOT fake CONNECTED state or traffic stats!
-            Log.w(TAG, "BLOCKED: Native Xray-core binaries not bundled in this build environment")
-            _state.value = VpnConnectionState.ERROR
-            Result.failure(IllegalStateException(BLOCKED_REASON))
-        } catch (e: Exception) {
+            val xrayConfigJson = XrayConfigGenerator.generateString(config, bypassRussianTraffic = true)
+            Log.d(TAG, "Starting Xray-core for ${config.server}:${config.port} (tunFd=$tunFd)")
+
+            // Stop any currently running instance first
+            stopCoreInternal()
+
+            val callback = object : CoreCallbackHandler {
+                override fun startup(): Long {
+                    Log.i(TAG, "CoreCallback: startup")
+                    return 0
+                }
+
+                override fun shutdown(): Long {
+                    Log.i(TAG, "CoreCallback: shutdown")
+                    return 0
+                }
+
+                override fun onEmitStatus(status: Long, msg: String?): Long {
+                    Log.d(TAG, "CoreCallback status: $status, $msg")
+                    return 0
+                }
+            }
+
+            val controller = Libv2ray.newCoreController(callback)
+            coreController = controller
+
+            // Start loop in Xray core passing config JSON and TUN fd
+            controller.startLoop(xrayConfigJson, tunFd)
+
+            // Verify the core actually started and is running
+            if (!controller.isRunning) {
+                _state.value = VpnConnectionState.ERROR
+                throw IllegalStateException("Xray core loop failed to start (isRunning=false)")
+            }
+
+            Log.i(TAG, "Xray-core started successfully. isRunning: ${controller.isRunning}")
+            _state.value = VpnConnectionState.CONNECTED
+            startStatsCollector()
+            Result.success(Unit)
+        } catch (e: Throwable) {
             Log.e(TAG, "Failed to start Xray tunnel: ${e.message}", e)
             _state.value = VpnConnectionState.ERROR
+            stopCoreInternal()
             Result.failure(e)
         }
     }
 
-    override suspend fun disconnect() = withContext(Dispatchers.IO) {
+    override suspend fun disconnect(): Unit = withContext(Dispatchers.IO) {
         _state.value = VpnConnectionState.DISCONNECTING
+        stopStatsCollector()
+        stopCoreInternal()
         activeConfig = null
         _statistics.value = VpnStatistics()
         _state.value = VpnConnectionState.DISCONNECTED
+        Log.i(TAG, "Xray tunnel stopped")
+        Unit
     }
 
-    override suspend fun reconnect() = withContext(Dispatchers.IO) {
-        val config = activeConfig
-        if (config != null) {
-            disconnect()
-            startTunnel(config)
+    override suspend fun reconnect(): Unit = withContext(Dispatchers.IO) {
+        // Reconnect handled via VpnManager
+        Unit
+    }
+
+    private fun stopCoreInternal() {
+        try {
+            coreController?.let { controller ->
+                if (controller.isRunning) {
+                    controller.stopLoop()
+                }
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "Error stopping core loop: ${e.message}")
+        } finally {
+            coreController = null
         }
+    }
+
+    private fun startStatsCollector() {
+        stopStatsCollector()
+        statsJob = engineScope.launch {
+            var lastUp = 0L
+            var lastDown = 0L
+            var lastTime = System.currentTimeMillis()
+
+            while (isActive && isRunning) {
+                delay(2000)
+                try {
+                    val rawStats = coreController?.queryAllOutboundTrafficStats() ?: ""
+                    var totalUp = 0L
+                    var totalDown = 0L
+                    if (rawStats.isNotBlank()) {
+                        rawStats.split(";").forEach { entry ->
+                            val parts = entry.split(",")
+                            if (parts.size == 3) {
+                                val direction = parts[1]
+                                val value = parts[2].toLongOrNull() ?: 0L
+                                if (direction.contains("uplink", ignoreCase = true)) {
+                                    totalUp += value
+                                } else if (direction.contains("downlink", ignoreCase = true)) {
+                                    totalDown += value
+                                }
+                            }
+                        }
+                    }
+
+                    val now = System.currentTimeMillis()
+                    val durationSec = ((now - lastTime) / 1000.0).coerceAtLeast(1.0)
+                    val speedUp = ((totalUp - lastUp).coerceAtLeast(0L) / durationSec).toLong()
+                    val speedDown = ((totalDown - lastDown).coerceAtLeast(0L) / durationSec).toLong()
+
+                    lastUp = totalUp
+                    lastDown = totalDown
+                    lastTime = now
+
+                    _statistics.value = VpnStatistics(
+                        bytesIn = totalDown,
+                        bytesOut = totalUp,
+                        downloadSpeedBps = speedDown,
+                        uploadSpeedBps = speedUp
+                    )
+                } catch (e: Throwable) {
+                    Log.v(TAG, "Stats collection error: ${e.message}")
+                }
+            }
+        }
+    }
+
+    private fun stopStatsCollector() {
+        statsJob?.cancel()
+        statsJob = null
     }
 }

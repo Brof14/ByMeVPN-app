@@ -47,6 +47,11 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        VpnManager.getInstance(applicationContext).syncWithServiceState()
+    }
 }
 
 @Composable

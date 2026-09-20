@@ -187,24 +187,12 @@ class VpnManager private constructor(private val context: Context) {
                     throw RuntimeException(msg, e)
                 }
 
-                // 4. Start foreground Android VpnService
+                // 4. Start foreground Android VpnService which builds TUN and launches native Xray-core
                 ByMeVpnService.start(
                     context = context,
-                    serverName = targetServer.city.ifEmpty { targetServer.country },
-                    serverCountry = targetServer.country
+                    server = targetServer,
+                    sessionConfig = sessionConfig
                 )
-
-                // 5. Start Xray VPN engine (will report BLOCKED if native engine is not compiled into build)
-                val engineResult = engine.startTunnel(sessionConfig)
-                if (engineResult.isFailure) {
-                    val ex = engineResult.exceptionOrNull()
-                    val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
-                    val msg = ex?.message ?: if (isRu) "VPN-движок недоступен в этой сборке" else "VPN engine unavailable in this build"
-                    throw RuntimeException(msg, ex)
-                }
-
-                _state.value = VpnConnectionState.CONNECTED
-                startTimer()
 
             } catch (e: Exception) {
                 Log.e(TAG, "Connect failed: ${e.message}", e)
@@ -212,6 +200,60 @@ class VpnManager private constructor(private val context: Context) {
                 _state.value = VpnConnectionState.ERROR
                 _errorMessage.value = e.message ?: (if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Ошибка подключения" else "Connection error")
             }
+        }
+    }
+
+    /**
+     * Callback from ByMeVpnService when TUN is established and Xray core confirms isRunning == true.
+     */
+    fun onTunnelConnected(server: ServerNode?) {
+        scope.launch(Dispatchers.Main) {
+            if (server != null) {
+                _currentServer.value = server
+            }
+            _state.value = VpnConnectionState.CONNECTED
+            _errorMessage.value = null
+            startTimer()
+        }
+    }
+
+    /**
+     * Callback from ByMeVpnService when tunnel or Xray fails to start.
+     */
+    fun onTunnelFailed(error: String) {
+        scope.launch(Dispatchers.Main) {
+            _state.value = VpnConnectionState.ERROR
+            _errorMessage.value = error
+            stopTimer()
+        }
+    }
+
+    /**
+     * Callback from ByMeVpnService when tunnel is disconnected.
+     */
+    fun onTunnelDisconnected() {
+        scope.launch(Dispatchers.Main) {
+            _state.value = VpnConnectionState.DISCONNECTED
+            stopTimer()
+        }
+    }
+
+    /**
+     * Re-synchronizes UI state with the background service and Xray core on app launch or screen resume.
+     */
+    fun syncWithServiceState() {
+        val serviceActive = ByMeVpnService.isServiceRunning
+        val engineActive = engine.isRunning
+
+        if (serviceActive && engineActive) {
+            if (_state.value != VpnConnectionState.CONNECTED) {
+                _state.value = VpnConnectionState.CONNECTED
+                ByMeVpnService.activeServer?.let { _currentServer.value = it }
+                startTimer()
+            }
+        } else if (!serviceActive && !engineActive && _state.value == VpnConnectionState.CONNECTED) {
+            _state.value = VpnConnectionState.DISCONNECTED
+            stopTimer()
         }
     }
 
@@ -223,8 +265,8 @@ class VpnManager private constructor(private val context: Context) {
         scope.launch {
             _state.value = VpnConnectionState.DISCONNECTING
             try {
-                engine.disconnect()
                 ByMeVpnService.stop(context)
+                engine.disconnect()
                 apiClient.deleteVpnSession()
             } catch (e: Exception) {
                 Log.w(TAG, "Disconnect cleanup warning: ${e.message}")

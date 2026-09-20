@@ -27,8 +27,48 @@ object XrayConfigGenerator {
         }
         root.put("log", logObj)
 
-        // 2. Inbounds (Local SOCKS5 and HTTP listeners)
+        // 2. Stats & Policy (for real-time uplink/downlink traffic telemetry)
+        root.put("stats", JSONObject())
+        root.put("policy", JSONObject().apply {
+            put("levels", JSONObject().apply {
+                put("0", JSONObject().apply {
+                    put("handshake", 4)
+                    put("connIdle", 300)
+                    put("uplinkOnly", 1)
+                    put("downlinkOnly", 1)
+                    put("statsUserUplink", true)
+                    put("statsUserDownlink", true)
+                })
+            })
+            put("system", JSONObject().apply {
+                put("statsInboundUplink", true)
+                put("statsInboundDownlink", true)
+                put("statsOutboundUplink", true)
+                put("statsOutboundDownlink", true)
+            })
+        })
+
+        // 3. Inbounds: TUN (virtual network interface) + Local SOCKS5 & HTTP
         val inboundsArray = JSONArray().apply {
+            // TUN inbound - captures Android VPN traffic routed through the TUN fd
+            put(JSONObject().apply {
+                put("tag", "tun")
+                put("protocol", "tun")
+                put("settings", JSONObject().apply {
+                    put("name", "tun0")
+                    put("MTU", 1500)
+                    put("userLevel", 0)
+                })
+                put("sniffing", JSONObject().apply {
+                    put("enabled", true)
+                    put("destOverride", JSONArray().apply {
+                        put("http")
+                        put("tls")
+                        put("quic")
+                    })
+                })
+            })
+
             // SOCKS5 inbound
             put(JSONObject().apply {
                 put("tag", "socks-in")
@@ -38,6 +78,7 @@ object XrayConfigGenerator {
                 put("settings", JSONObject().apply {
                     put("auth", "noauth")
                     put("udp", true)
+                    put("userLevel", 0)
                 })
                 put("sniffing", JSONObject().apply {
                     put("enabled", true)
