@@ -13,9 +13,9 @@ object ApiConfig {
 
     /**
      * Google Web Client ID for Android Credential Manager OAuth.
-     * Configure your Google Cloud OAuth 2.0 Web Client ID here or inject via BuildConfig.
+     * Web Client ID from Google Cloud Console project gen-lang-client-0358610581.
      */
-    const val GOOGLE_SERVER_CLIENT_ID = "YOUR_GOOGLE_SERVER_CLIENT_ID.apps.googleusercontent.com"
+    const val GOOGLE_SERVER_CLIENT_ID = "78634768186-c5faqurbenf7a003st3oiap79h8qajjv.apps.googleusercontent.com"
 
     /**
      * Server public key in PEM format for ES256 JWT offline entitlement verification.
