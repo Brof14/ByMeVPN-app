@@ -124,18 +124,48 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun getPlans(): List<PlanItem> {
         val json = request("GET", "/plans", null, requiresAuth = false)
-        val array = json.optJSONArray("plans") ?: JSONArray()
+        val array = if (json.has("raw_array")) {
+            json.getJSONArray("raw_array")
+        } else if (json.has("plans")) {
+            json.getJSONArray("plans")
+        } else {
+            try {
+                val rawStr = json.optString("raw")
+                if (rawStr.isNotBlank()) JSONArray(rawStr) else JSONArray()
+            } catch (e: Exception) {
+                JSONArray()
+            }
+        }
+
         val list = mutableListOf<PlanItem>()
         for (i in 0 until array.length()) {
             val p = array.getJSONObject(i)
+            val code = p.optString("code", "")
+            val name = p.optString("name", code)
+            val priceRub = p.optInt("price_rub", 0)
+            val price = if (priceRub > 0) "$priceRub ₽" else p.optString("price", "89 ₽")
+            val days = p.optInt("days", 30)
+            val period = when {
+                days <= 30 -> "1 месяц"
+                days <= 90 -> "3 месяца"
+                days <= 180 -> "6 месяцев"
+                days <= 365 -> "1 год"
+                else -> "$days дней"
+            }
+            val discount = when (code) {
+                "quarter" -> 15
+                "half_year" -> 30
+                "year" -> 45
+                else -> p.optInt("discount_percent", 0)
+            }
             list.add(
                 PlanItem(
-                    code = p.getString("code"),
-                    name = p.getString("name"),
-                    price = p.getString("price"),
-                    period = p.getString("period"),
-                    isPopular = p.optBoolean("is_popular", false),
-                    discountPercent = p.optInt("discount_percent", 0)
+                    code = code,
+                    name = name,
+                    price = price,
+                    period = period,
+                    isPopular = code == "half_year" || code == "quarter" || p.optBoolean("is_popular", false),
+                    discountPercent = discount
                 )
             )
         }
@@ -150,11 +180,6 @@ class ByMeApiClient(private val context: Context) {
         val json = request("GET", "/servers", null, requiresAuth = true)
         val array = json.optJSONArray("servers") ?: JSONArray()
         val parsed = ApiJsonParsers.parseServers(array)
-        val filtered = parsed.filter { it.countryCode == "nl" || it.countryCode == "de" }
-        if (filtered.isNotEmpty()) {
-            // Ensure Netherlands is first
-            return filtered.sortedByDescending { it.countryCode == "nl" }
-        }
         if (parsed.isNotEmpty()) {
             return parsed
         }
@@ -189,7 +214,7 @@ class ByMeApiClient(private val context: Context) {
     suspend fun getDevices(): List<DeviceItem> {
         val json = request("GET", "/devices", null, requiresAuth = true)
         val array = json.optJSONArray("devices") ?: JSONArray()
-        return ApiJsonParsers.parseDevices(array)
+        return ApiJsonParsers.parseDevices(array, storage.getInstallId(context))
     }
 
     suspend fun deleteDevice(deviceId: String) {
@@ -208,31 +233,44 @@ class ByMeApiClient(private val context: Context) {
         isRetry: Boolean = false
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
-        val connection = (URL(fullUrl).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
-            connectTimeout = TIMEOUT_MS
-            readTimeout = TIMEOUT_MS
-            doInput = true
-            setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-            setRequestProperty("Accept", "application/json")
 
-            if (requiresAuth) {
-                val token = storage.getAccessToken()
-                if (!token.isNullOrBlank()) {
-                    setRequestProperty("Authorization", "Bearer $token")
+        val connection = try {
+            (URL(fullUrl).openConnection() as HttpURLConnection).apply {
+                requestMethod = method
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                doInput = true
+                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
+                setRequestProperty("Accept", "application/json")
+
+                if (requiresAuth) {
+                    val token = storage.getAccessToken()
+                    if (!token.isNullOrBlank()) {
+                        setRequestProperty("Authorization", "Bearer $token")
+                    }
                 }
             }
+        } catch (e: Exception) {
+            throw ApiError("NETWORK_ERROR", e.localizedMessage ?: "Failed to open connection")
         }
 
         if (body != null && (method == "POST" || method == "PUT" || method == "PATCH")) {
             connection.doOutput = true
-            OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
-                writer.write(body.toString())
-                writer.flush()
+            try {
+                OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use { writer ->
+                    writer.write(body.toString())
+                    writer.flush()
+                }
+            } catch (e: Exception) {
+                throw ApiError("NETWORK_ERROR", e.localizedMessage ?: "Failed to send request")
             }
         }
 
-        val responseCode = connection.responseCode
+        val responseCode = try {
+            connection.responseCode
+        } catch (e: Exception) {
+            throw ApiError("NETWORK_ERROR", e.localizedMessage ?: "Network error connecting to backend")
+        }
 
         // Handle 401 Unauthorized -> try refresh token once
         if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED && requiresAuth && !isRetry) {
@@ -260,11 +298,18 @@ class ByMeApiClient(private val context: Context) {
         if (responseString.isBlank()) {
             JSONObject()
         } else {
-            try {
-                JSONObject(responseString)
-            } catch (e: Exception) {
-                // If response was a raw JSON array or simple status
-                JSONObject().apply { put("raw", responseString) }
+            val trimmed = responseString.trim()
+            if (trimmed.startsWith("[")) {
+                JSONObject().apply {
+                    put("raw_array", JSONArray(trimmed))
+                    put("raw", trimmed)
+                }
+            } else {
+                try {
+                    JSONObject(trimmed)
+                } catch (e: Exception) {
+                    JSONObject().apply { put("raw", trimmed) }
+                }
             }
         }
     }
@@ -272,8 +317,9 @@ class ByMeApiClient(private val context: Context) {
     private suspend fun refreshAccessToken(): Boolean = refreshMutex.withLock {
         withContext(Dispatchers.IO) {
             val refreshToken = storage.getRefreshToken() ?: return@withContext false
+            val fullUrl = "${ApiConfig.BASE_URL}/auth/refresh"
             try {
-                val connection = (URL("${ApiConfig.BASE_URL}/auth/refresh").openConnection() as HttpURLConnection).apply {
+                val connection = (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 8000
                     readTimeout = 8000
@@ -292,10 +338,14 @@ class ByMeApiClient(private val context: Context) {
                 if (connection.responseCode in 200..299) {
                     val resp = connection.inputStream.bufferedReader().use(BufferedReader::readText)
                     val json = JSONObject(resp)
-                    val newAccess = json.getString("access")
-                    val newRefresh = json.optString("refresh", refreshToken)
-                    storage.saveTokens(newAccess, newRefresh)
-                    true
+                    val newAccess = json.optString("access", json.optString("access_token", ""))
+                    val newRefresh = json.optString("refresh", json.optString("refresh_token", refreshToken))
+                    if (newAccess.isNotBlank()) {
+                        storage.saveTokens(newAccess, newRefresh)
+                        true
+                    } else {
+                        false
+                    }
                 } else {
                     false
                 }

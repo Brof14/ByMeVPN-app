@@ -9,7 +9,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.aistudio.bymevpn.kxmpzq"
+        applicationId = "com.bymevpn.app"
         minSdk = 24
         targetSdk = 35
         versionCode = 1

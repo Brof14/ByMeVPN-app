@@ -519,6 +519,9 @@ fun HomeScreen(
             // Status indicator label (NO technical VLESS / Reality mentioned)
             val isEngineBlocked = errorMessage?.contains("VPN-движок недоступен", ignoreCase = true) == true ||
                 errorMessage?.contains("VPN engine unavailable", ignoreCase = true) == true
+            val isVpnUnavailable = errorMessage?.contains("недоступен", ignoreCase = true) == true ||
+                errorMessage?.contains("unavailable", ignoreCase = true) == true ||
+                errorMessage?.contains("not configured", ignoreCase = true) == true
             val statusColor = when {
                 isConnected -> Color(0xFF26E875)
                 isConnecting -> Color(0xFF00D4FF)
@@ -529,10 +532,10 @@ fun HomeScreen(
                 isConnected -> if (isRu) "ЗАЩИТА ВКЛЮЧЕНА" else "PROTECTED"
                 isConnecting -> if (isRu) "ПОДКЛЮЧЕНИЕ..." else "CONNECTING..."
                 vpnState == VpnConnectionState.ERROR -> {
-                    if (isEngineBlocked) {
-                        if (isRu) "ДВИЖОК НЕДОСТУПЕН" else "ENGINE UNAVAILABLE"
-                    } else {
-                        if (isRu) "ОШИБКА ПОДКЛЮЧЕНИЯ" else "CONNECTION ERROR"
+                    when {
+                        isVpnUnavailable -> if (isRu) "VPN НЕДОСТУПЕН" else "VPN UNAVAILABLE"
+                        isEngineBlocked -> if (isRu) "ДВИЖОК НЕДОСТУПЕН" else "ENGINE UNAVAILABLE"
+                        else -> if (isRu) "ОШИБКА ПОДКЛЮЧЕНИЯ" else "CONNECTION ERROR"
                     }
                 }
                 else -> if (isRu) "ОТКЛЮЧЕНО" else "DISCONNECTED"

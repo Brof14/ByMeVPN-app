@@ -87,38 +87,58 @@ data class DeviceItem(
 
 object ApiJsonParsers {
     fun parseUserProfile(json: JSONObject): UserProfile {
+        val target = json.optJSONObject("user") ?: json
+        val idStr = when {
+            target.has("user_id") -> target.opt("user_id")?.toString() ?: ""
+            target.has("id") -> target.opt("id")?.toString() ?: ""
+            else -> ""
+        }
+        val emailStr = target.optString("email", "")
+        val nameRaw = target.opt("name")
+        val nameStr = if (nameRaw != null && nameRaw != JSONObject.NULL && nameRaw.toString().isNotBlank() && nameRaw.toString() != "null") {
+            nameRaw.toString()
+        } else {
+            emailStr.substringBefore("@").ifBlank { "User" }
+        }
+        val createdAtStr = target.optString("created_at").ifEmpty { null }
         return UserProfile(
-            id = json.optString("id", ""),
-            email = json.optString("email", ""),
-            name = json.optString("name", "User"),
-            isGoogle = json.optBoolean("is_google", false),
-            createdAt = json.optString("created_at").ifEmpty { null }
+            id = idStr,
+            email = emailStr,
+            name = nameStr,
+            isGoogle = target.optBoolean("is_google", false),
+            createdAt = createdAtStr
         )
     }
 
     fun parseSubscriptionStatus(json: JSONObject): SubscriptionStatus {
+        val target = json.optJSONObject("subscription") ?: json
+        fun optNullableString(key: String): String? {
+            val v = target.opt(key)
+            return if (v != null && v != JSONObject.NULL && v.toString().isNotBlank() && v.toString() != "null") v.toString() else null
+        }
+
         return SubscriptionStatus(
-            status = json.optString("status", "none"),
-            planCode = json.optString("plan_code").ifEmpty { null },
-            planName = json.optString("plan_name").ifEmpty { null },
-            expiresAt = json.optString("expires_at").ifEmpty { null },
-            secondsRemaining = json.optLong("seconds_remaining", 0L),
-            autoRenew = json.optBoolean("auto_renew", false),
-            trialAvailable = json.optBoolean("trial_available", false),
-            maxDevices = json.optInt("max_devices", 5),
-            activeDevices = json.optInt("active_devices", 1),
-            entitlement = json.optString("entitlement").ifEmpty { null },
-            serverTime = json.optString("server_time").ifEmpty { null },
+            status = target.optString("status", "none"),
+            planCode = optNullableString("plan_code"),
+            planName = optNullableString("plan_name"),
+            expiresAt = optNullableString("expires_at"),
+            secondsRemaining = target.optLong("seconds_remaining", 0L),
+            autoRenew = target.optBoolean("auto_renew", false),
+            trialAvailable = target.optBoolean("trial_available", false),
+            maxDevices = target.optInt("max_devices", 5),
+            activeDevices = target.optInt("active_devices", 1),
+            entitlement = optNullableString("entitlement"),
+            serverTime = optNullableString("server_time"),
             lastFetchedAt = System.currentTimeMillis()
         )
     }
 
     fun parseAuthResponse(json: JSONObject): AuthResponse {
-        val userObj = json.getJSONObject("user")
+        val userObj = json.optJSONObject("user") ?: json
         val subObj = json.optJSONObject("subscription")
         return AuthResponse(
-            access = json.getString("access"),
-            refresh = json.getString("refresh"),
+            access = json.optString("access", json.optString("access_token", "")),
+            refresh = json.optString("refresh", json.optString("refresh_token", "")),
             user = parseUserProfile(userObj),
             subscription = subObj?.let { parseSubscriptionStatus(it) }
         )
@@ -128,36 +148,58 @@ object ApiJsonParsers {
         val list = mutableListOf<ServerNode>()
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
+            val code = obj.optString("code", obj.optString("node_code", "default"))
             val cCode = obj.optString("country_code", "NL").uppercase()
-            val countryRu = obj.optString("country", when (cCode) {
-                "NL" -> "Нидерланды"
-                "DE" -> "Германия"
-                else -> "Глобальный"
-            })
-            val countryEn = obj.optString("country_en", when (cCode) {
-                "NL" -> "Netherlands"
-                "DE" -> "Germany"
-                else -> obj.optString("country", "Global")
-            })
-            val cityRu = obj.optString("city", when (cCode) {
-                "NL" -> "Амстердам"
-                "DE" -> "Франкфурт"
-                else -> ""
-            })
-            val cityEn = obj.optString("city_en", when (cCode) {
-                "NL" -> "Amsterdam"
-                "DE" -> "Frankfurt"
-                else -> cityRu
-            })
+            val flagEmoji = when (cCode) {
+                "NL" -> "🇳🇱"
+                "DE" -> "🇩🇪"
+                "US" -> "🇺🇸"
+                "FI" -> "🇫🇮"
+                "SE" -> "🇸🇪"
+                "GB" -> "🇬🇧"
+                else -> "🌐"
+            }
+            val countryRaw = obj.optString("country")
+            val countryRu = when {
+                countryRaw.isNotBlank() && countryRaw != "Unknown" -> countryRaw
+                cCode == "NL" -> "Нидерланды"
+                cCode == "DE" -> "Германия"
+                cCode == "US" -> "США"
+                else -> "Основной сервер"
+            }
+            val countryEn = when {
+                obj.optString("country_en").isNotBlank() -> obj.optString("country_en")
+                countryRaw.isNotBlank() && countryRaw != "Unknown" -> countryRaw
+                cCode == "NL" -> "Netherlands"
+                cCode == "DE" -> "Germany"
+                cCode == "US" -> "USA"
+                else -> "Main Server"
+            }
+            val cityRaw = obj.optString("city")
+            val cityRu = when {
+                cityRaw.isNotBlank() && cityRaw != "Unknown" -> cityRaw
+                cCode == "NL" -> "Амстердам"
+                cCode == "DE" -> "Франкфурт"
+                else -> "Европа"
+            }
+            val cityEn = when {
+                obj.optString("city_en").isNotBlank() -> obj.optString("city_en")
+                cityRaw.isNotBlank() && cityRaw != "Unknown" -> cityRaw
+                cCode == "NL" -> "Amsterdam"
+                cCode == "DE" -> "Frankfurt"
+                else -> "Europe"
+            }
+            val load = obj.optInt("load_pct", obj.optInt("load_percent", 15))
+
             list.add(
                 ServerNode(
-                    nodeCode = obj.getString("node_code"),
+                    nodeCode = code,
                     country = countryRu,
                     countryCode = cCode.lowercase(),
                     city = cityRu,
-                    flag = obj.optString("flag", "🌐"),
+                    flag = obj.optString("flag", flagEmoji),
                     pingMs = obj.optInt("ping_ms", 25),
-                    loadPercent = obj.optInt("load_percent", 35),
+                    loadPercent = if (load == 0) 18 else load,
                     isPremium = obj.optBoolean("is_premium", false),
                     countryEn = countryEn,
                     cityEn = cityEn
@@ -185,17 +227,33 @@ object ApiJsonParsers {
         )
     }
 
-    fun parseDevices(array: JSONArray): List<DeviceItem> {
+    fun parseDevices(array: JSONArray, currentInstallId: String? = null): List<DeviceItem> {
         val list = mutableListOf<DeviceItem>()
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
+            val idStr = obj.opt("id")?.toString() ?: i.toString()
+            val installId = obj.optString("install_id", "")
+            val rawModel = obj.optString("device_model")
+            val rawName = obj.optString("device_name")
+            val model = when {
+                rawModel.isNotBlank() && rawModel != "Unknown" -> rawModel
+                rawName.isNotBlank() -> rawName
+                else -> "Android Device"
+            }
+            val platform = obj.optString("platform", "Android")
+            val lastActive = obj.optString("last_seen_at", obj.optString("last_active", "Just now"))
+            val isCurrent = if (!currentInstallId.isNullOrBlank()) {
+                installId == currentInstallId
+            } else {
+                obj.optBoolean("is_current", obj.optBoolean("is_active", false))
+            }
             list.add(
                 DeviceItem(
-                    id = obj.getString("id"),
-                    deviceModel = obj.optString("device_model", "Android Device"),
-                    platform = obj.optString("platform", "Android"),
-                    lastActive = obj.optString("last_active", "Just now"),
-                    isCurrent = obj.optBoolean("is_current", false)
+                    id = idStr,
+                    deviceModel = model,
+                    platform = platform,
+                    lastActive = lastActive,
+                    isCurrent = isCurrent
                 )
             )
         }

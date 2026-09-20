@@ -167,9 +167,24 @@ class VpnManager private constructor(private val context: Context) {
                     apiClient.createVpnSession(targetServer.nodeCode)
                 } catch (e: Exception) {
                     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
-                    val prefix = if (isRu) "Не удалось получить конфигурацию сервера" else "Failed to get server configuration"
-                    val detail = e.message ?: if (isRu) "ошибка сети" else "network error"
-                    throw RuntimeException("$prefix ($detail)", e)
+                    val rawMsg = e.message ?: ""
+                    val msg = when {
+                        rawMsg.contains("NODE_PROVISIONING_NOT_CONFIGURED", ignoreCase = true) ||
+                        rawMsg.contains("not configured", ignoreCase = true) -> {
+                            if (isRu) "VPN-узлы сейчас настраиваются на сервере (VPN недоступен)"
+                            else "VPN nodes are currently being configured on server (VPN unavailable)"
+                        }
+                        rawMsg.contains("503") -> {
+                            if (isRu) "Сервис VPN временно недоступен (503 Service Unavailable)"
+                            else "VPN service temporarily unavailable (503)"
+                        }
+                        else -> {
+                            val prefix = if (isRu) "Не удалось получить конфигурацию сервера" else "Failed to get server configuration"
+                            val detail = if (rawMsg.isNotBlank()) rawMsg else if (isRu) "ошибка сети" else "network error"
+                            "$prefix ($detail)"
+                        }
+                    }
+                    throw RuntimeException(msg, e)
                 }
 
                 // 4. Start foreground Android VpnService
