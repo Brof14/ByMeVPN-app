@@ -64,34 +64,10 @@ class VpnManager private constructor(private val context: Context) {
     private val _state = MutableStateFlow(VpnConnectionState.DISCONNECTED)
     val state: StateFlow<VpnConnectionState> = _state.asStateFlow()
 
-    private val defaultServer = ServerNode(
-        nodeCode = "nl-ams-01",
-        country = "Нидерланды",
-        countryCode = "nl",
-        city = "Амстердам",
-        flag = "🇳🇱",
-        pingMs = 26,
-        loadPercent = 32,
-        countryEn = "Netherlands",
-        cityEn = "Amsterdam"
-    )
-    private val _currentServer = MutableStateFlow<ServerNode?>(defaultServer)
+    private val _currentServer = MutableStateFlow<ServerNode?>(null)
     val currentServer: StateFlow<ServerNode?> = _currentServer.asStateFlow()
 
-    private val _availableServers = MutableStateFlow<List<ServerNode>>(listOf(
-        defaultServer,
-        ServerNode(
-            nodeCode = "de-fra-01",
-            country = "Германия",
-            countryCode = "de",
-            city = "Франкфурт",
-            flag = "🇩🇪",
-            pingMs = 29,
-            loadPercent = 38,
-            countryEn = "Germany",
-            cityEn = "Frankfurt"
-        )
-    ))
+    private val _availableServers = MutableStateFlow<List<ServerNode>>(emptyList())
     val availableServers: StateFlow<List<ServerNode>> = _availableServers.asStateFlow()
 
     private val _errorMessage = MutableStateFlow<String?>(null)
@@ -177,12 +153,24 @@ class VpnManager private constructor(private val context: Context) {
                     val servers = apiClient.getServers()
                     _availableServers.value = servers
                     targetServer = servers.firstOrNull()
-                        ?: throw IllegalStateException("No servers available")
+                        ?: throw IllegalStateException(
+                            if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                                "Не удалось получить список серверов"
+                            else
+                                "No servers available"
+                        )
                     _currentServer.value = targetServer
                 }
 
                 // 3. Obtain VLESS+Reality session configuration from backend
-                val sessionConfig = apiClient.createVpnSession(targetServer.nodeCode)
+                val sessionConfig = try {
+                    apiClient.createVpnSession(targetServer.nodeCode)
+                } catch (e: Exception) {
+                    val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                    val prefix = if (isRu) "Не удалось получить конфигурацию сервера" else "Failed to get server configuration"
+                    val detail = e.message ?: if (isRu) "ошибка сети" else "network error"
+                    throw RuntimeException("$prefix ($detail)", e)
+                }
 
                 // 4. Start foreground Android VpnService
                 ByMeVpnService.start(
@@ -191,10 +179,13 @@ class VpnManager private constructor(private val context: Context) {
                     serverCountry = targetServer.country
                 )
 
-                // 5. Start Xray VPN engine
+                // 5. Start Xray VPN engine (will report BLOCKED if native engine is not compiled into build)
                 val engineResult = engine.startTunnel(sessionConfig)
                 if (engineResult.isFailure) {
-                    throw engineResult.exceptionOrNull() ?: RuntimeException("Failed to initialize VLESS tunnel")
+                    val ex = engineResult.exceptionOrNull()
+                    val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                    val msg = ex?.message ?: if (isRu) "VPN-движок недоступен в этой сборке" else "VPN engine unavailable in this build"
+                    throw RuntimeException(msg, ex)
                 }
 
                 _state.value = VpnConnectionState.CONNECTED
@@ -204,7 +195,7 @@ class VpnManager private constructor(private val context: Context) {
                 Log.e(TAG, "Connect failed: ${e.message}", e)
                 ByMeVpnService.stop(context)
                 _state.value = VpnConnectionState.ERROR
-                _errorMessage.value = e.localizedMessage ?: "Connection error"
+                _errorMessage.value = e.message ?: (if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Ошибка подключения" else "Connection error")
             }
         }
     }

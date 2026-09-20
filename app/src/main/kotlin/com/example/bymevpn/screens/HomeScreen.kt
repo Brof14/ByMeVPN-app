@@ -306,59 +306,89 @@ fun HomeScreen(
                     isSubError -> if (isRu) "Требуется активная подписка для подключения" else "Active subscription required to connect"
                     else -> errorMessage ?: ""
                 }
-                Row(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF2E0F14))
                         .border(1.2.dp, Color(0xFFFF5252), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(horizontal = 14.dp, vertical = 12.dp)
                 ) {
                     Row(
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⚠️", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (isRu) "Ошибка подключения" else "Connection Error",
+                                    color = Color(0xFFFF5252),
+                                    fontSize = 13.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = displayMsg,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    fontSize = 12.sp,
+                                    maxLines = 3
+                                )
+                            }
+                        }
+                        Text(
+                            text = "✕",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clickable { vpnManager.clearErrorMessage() }
+                                .padding(8.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("⚠️", fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
+                        if (isSubError) {
                             Text(
-                                text = if (isRu) "Ошибка подключения" else "Connection Error",
-                                color = Color(0xFFFF5252),
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.Bold
+                                text = if (isRu) "Оформить подписку →" else "Get Subscription →",
+                                color = Color(0xFF00D4FF),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clickable {
+                                    vpnManager.clearErrorMessage()
+                                    onNavigateToAccount()
+                                }
                             )
-                            Text(
-                                text = displayMsg,
-                                color = Color.White.copy(alpha = 0.9f),
-                                fontSize = 12.sp,
-                                maxLines = 3
-                            )
-                            if (isSubError) {
-                                Spacer(modifier = Modifier.height(4.dp))
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF162A4E))
+                                    .clickable {
+                                        vpnManager.clearErrorMessage()
+                                        vpnManager.connect()
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
                                 Text(
-                                    text = if (isRu) "Оформить подписку →" else "Get Subscription →",
+                                    text = if (isRu) "↻ Повторить" else "↻ Retry",
                                     color = Color(0xFF00D4FF),
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.clickable {
-                                        vpnManager.clearErrorMessage()
-                                        onNavigateToAccount()
-                                    }
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
                     }
-                    Text(
-                        text = "✕",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier
-                            .clickable { vpnManager.clearErrorMessage() }
-                            .padding(8.dp)
-                    )
                 }
                 Spacer(modifier = Modifier.height(14.dp))
             }
@@ -487,6 +517,8 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(18.dp))
 
             // Status indicator label (NO technical VLESS / Reality mentioned)
+            val isEngineBlocked = errorMessage?.contains("VPN-движок недоступен", ignoreCase = true) == true ||
+                errorMessage?.contains("VPN engine unavailable", ignoreCase = true) == true
             val statusColor = when {
                 isConnected -> Color(0xFF26E875)
                 isConnecting -> Color(0xFF00D4FF)
@@ -496,7 +528,13 @@ fun HomeScreen(
             val statusText = when {
                 isConnected -> if (isRu) "ЗАЩИТА ВКЛЮЧЕНА" else "PROTECTED"
                 isConnecting -> if (isRu) "ПОДКЛЮЧЕНИЕ..." else "CONNECTING..."
-                vpnState == VpnConnectionState.ERROR -> if (isRu) "ОШИБКА ПОДКЛЮЧЕНИЯ" else "CONNECTION ERROR"
+                vpnState == VpnConnectionState.ERROR -> {
+                    if (isEngineBlocked) {
+                        if (isRu) "ДВИЖОК НЕДОСТУПЕН" else "ENGINE UNAVAILABLE"
+                    } else {
+                        if (isRu) "ОШИБКА ПОДКЛЮЧЕНИЯ" else "CONNECTION ERROR"
+                    }
+                }
                 else -> if (isRu) "ОТКЛЮЧЕНО" else "DISCONNECTED"
             }
 
@@ -523,6 +561,7 @@ fun HomeScreen(
             val tapHint = when {
                 isConnected -> if (isRu) "Нажмите на логотип для отключения" else "Tap logo to disconnect"
                 isConnecting -> if (isRu) "Устанавливаем безопасное соединение..." else "Securing connection..."
+                vpnState == VpnConnectionState.ERROR -> if (isRu) "Нажмите на логотип для повторной попытки" else "Tap logo to retry"
                 else -> if (isRu) "Нажмите на логотип для включения" else "Tap logo to connect"
             }
             Text(
@@ -593,7 +632,7 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(text = server?.flag ?: "🇳🇱", fontSize = 26.sp)
+                        Text(text = server?.flag ?: "🌐", fontSize = 26.sp)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
@@ -606,7 +645,7 @@ fun HomeScreen(
                                 text = if (server != null) {
                                     "${server.localizedCountry(isRu)} (${server.localizedCity(isRu)})"
                                 } else {
-                                    if (isRu) "Нидерланды (Амстердам)" else "Netherlands (Amsterdam)"
+                                    if (isRu) "Сервер не выбран" else "No server selected"
                                 },
                                 color = Color.White,
                                 fontSize = 15.sp,
