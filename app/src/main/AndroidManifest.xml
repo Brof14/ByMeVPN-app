@@ -48,6 +48,18 @@
             </intent-filter>
         </service>
 
+        <!-- Quick Settings Tile for 1-tap notification pull-down toggle -->
+        <service
+            android:name=".vpn.ByMeVpnTileService"
+            android:icon="@mipmap/ic_launcher"
+            android:label="ByMeVPN"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".vpn.BootReceiver"
             android:enabled="true"

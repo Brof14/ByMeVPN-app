@@ -106,60 +106,104 @@ object XrayConfigGenerator {
         // Main proxy outbound
         val proxyOutbound = JSONObject().apply {
             put("tag", "proxy")
-            put("protocol", "vless")
+            val proto = config.protocol.lowercase()
 
-            // Settings: vnext destination
-            val usersArray = JSONArray().apply {
-                put(JSONObject().apply {
-                    put("id", config.uuid)
-                    put("encryption", config.encryption.ifEmpty { "none" })
-                    put("flow", config.flow.ifEmpty { "xtls-rprx-vision" })
-                })
-            }
-
-            val vnextArray = JSONArray().apply {
-                put(JSONObject().apply {
+            if (proto == "hysteria2" || proto == "hy2") {
+                put("protocol", "hysteria2")
+                val serverObj = JSONObject().apply {
                     put("address", config.server)
                     put("port", config.port)
-                    put("users", usersArray)
+                    put("password", config.uuid)
+                }
+                val serversArr = JSONArray().apply { put(serverObj) }
+                put("settings", JSONObject().apply {
+                    put("servers", serversArr)
                 })
-            }
 
-            put("settings", JSONObject().apply {
-                put("vnext", vnextArray)
-            })
-
-            // StreamSettings: TLS / Reality
-            val streamSettings = JSONObject().apply {
-                put("network", config.network.ifEmpty { "tcp" })
-                val sec = config.security.lowercase()
-                put("security", sec)
-
-                if (sec == "reality") {
-                    val realitySettings = JSONObject().apply {
-                        put("show", false)
-                        put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                        put("serverName", config.serverName)
-                        put("publicKey", config.publicKey)
-                        put("shortId", config.shortId)
-                        put("spiderX", "")
-                    }
-                    put("realitySettings", realitySettings)
-                } else if (sec == "tls") {
+                val streamSettings = JSONObject().apply {
+                    put("network", "udp")
+                    put("security", "tls")
                     val tlsSettings = JSONObject().apply {
                         put("serverName", config.serverName)
-                        put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
+                        put("fingerprint", config.fingerprint.ifEmpty { "firefox" })
                         put("allowInsecure", true)
-                        val alpnArray = JSONArray()
-                        alpnArray.put("h2")
-                        alpnArray.put("http/1.1")
-                        put("alpn", alpnArray)
+                        val alpn = JSONArray().apply { put("h3") }
+                        put("alpn", alpn)
                     }
                     put("tlsSettings", tlsSettings)
-                }
-            }
 
-            put("streamSettings", streamSettings)
+                    // Obfs if configured
+                    if (config.encryption.isNotBlank()) {
+                        val hysteriaSettings = JSONObject().apply {
+                            put("obfs", JSONObject().apply {
+                                put("type", config.encryption)
+                                put("password", config.flow)
+                            })
+                        }
+                        put("hysteria2Settings", hysteriaSettings)
+                    }
+                }
+                put("streamSettings", streamSettings)
+
+            } else {
+                // Default: VLESS
+                put("protocol", "vless")
+
+                // Settings: vnext destination
+                val usersArray = JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("id", config.uuid)
+                        put("encryption", config.encryption.ifEmpty { "none" })
+                        if (config.flow.isNotBlank() && !config.flow.contains("kw54")) {
+                            put("flow", config.flow)
+                        }
+                    })
+                }
+
+                val vnextArray = JSONArray().apply {
+                    put(JSONObject().apply {
+                        put("address", config.server)
+                        put("port", config.port)
+                        put("users", usersArray)
+                    })
+                }
+
+                put("settings", JSONObject().apply {
+                    put("vnext", vnextArray)
+                })
+
+                // StreamSettings: TLS / Reality
+                val streamSettings = JSONObject().apply {
+                    put("network", config.network.ifEmpty { "tcp" })
+                    val sec = config.security.lowercase()
+                    put("security", sec)
+
+                    if (sec == "reality") {
+                        val realitySettings = JSONObject().apply {
+                            put("show", false)
+                            put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
+                            put("serverName", config.serverName)
+                            put("publicKey", config.publicKey)
+                            put("shortId", config.shortId)
+                            put("spiderX", "")
+                        }
+                        put("realitySettings", realitySettings)
+                    } else if (sec == "tls") {
+                        val tlsSettings = JSONObject().apply {
+                            put("serverName", config.serverName)
+                            put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
+                            put("allowInsecure", true)
+                            val alpnArray = JSONArray()
+                            alpnArray.put("h2")
+                            alpnArray.put("http/1.1")
+                            put("alpn", alpnArray)
+                        }
+                        put("tlsSettings", tlsSettings)
+                    }
+                }
+
+                put("streamSettings", streamSettings)
+            }
         }
         outboundsArray.put(proxyOutbound)
 

@@ -713,6 +713,25 @@ fun HomeScreen(
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
+                                text = "⚡ Авто",
+                                color = Color(0xFF26E875),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF162A4E))
+                                    .clickable {
+                                        scope.launch {
+                                            val fastest = vpnManager.autoSelectFastestServer()
+                                            if (fastest != null) {
+                                                showServerPicker = false
+                                            }
+                                        }
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
                                 text = "↻",
                                 color = Color(0xFF00D4FF),
                                 fontSize = 20.sp,

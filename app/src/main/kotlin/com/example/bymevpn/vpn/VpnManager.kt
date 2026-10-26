@@ -97,6 +97,35 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
+    suspend fun autoSelectFastestServer(): ServerNode? = withContext(Dispatchers.IO) {
+        val servers = _availableServers.value
+        if (servers.isEmpty()) return@withContext null
+
+        val storage = SecureTokenStorage.getInstance(context)
+        var bestNode: ServerNode? = null
+        var lowestPing = Int.MAX_VALUE
+
+        servers.forEach { node ->
+            val cfg = storage.getServerConfig(node.nodeCode)
+            val ping = if (cfg != null) {
+                com.example.bymevpn.data.PingTester.measureRealPing(cfg.server, cfg.port)
+            } else {
+                -1
+            }
+
+            if (ping in 1 until lowestPing) {
+                lowestPing = ping
+                bestNode = node
+            }
+        }
+
+        bestNode?.also {
+            withContext(Dispatchers.Main) {
+                selectServer(it)
+            }
+        } ?: servers.firstOrNull()
+    }
+
     suspend fun loadServers(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
         try {
             val subUrl = storage.getSubscriptionUrl()

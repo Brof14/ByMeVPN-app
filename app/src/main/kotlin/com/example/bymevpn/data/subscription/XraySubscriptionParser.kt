@@ -43,6 +43,14 @@ object XraySubscriptionParser {
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to parse vless link at line $index: ${e.message}")
                 }
+            } else if (line.startsWith("hysteria2://", ignoreCase = true) || line.startsWith("hy2://", ignoreCase = true)) {
+                try {
+                    val (serverNode, sessionConfig) = parseHysteria2Uri(line, index)
+                    serverList.add(serverNode)
+                    configMap[serverNode.nodeCode] = sessionConfig
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to parse hysteria2 link at line $index: ${e.message}")
+                }
             }
         }
 
@@ -79,17 +87,87 @@ object XraySubscriptionParser {
 
     private fun decodeContent(raw: String): String {
         val trimmed = raw.trim()
-        if (trimmed.startsWith("vless://", ignoreCase = true)) {
+        if (trimmed.startsWith("vless://", ignoreCase = true) ||
+            trimmed.startsWith("hysteria2://", ignoreCase = true) ||
+            trimmed.startsWith("hy2://", ignoreCase = true)) {
             return trimmed
         }
         val clean = trimmed.replace("\\s".toRegex(), "")
         return try {
             val bytes = Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
             val decoded = String(bytes, Charsets.UTF_8)
-            if (decoded.contains("vless://", ignoreCase = true)) decoded else trimmed
+            if (decoded.contains("vless://", ignoreCase = true) || decoded.contains("hysteria2://", ignoreCase = true)) decoded else trimmed
         } catch (e: Exception) {
             trimmed
         }
+    }
+
+    private fun parseHysteria2Uri(uriString: String, index: Int): Pair<ServerNode, VpnSessionConfig> {
+        val cleanUri = uriString.removePrefix("hysteria2://").removePrefix("hy2://")
+        val hashSplit = cleanUri.split("#", limit = 2)
+        val mainPart = hashSplit[0]
+        val rawRemark = if (hashSplit.size > 1) hashSplit[1] else "Hysteria 2 - Server ${index + 1}"
+        val remark = try { URLDecoder.decode(rawRemark, "UTF-8") } catch (e: Exception) { rawRemark }
+
+        val atSplit = mainPart.split("@", limit = 2)
+        val password = atSplit[0]
+        val hostAndRest = atSplit[1]
+
+        val questionSplit = hostAndRest.split("?", limit = 2)
+        val hostPortPart = questionSplit[0]
+        val queryString = if (questionSplit.size > 1) questionSplit[1] else ""
+
+        val hpSplit = hostPortPart.split(":")
+        val host = hpSplit[0]
+        val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
+
+        val queryParams = mutableMapOf<String, String>()
+        if (queryString.isNotEmpty()) {
+            queryString.split("&").forEach { param ->
+                val kv = param.split("=", limit = 2)
+                val key = kv[0].lowercase()
+                val value = if (kv.size > 1) {
+                    try { URLDecoder.decode(kv[1], "UTF-8") } catch (e: Exception) { kv[1] }
+                } else ""
+                queryParams[key] = value
+            }
+        }
+
+        val sni = queryParams["sni"] ?: host
+        val obfs = queryParams["obfs"] ?: ""
+        val obfsPassword = queryParams["obfs-password"] ?: ""
+        val nodeCode = "node_${index}_hy2_${host.replace(".", "_")}_$port"
+        val (country, countryCode, flag) = detectLocation(remark)
+
+        val serverNode = ServerNode(
+            nodeCode = nodeCode,
+            country = country,
+            countryCode = countryCode,
+            city = remark,
+            flag = flag,
+            pingMs = -1,
+            loadPercent = 0,
+            isPremium = false,
+            countryEn = country,
+            cityEn = remark
+        )
+
+        val config = VpnSessionConfig(
+            protocol = "hysteria2",
+            server = host,
+            port = port,
+            uuid = password,
+            encryption = obfs,
+            flow = obfsPassword,
+            security = "tls",
+            serverName = sni,
+            publicKey = "",
+            shortId = "",
+            fingerprint = queryParams["fp"] ?: "firefox",
+            network = "udp"
+        )
+
+        return Pair(serverNode, config)
     }
 
     private fun parseVlessUri(uriString: String, index: Int): Pair<ServerNode, VpnSessionConfig> {
