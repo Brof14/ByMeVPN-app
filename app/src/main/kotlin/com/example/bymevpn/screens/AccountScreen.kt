@@ -80,6 +80,9 @@ fun AccountScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
 
+    val totalDevices = userDevices.size.coerceAtLeast(1)
+    val maxDevices = subscription?.maxDevices ?: 5
+
     var showTariffModal by remember { mutableStateOf(false) }
     var showEditSubDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -284,8 +287,6 @@ fun AccountScreen(
 
                     Spacer(modifier = Modifier.width(18.dp))
 
-                    val totalDevices = userDevices.size.coerceAtLeast(1)
-                    val maxDevices = subscription?.maxDevices ?: 5
                     val expiresText = if (isSubActive) {
                         if (!subscription?.expiresAt.isNullOrBlank()) {
                             if (isRu) "Действует до ${subscription?.expiresAt}" else "Valid until ${subscription?.expiresAt}"
