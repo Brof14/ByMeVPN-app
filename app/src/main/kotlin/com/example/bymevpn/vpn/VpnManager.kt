@@ -7,6 +7,7 @@ import android.util.Log
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.settings.SettingsRepository
+import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
@@ -100,17 +101,7 @@ class VpnManager private constructor(private val context: Context) {
         try {
             val subUrl = storage.getSubscriptionUrl()
             if (!subUrl.isNullOrBlank()) {
-                val subResult = subscriptionManager.refreshStatus()
-                if (subResult.isSuccess) {
-                    val status = subResult.getOrNull()
-                    // If cached custom servers exist, populate available servers
-                }
-            }
-
-            // Check if we have subscription servers
-            val customUrl = storage.getSubscriptionUrl()
-            if (!customUrl.isNullOrBlank()) {
-                val parsed = subscriptionManager.applySubscriptionUrl(customUrl).getOrNull()
+                val parsed = subscriptionManager.applySubscriptionUrl(subUrl).getOrNull()
                 if (parsed != null && parsed.servers.isNotEmpty()) {
                     _availableServers.value = parsed.servers
                     if (_currentServer.value == null) {
