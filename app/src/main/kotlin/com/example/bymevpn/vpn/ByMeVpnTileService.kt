@@ -37,7 +37,7 @@ class ByMeVpnTileService : TileService() {
                 vpnManager.disconnect()
                 updateTileState(Tile.STATE_INACTIVE)
             }
-            VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR -> {
+            VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR, VpnConnectionState.DISCONNECTING -> {
                 if (VpnManager.isVpnPrepared(applicationContext)) {
                     VpnManager.startVpn(applicationContext)
                     updateTileState(Tile.STATE_ACTIVE)

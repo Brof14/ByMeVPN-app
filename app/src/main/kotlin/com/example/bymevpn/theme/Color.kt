@@ -26,12 +26,14 @@ object AppColors {
     val BrandGreenDark = Color(0xFF158241)
     val ElectricBlue = Color(0xFF0062FF)
     val SkyBlue = Color(0xFF00ACFF)
+    val BrandBlue = Color(0xFF0062FF)
     val Cyan = Color(0xFF00FFA2)
 
     // Neutrals & Typography
     val White = Color(0xFFFFFFFF)
     val TextPrimary = Color(0xFFFFFFFF)
     val TextSecondary = Color(0xFF8B9FA8)
+    val SloganGrey = Color(0xFF8B9FA8)
     val TextMuted = Color(0xFF566B74)
     val DarkText = Color(0xFF04150A)
 
