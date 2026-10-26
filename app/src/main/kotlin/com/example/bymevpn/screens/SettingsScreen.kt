@@ -90,6 +90,8 @@ fun SettingsScreen(
 
     var showAppPicker by remember { mutableStateOf(false) }
     var showFaqDialog by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showTermsDialog by remember { mutableStateOf(false) }
 
     val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
     var isIgnoringBattery by remember {
@@ -544,6 +546,88 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
+            // SECTION: Legal & Compliance (Google Play Mandatory)
+            SettingsSectionTitle(text = if (isRu) "Правовая информация и приватность" else "Legal & Privacy")
+            SettingsCard {
+                // Privacy Policy
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showPrivacyDialog = true }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(AppColors.CardBgElevated),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🔒", fontSize = 16.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (isRu) "Политика конфиденциальности" else "Privacy Policy",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (isRu) "Строгая политика Zero-Logs и шифрование" else "Strict Zero-Logs policy & encryption",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+                    Text("→", color = AppColors.BrandGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+
+                SettingsDivider()
+
+                // Terms of Service
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showTermsDialog = true }
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(AppColors.CardBgElevated),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("📜", fontSize = 16.sp)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = if (isRu) "Условия использования" else "Terms of Service",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = if (isRu) "Правила сервиса, возврат средств и лимиты" else "Terms of use, refunds & device limits",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+                    Text("→", color = AppColors.BrandGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
             // SECTION 6: Brand / Version (Figma Screen 09)
             SettingsCard {
                 Row(
@@ -584,6 +668,20 @@ fun SettingsScreen(
 
     if (showFaqDialog) {
         FaqDialog(onDismiss = { showFaqDialog = false })
+    }
+
+    if (showPrivacyDialog) {
+        com.example.bymevpn.components.PrivacyPolicyDialog(
+            isRussian = isRu,
+            onDismiss = { showPrivacyDialog = false }
+        )
+    }
+
+    if (showTermsDialog) {
+        com.example.bymevpn.components.TermsOfServiceDialog(
+            isRussian = isRu,
+            onDismiss = { showTermsDialog = false }
+        )
     }
 
     if (showAppPicker) {

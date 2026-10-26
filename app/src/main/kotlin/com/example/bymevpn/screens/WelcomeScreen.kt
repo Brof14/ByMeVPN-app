@@ -87,6 +87,8 @@ fun WelcomeScreen(
     var isGoogleLoading by remember { mutableStateOf(false) }
     var authError by remember { mutableStateOf<String?>(null) }
     var showPaywall by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
+    var showTermsDialog by remember { mutableStateOf(false) }
 
     var subInputUrl by remember { mutableStateOf("") }
     var isSubLoading by remember { mutableStateOf(false) }
@@ -478,6 +480,31 @@ fun WelcomeScreen(
                         openTelegramBot(context, null)
                     }
                 )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isRu) "Условия использования" else "Terms of Service",
+                        color = AppColors.TextMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.clickable { showTermsDialog = true }
+                    )
+                    Text(
+                        text = " • ",
+                        color = AppColors.TextMuted,
+                        fontSize = 11.sp
+                    )
+                    Text(
+                        text = if (isRu) "Конфиденциальность" else "Privacy Policy",
+                        color = AppColors.TextMuted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.clickable { showPrivacyDialog = true }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -494,6 +521,20 @@ fun WelcomeScreen(
                 showPaywall = false
                 onLoginSuccess()
             }
+        )
+    }
+
+    if (showPrivacyDialog) {
+        com.example.bymevpn.components.PrivacyPolicyDialog(
+            isRussian = isRu,
+            onDismiss = { showPrivacyDialog = false }
+        )
+    }
+
+    if (showTermsDialog) {
+        com.example.bymevpn.components.TermsOfServiceDialog(
+            isRussian = isRu,
+            onDismiss = { showTermsDialog = false }
         )
     }
 }

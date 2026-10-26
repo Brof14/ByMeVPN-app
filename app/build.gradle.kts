@@ -16,9 +16,24 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val keystoreFile = file("bymevpn-upload.jks")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "bymevpn2026"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "bymevpn"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "bymevpn2026"
+            } else {
+                initWith(getByName("debug"))
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

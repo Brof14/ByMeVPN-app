@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Политика конфиденциальности — ByMeVPN</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0b0f12;
+            color: #d1d5db;
+            line-height: 1.6;
+            margin: 0;
+            padding: 24px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #12181d;
+            padding: 36px;
+            border-radius: 16px;
+            border: 1px solid #1f2937;
+        }
+        h1, h2, h3 {
+            color: #ffffff;
+        }
+        h1 {
+            border-bottom: 2px solid #00e676;
+            padding-bottom: 12px;
+            font-size: 26px;
+        }
+        h2 {
+            margin-top: 28px;
+            color: #00e676;
+            font-size: 19px;
+        }
+        ul {
+            padding-left: 20px;
+        }
+        li {
+            margin-bottom: 8px;
+        }
+        .badge {
+            background-color: #00e676;
+            color: #05140d;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 13px;
+            display: inline-block;
+            margin-bottom: 16px;
+        }
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        footer {
+            margin-top: 36px;
+            font-size: 13px;
+            color: #9ca3af;
+            border-top: 1px solid #1f2937;
+            padding-top: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="badge">Strict Zero-Logs Guarantee</span>
+        <h1>Политика конфиденциальности сервиса ByMeVPN</h1>
+        <p><strong>Дата вступления в силу:</strong> 27 октября 2026 г.</p>
+
+        <p>Настоящая Политика конфиденциальности описывает, как <strong>ByMeVPN</strong> («мы», «наш» или «сервис») обеспечивает защиту конфиденциальности пользователей приложения для Android и сопутствующих сервисов в строгом соответствии с требованиями Google Play.</p>
+
+        <h2>1. Строгая политика отсутствия логов (Zero-Logs Policy)</h2>
+        <p>Основным принципом работы ByMeVPN является абсолютная анонимность. Мы придерживаемся строгой политики Zero-Logs:</p>
+        <ul>
+            <li><strong>Мы НЕ регистрируем</strong> ваши реальные исходящие или входящие IP-адреса.</li>
+            <li><strong>Мы НЕ отслеживаем и НЕ записываем</strong> историю посещенных веб-сайтов, URL-адресов и поисковых запросов.</li>
+            <li><strong>Мы НЕ сохраняем</strong> DNS-запросы (используются защищенные DNS-серверы AdGuard и Cloudflare).</li>
+            <li><strong>Мы НЕ инспектируем</strong> полезную нагрузку и содержимое передаваемого трафика.</li>
+            <li><strong>Мы НЕ связываем</strong> сетевую активность с конкретным аккаунтом или пользователем.</li>
+        </ul>
+
+        <h2>2. Использование Android VpnService</h2>
+        <p>ByMeVPN использует платформенный API <code>android.net.VpnService</code> исключительно для выполнения своей основной функции:</p>
+        <ul>
+            <li>Создание защищенного сквозного сетевого туннеля от клиентского устройства к выбранному серверу ByMeVPN.</li>
+            <li>Шифрование всего пользовательского трафика с использованием современных протоколов VLESS Reality, XTLS и TLS 1.3 для защиты данных в публичных сетях Wi-Fi.</li>
+            <li>VpnService не используется для сбора аналитики, профилирования пользователей, показа таргетированной рекламы или перенаправления пользовательского трафика в сторонние монетизационные сети.</li>
+        </ul>
+
+        <h2>3. Обрабатываемые пользовательские данные</h2>
+        <p>Мы собираем исключительно минимальный объем технической информации, необходимой для аутентификации и функционирования подписки:</p>
+        <ul>
+            <li><strong>Данные учетной записи:</strong> адрес электронной почты или Google Account ID (при авторизации через Google Sign-In) для идентификации пользователя и синхронизации статуса подписки.</li>
+            <li><strong>Счетчик активных устройств:</strong> анонимизированные идентификаторы сессий для соблюдения лимита (до 5 устройств на одну подписку).</li>
+            <li><strong>Платежная информация:</strong> платежи обрабатываются внешними сертифицированными операторами (ЮKassa, Банк, Google Play). ByMeVPN не получает и не хранит номера банковских карт или CVC-коды.</li>
+        </ul>
+
+        <h2>4. Удаление аккаунта и данных (Google Play Requirement)</h2>
+        <p>Каждый пользователь имеет право на полное удаление своей учетной записи и всех сопутствующих данных:</p>
+        <ul>
+            <li><strong>Внутри приложения:</strong> перейдите во вкладку <em>«Аккаунт» → «Удалить аккаунт и данные»</em> и подтвердите действие.</li>
+            <li><strong>Через веб-форму:</strong> отправьте запрос на странице <a href="delete-account.html">bymevpn.com/delete-account</a> или напишите в Telegram-бота поддержки <a href="https://t.me/ByMeVPNSupportBot">@ByMeVPNSupportBot</a>.</li>
+        </ul>
+        <p>После подтверждения все учетные данные, привязанные токены и конфигурации безвозвратно удаляются в течение 24 часов.</p>
+
+        <h2>5. Контакты службы поддержки</h2>
+        <p>Если у вас возникли вопросы относительно политики конфиденциальности или обработки данных:</p>
+        <ul>
+            <li>Telegram-бот поддержки: <a href="https://t.me/ByMeVPNSupportBot">@ByMeVPNSupportBot</a></li>
+            <li>Официальный канал: <a href="https://t.me/ByMeVPN">@ByMeVPN</a></li>
+            <li>Веб-сайт: <a href="https://bymevpn.com">https://bymevpn.com</a></li>
+        </ul>
+
+        <footer>
+            &copy; 2026 ByMeVPN. Все права защищены. Соответствует правилам Google Play Developer Program Policies.
+        </footer>
+    </div>
+</body>
+</html>

@@ -326,4 +326,14 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove("pending_payment_time")
             .apply()
     }
+
+    fun isVpnDisclosureAccepted(): Boolean = prefs.getBoolean("vpn_prominent_disclosure_accepted", false)
+
+    fun setVpnDisclosureAccepted(accepted: Boolean) {
+        prefs.edit().putBoolean("vpn_prominent_disclosure_accepted", accepted).apply()
+    }
+
+    fun clearAllUserData() {
+        prefs.edit().clear().apply()
+    }
 }

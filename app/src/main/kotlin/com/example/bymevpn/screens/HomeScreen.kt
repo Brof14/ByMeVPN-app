@@ -121,6 +121,8 @@ fun HomeScreen(
 
     var showServerPicker by remember { mutableStateOf(false) }
     var showPaywall by remember { mutableStateOf(false) }
+    var showVpnDisclosure by remember { mutableStateOf(false) }
+    var showPrivacyDialog by remember { mutableStateOf(false) }
     var measuredPings by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var isMeasuringPing by remember { mutableStateOf(false) }
     var serverSearchQuery by remember { mutableStateOf("") }
@@ -573,6 +575,10 @@ fun HomeScreen(
                             } else {
                                 if (!subManager.canConnect() && storage.getCachedSubscription()?.isUsable != true) {
                                     showPaywall = true
+                                    return@clickable
+                                }
+                                if (!storage.isVpnDisclosureAccepted()) {
+                                    showVpnDisclosure = true
                                     return@clickable
                                 }
                                 val prepIntent = VpnManager.getVpnPrepareIntent(context)
@@ -1159,6 +1165,35 @@ fun HomeScreen(
                     vpnManager.loadServers()
                 }
             }
+        )
+    }
+
+    if (showVpnDisclosure) {
+        com.example.bymevpn.components.VpnDisclosureDialog(
+            isRussian = isRu,
+            onAccept = {
+                storage.setVpnDisclosureAccepted(true)
+                showVpnDisclosure = false
+                val prepIntent = VpnManager.getVpnPrepareIntent(context)
+                if (prepIntent != null) {
+                    vpnPrepareLauncher.launch(prepIntent)
+                } else {
+                    VpnManager.startVpn(context)
+                }
+            },
+            onDecline = {
+                showVpnDisclosure = false
+            },
+            onOpenPrivacyPolicy = {
+                showPrivacyDialog = true
+            }
+        )
+    }
+
+    if (showPrivacyDialog) {
+        com.example.bymevpn.components.PrivacyPolicyDialog(
+            isRussian = isRu,
+            onDismiss = { showPrivacyDialog = false }
         )
     }
 }

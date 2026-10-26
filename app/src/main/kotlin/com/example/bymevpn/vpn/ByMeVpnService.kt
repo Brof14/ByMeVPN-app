@@ -107,11 +107,17 @@ class ByMeVpnService : VpnService() {
                     text = "VLESS + Reality: $serverName"
                 )
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     startForeground(
                         NOTIFICATION_ID,
                         notif,
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                    )
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        notif,
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
                     )
                 } else {
                     startForeground(NOTIFICATION_ID, notif)
@@ -236,7 +242,15 @@ class ByMeVpnService : VpnService() {
             }
 
             tunInterface?.close()
-            builder.establish()
+            val fd = builder.establish()
+            if (fd != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    setUnderlyingNetworks(null)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to set underlying networks: ${e.message}")
+                }
+            }
+            fd
         } catch (e: Exception) {
             Log.e(TAG, "Failed to establish TUN interface: ${e.message}", e)
             null

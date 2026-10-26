@@ -613,6 +613,27 @@ fun AccountScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Google Play Mandatory Account & Data Deletion
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color(0xFF221111))
+                    .border(1.dp, AppColors.StatusError.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+                    .clickable { showDeleteConfirmDialog = true },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isRu) "Удалить аккаунт и данные" else "Delete Account & Data",
+                    color = AppColors.StatusError,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
@@ -786,6 +807,108 @@ fun AccountScreen(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Google Play Mandatory Account & Data Deletion Confirmation Dialog
+    if (showDeleteConfirmDialog) {
+        Dialog(onDismissRequest = { if (!isDeleting) showDeleteConfirmDialog = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.StatusError.copy(alpha = 0.6f), RoundedCornerShape(24.dp))
+                    .padding(22.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("⚠️", fontSize = 22.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isRu) "Удаление аккаунта" else "Delete Account",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = if (isRu)
+                            "Вы действительно хотите безвозвратно удалить свой аккаунт ByMeVPN и все связанные данные?\n\n• Будут удалены все токены и данные профиля.\n• Все 5 слотов устройств будут освобождены.\n• Локальные VPN-конфигурации будут стёрты.\n\nВ соответствии с правилами Google Play, вы также можете отправить запрос на удаление данных на сайте bymevpn.com/delete-account."
+                        else
+                            "Are you sure you want to permanently delete your ByMeVPN account and all associated data?\n\n• All tokens and profile data will be deleted.\n• All registered devices will be disconnected.\n• Local VPN configurations will be erased.\n\nPer Google Play policy, you can also submit an account deletion request at bymevpn.com/delete-account.",
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AppColors.InputBg)
+                                .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
+                                .clickable(enabled = !isDeleting) { showDeleteConfirmDialog = false },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isRu) "Отмена" else "Cancel",
+                                color = AppColors.TextSecondary,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1.3f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AppColors.StatusError)
+                                .clickable(enabled = !isDeleting) {
+                                    scope.launch {
+                                        isDeleting = true
+                                        try {
+                                            VpnManager.getInstance(context).disconnect()
+                                            storage.clearAllUserData()
+                                            AccountRepository.logout(context)
+                                        } finally {
+                                            isDeleting = false
+                                            showDeleteConfirmDialog = false
+                                            onLogOut()
+                                        }
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isDeleting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = if (isRu) "Удалить навсегда" else "Delete Permanently",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }

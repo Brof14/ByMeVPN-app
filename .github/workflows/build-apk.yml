@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android Release & Debug
 
 on:
   push:
@@ -25,16 +25,40 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew || true
 
-    - name: Build Debug APK
+    - name: Ensure Upload Keystore
       run: |
-        if [ -f "gradlew" ]; then
-          ./gradlew assembleDebug
-        else
-          gradle assembleDebug
+        if [ ! -f "app/bymevpn-upload.jks" ]; then
+          keytool -genkeypair -v -keystore app/bymevpn-upload.jks -alias bymevpn -keyalg RSA -keysize 2048 -validity 10000 -storepass bymevpn2026 -keypass bymevpn2026 -dname "CN=ByMeVPN, OU=Mobile, O=ByMeVPN, L=Amsterdam, ST=NH, C=NL"
         fi
 
-    - name: Upload Debug APK
+    - name: Build Google Play App Bundle (AAB) & Release APK
+      run: |
+        if [ -f "gradlew" ]; then
+          ./gradlew bundleRelease assembleRelease assembleDebug
+        else
+          gradle bundleRelease assembleRelease assembleDebug
+        fi
+
+    - name: Upload Google Play Release Bundle (.aab)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ByMeVPN-googleplay-bundle
+        path: app/build/outputs/bundle/release/app-release.aab
+
+    - name: Upload Release APK (.apk)
+      uses: actions/upload-artifact@v4
+      with:
+        name: ByMeVPN-release-apk
+        path: app/build/outputs/apk/release/app-release.apk
+
+    - name: Upload Debug APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-debug-apk
         path: app/build/outputs/apk/debug/app-debug.apk
+
+    - name: Upload Keystore Backup
+      uses: actions/upload-artifact@v4
+      with:
+        name: ByMeVPN-upload-keystore
+        path: app/bymevpn-upload.jks
