@@ -39,6 +39,8 @@ import kotlin.math.sin
 fun LiveSpeedWave(
     bytesIn: Long,
     bytesOut: Long,
+    downloadBps: Long = 0L,
+    uploadBps: Long = 0L,
     isConnected: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -47,15 +49,16 @@ fun LiveSpeedWave(
         initialValue = 0f,
         targetValue = 6.28318f, // 2*PI
         animationSpec = infiniteRepeatable(
-            animation = tween(if (isConnected) 1800 else 6000, easing = FastOutSlowInEasing),
+            animation = tween(if (isConnected) 1600 else 6000, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Restart
         ),
         label = "phase_anim"
     )
 
-    // Calculate approximate speed in MB or dynamic readable rate
-    val downSpeedStr = formatSpeed(bytesIn, isConnected)
-    val upSpeedStr = formatSpeed(bytesOut, isConnected)
+    // Formatted bitrate and total volume
+    val downBitrateStr = if (downloadBps > 0) formatBitrate(downloadBps) else formatVolume(bytesIn, isConnected)
+    val upBitrateStr = if (uploadBps > 0) formatBitrate(uploadBps) else formatVolume(bytesOut, isConnected)
+    val totalVolumeStr = "↓ ${formatVolume(bytesIn, isConnected)} • ↑ ${formatVolume(bytesOut, isConnected)}"
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -63,8 +66,8 @@ fun LiveSpeedWave(
     ) {
         Canvas(
             modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .height(36.dp)
+                .fillMaxWidth(0.88f)
+                .height(38.dp)
         ) {
             val w = size.width
             val h = size.height
@@ -74,14 +77,16 @@ fun LiveSpeedWave(
                 val wavePath = Path()
                 val wavePath2 = Path()
 
-                val points = 32
+                val points = 36
+                val ampFactor = if (downloadBps > 100_000L) 1.25f else 1.0f
+
                 for (i in 0..points) {
                     val x = (w / points) * i
                     val progress = i.toFloat() / points
-                    // Envelope tapering off at ends
+                    // Envelope tapering off smoothly at ends
                     val envelope = sin(progress * Math.PI.toFloat())
-                    val y = midY + sin(progress * 8f + phase) * (h * 0.38f) * envelope
-                    val y2 = midY + sin(progress * 6f - phase) * (h * 0.28f) * envelope
+                    val y = midY + sin(progress * 8f + phase) * (h * 0.38f * ampFactor) * envelope
+                    val y2 = midY + sin(progress * 6f - phase) * (h * 0.28f * ampFactor) * envelope
 
                     if (i == 0) {
                         wavePath.moveTo(x, y)
@@ -92,14 +97,14 @@ fun LiveSpeedWave(
                     }
                 }
 
-                // Download Wave (Mint/Green)
+                // Download Wave (Emerald / Neon Green)
                 drawPath(
                     path = wavePath,
                     color = AppColors.BrandGreen,
                     style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // Upload Wave (Cyan/Blue)
+                // Upload Wave (Cyan / Electric Blue)
                 drawPath(
                     path = wavePath2,
                     color = AppColors.SkyBlue.copy(alpha = 0.65f),
@@ -127,37 +132,57 @@ fun LiveSpeedWave(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("↓", color = AppColors.BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = downSpeedStr,
+                        text = downBitrateStr,
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("↑", color = AppColors.SkyBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(5.dp))
                     Text(
-                        text = upSpeedStr,
+                        text = upBitrateStr,
                         color = Color.White,
-                        fontSize = 13.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            Text(
+                text = "Всего передано: $totalVolumeStr",
+                color = AppColors.TextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
 
-private fun formatSpeed(totalBytes: Long, isConnected: Boolean): String {
-    if (!isConnected || totalBytes <= 0L) return "0.0 Мб"
+private fun formatBitrate(bps: Long): String {
+    if (bps <= 0L) return "0.0 Кбит/с"
+    val kbit = (bps * 8) / 1024.0
+    val mbit = kbit / 1024.0
+    return if (mbit >= 1.0) {
+        String.format(java.util.Locale.US, "%.1f Мбит/с", mbit)
+    } else {
+        String.format(java.util.Locale.US, "%.0f Кбит/с", kbit)
+    }
+}
+
+private fun formatVolume(totalBytes: Long, isConnected: Boolean): String {
+    if (!isConnected || totalBytes <= 0L) return "0 МБ"
     val mb = totalBytes.toDouble() / (1024.0 * 1024.0)
     return if (mb < 1000.0) {
-        String.format(java.util.Locale.US, "%.1f Мб", mb)
+        String.format(java.util.Locale.US, "%.1f МБ", mb)
     } else {
         val gb = mb / 1024.0
-        String.format(java.util.Locale.US, "%.2f Гб", gb)
+        String.format(java.util.Locale.US, "%.2f ГБ", gb)
     }
 }

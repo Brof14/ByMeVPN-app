@@ -22,7 +22,8 @@ data class AppSettings(
     val excludedApps: Set<String> = emptySet(),
     val language: String = "system", // ru | en | system
     val showSpeedInNotification: Boolean = true,
-    val connectionNotifications: Boolean = true
+    val connectionNotifications: Boolean = true,
+    val dnsMode: String = "cloudflare" // cloudflare | adguard | google
 )
 
 class SettingsRepository(private val context: Context) {
@@ -39,6 +40,7 @@ class SettingsRepository(private val context: Context) {
         private val KEY_LANGUAGE = stringPreferencesKey("language")
         private val KEY_SHOW_SPEED = booleanPreferencesKey("show_speed")
         private val KEY_NOTIF_ENABLED = booleanPreferencesKey("notif_enabled")
+        private val KEY_DNS_MODE = stringPreferencesKey("dns_mode")
 
         @Volatile
         private var INSTANCE: SettingsRepository? = null
@@ -62,8 +64,13 @@ class SettingsRepository(private val context: Context) {
             excludedApps = prefs[KEY_EXCLUDED_APPS] ?: emptySet(),
             language = prefs[KEY_LANGUAGE] ?: "system",
             showSpeedInNotification = prefs[KEY_SHOW_SPEED] ?: true,
-            connectionNotifications = prefs[KEY_NOTIF_ENABLED] ?: true
+            connectionNotifications = prefs[KEY_NOTIF_ENABLED] ?: true,
+            dnsMode = prefs[KEY_DNS_MODE] ?: "cloudflare"
         )
+    }
+
+    suspend fun updateDnsMode(mode: String) {
+        context.dataStore.edit { it[KEY_DNS_MODE] = mode }
     }
 
     suspend fun updateBypassRussianTraffic(enabled: Boolean) {

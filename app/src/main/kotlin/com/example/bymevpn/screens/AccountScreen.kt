@@ -336,6 +336,76 @@ fun AccountScreen(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                // 1-tap Copy or Share Subscription for other devices (PC, Android TV, Mac, iOS)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AppColors.InputBg)
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                val url = com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context).getSubscriptionUrl()
+                                if (!url.isNullOrBlank()) {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("ByMeVPN Key", url)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, if (isRu) "Ключ подписки скопирован!" else "Subscription key copied!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, if (isRu) "Нет активного ключа" else "No active key", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("📋", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isRu) "Скопировать ключ" else "Copy Key",
+                                color = Color.White,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AppColors.InputBg)
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
+                            .clickable {
+                                val url = com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context).getSubscriptionUrl() ?: "https://t.me/ByMeVPNBot"
+                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                    type = "text/plain"
+                                    putExtra(Intent.EXTRA_SUBJECT, "ByMeVPN")
+                                    putExtra(Intent.EXTRA_TEXT, "ByMeVPN — Скорость. Анонимность. Честность.\nКлюч подключения: $url")
+                                }
+                                context.startActivity(Intent.createChooser(shareIntent, if (isRu) "Поделиться ключом ByMeVPN" else "Share ByMeVPN Key"))
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("↗", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isRu) "Поделиться (ПК / ТВ)" else "Share (PC / TV)",
+                                color = AppColors.SkyBlue,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 // Secondary Link: Manage 3x-ui link directly
                 Box(
                     modifier = Modifier

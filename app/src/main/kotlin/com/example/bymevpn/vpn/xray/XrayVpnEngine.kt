@@ -101,7 +101,11 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
      * Starts the Xray-core processing loop with the provided VLESS + Reality session config and TUN fd.
      * Only returns success if the coreController confirms isRunning == true.
      */
-    suspend fun startTunnel(config: VpnSessionConfig, tunFd: Int): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun startTunnel(
+        config: VpnSessionConfig,
+        tunFd: Int,
+        bypassRussianTraffic: Boolean = true
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             _state.value = VpnConnectionState.CONNECTING
             activeConfig = config
@@ -115,7 +119,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
 
             initCoreEnv()
 
-            val xrayConfigJson = XrayConfigGenerator.generateString(config, bypassRussianTraffic = true)
+            val xrayConfigJson = XrayConfigGenerator.generateString(config, bypassRussianTraffic = bypassRussianTraffic)
             Log.d(TAG, "Starting Xray-core for ${config.server}:${config.port} (tunFd=$tunFd)")
 
             // Stop any currently running instance first

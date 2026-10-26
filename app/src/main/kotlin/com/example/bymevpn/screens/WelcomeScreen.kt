@@ -78,6 +78,14 @@ fun WelcomeScreen(
     var subError by remember { mutableStateOf<String?>(null) }
     var showInputCard by remember { mutableStateOf(false) }
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        val detected = com.example.bymevpn.data.ClipboardKeyDetector.detectKey(context)
+        if (!detected.isNullOrBlank()) {
+            subInputUrl = detected
+            showInputCard = true
+        }
+    }
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = AppColors.BgCanvas

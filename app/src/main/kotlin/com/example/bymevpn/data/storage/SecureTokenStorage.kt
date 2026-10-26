@@ -221,4 +221,30 @@ class SecureTokenStorage private constructor(context: Context) {
             null
         }
     }
+
+    fun getFavoriteServers(): Set<String> {
+        return prefs.getStringSet("favorite_servers", emptySet()) ?: emptySet()
+    }
+
+    fun toggleFavoriteServer(nodeCode: String) {
+        val current = getFavoriteServers().toMutableSet()
+        if (current.contains(nodeCode)) {
+            current.remove(nodeCode)
+        } else {
+            current.add(nodeCode)
+        }
+        prefs.edit().putStringSet("favorite_servers", current).apply()
+    }
+
+    fun isFavoriteServer(nodeCode: String): Boolean {
+        return getFavoriteServers().contains(nodeCode)
+    }
+
+    fun setDismissedClipboardKey(key: String) {
+        prefs.edit().putString("dismissed_clipboard_key", key).apply()
+    }
+
+    fun getDismissedClipboardKey(): String? {
+        return prefs.getString("dismissed_clipboard_key", null)
+    }
 }

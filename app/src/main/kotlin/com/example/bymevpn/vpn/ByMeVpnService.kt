@@ -126,7 +126,10 @@ class ByMeVpnService : VpnService() {
                         return@launch
                     }
 
-                    val tun = establishTunInterface()
+                    val settingsRepo = SettingsRepository.getInstance(applicationContext)
+                    val settings = settingsRepo.settingsFlow.first()
+
+                    val tun = establishTunInterface(settings)
                     if (tun == null) {
                         Log.e(TAG, "Failed to establish Android TUN interface")
                         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -140,7 +143,7 @@ class ByMeVpnService : VpnService() {
                     Log.i(TAG, "TUN interface established (fd=$tunFd). Starting native Xray-core...")
 
                     val engine = XrayVpnEngine.getInstance(applicationContext)
-                    val result = engine.startTunnel(config, tunFd)
+                    val result = engine.startTunnel(config, tunFd, bypassRussianTraffic = settings.bypassRussianTraffic)
 
                     if (result.isSuccess) {
                         isServiceRunning = true
@@ -179,23 +182,40 @@ class ByMeVpnService : VpnService() {
     }
 
     /**
-     * Builds and configures system TUN interface for VLESS + Reality,
-     * applying MTU, routes, DNS, and Split-tunneling rules.
+     * Builds and configures system TUN interface for VLESS / Hysteria2,
+     * applying MTU, routes, DNS, Kill Switch, and Split-tunneling rules.
      */
-    private suspend fun establishTunInterface(): ParcelFileDescriptor? {
+    private fun establishTunInterface(settings: com.example.bymevpn.data.settings.AppSettings): ParcelFileDescriptor? {
         return try {
+            val proto = pendingSessionConfig?.protocol?.uppercase() ?: "VLESS"
             val builder = Builder()
-                .setSession("ByMeVPN (VLESS + Reality)")
+                .setSession("ByMeVPN ($proto)")
                 .setMtu(1500)
                 .addAddress("10.233.233.2", 30)
                 .addRoute("0.0.0.0", 0)
-                .addDnsServer("1.1.1.1")
-                .addDnsServer("8.8.8.8")
+
+            // DNS Mode: AdGuard (Ad-blocking) / Google / Cloudflare
+            when (settings.dnsMode) {
+                "adguard" -> {
+                    builder.addDnsServer("94.140.14.14")
+                    builder.addDnsServer("94.140.15.15")
+                }
+                "google" -> {
+                    builder.addDnsServer("8.8.8.8")
+                    builder.addDnsServer("8.8.4.4")
+                }
+                else -> {
+                    builder.addDnsServer("1.1.1.1")
+                    builder.addDnsServer("1.0.0.1")
+                }
+            }
+
+            // Real Kill Switch
+            if (settings.killSwitch) {
+                builder.setBlocking(true)
+            }
 
             // Apply Split-tunneling if enabled in AppSettings
-            val settingsRepo = SettingsRepository.getInstance(applicationContext)
-            val settings = settingsRepo.settingsFlow.first()
-
             if (settings.splitTunnelingEnabled && settings.excludedApps.isNotEmpty()) {
                 val pm = packageManager
                 for (pkg in settings.excludedApps) {
@@ -250,6 +270,9 @@ class ByMeVpnService : VpnService() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
+        val isRu = com.example.bymevpn.data.LocaleManager.isRussian(this)
+        val disconnectText = if (isRu) "Отключить" else "Disconnect"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
@@ -260,7 +283,7 @@ class ByMeVpnService : VpnService() {
             .setContentIntent(pendingIntent)
             .addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
-                "Disconnect",
+                disconnectText,
                 disconnectPendingIntent
             )
             .build()

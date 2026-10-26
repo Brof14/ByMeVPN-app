@@ -5,6 +5,9 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -87,6 +90,15 @@ fun SettingsScreen(
 
     var showAppPicker by remember { mutableStateOf(false) }
     var showFaqDialog by remember { mutableStateOf(false) }
+
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
+    var isIgnoringBattery by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+            } else true
+        )
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -175,7 +187,91 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SECTION 2: General Settings (Figma Screen 09)
+            // SECTION 2: Security & DNS Filters
+            SettingsSectionTitle(text = if (isRu) "Безопасность и DNS" else "Security & DNS")
+            SettingsCard {
+                SettingsSwitchRow(
+                    title = if (isRu) "Аварийная блокировка (Kill Switch)" else "Kill Switch",
+                    subtitle = if (isRu)
+                        "Блокировать весь трафик при внезапном разрыве VPN, предотвращая утечку реального IP"
+                    else
+                        "Block all traffic if VPN connection drops unexpectedly",
+                    checked = settings.killSwitch,
+                    onCheckedChange = { scope.launch { settingsRepo.updateKillSwitch(it) } }
+                )
+
+                SettingsDivider()
+
+                // DNS Mode Selector (AdGuard Ad-blocking vs Cloudflare vs Google)
+                Text(
+                    text = if (isRu) "DNS-сервер и фильтрация рекламы" else "DNS Server & Ad-Blocking",
+                    color = Color.White,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (isRu)
+                        "AdGuard DNS автоматически блокирует баннеры и рекламные трекеры во всех приложениях"
+                    else
+                        "AdGuard DNS blocks banners and ad trackers across all installed apps",
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val dnsOptions = listOf(
+                    Triple("adguard", if (isRu) "🛡️ AdGuard (Блок рекламы)" else "🛡️ AdGuard (Ad-Block)", "94.140.14.14"),
+                    Triple("cloudflare", if (isRu) "⚡ Cloudflare 1.1.1.1" else "⚡ Cloudflare 1.1.1.1", if (isRu) "Скорость" else "Fastest"),
+                    Triple("google", "🌐 Google DNS", "8.8.8.8")
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    dnsOptions.forEach { (mode, label, sub) ->
+                        val isSelected = settings.dnsMode == mode
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(if (isSelected) AppColors.CardBgElevated else AppColors.InputBg)
+                                .border(
+                                    1.2.dp,
+                                    if (isSelected) AppColors.BrandGreen else AppColors.CardBorder,
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .clickable {
+                                    scope.launch { settingsRepo.updateDnsMode(mode) }
+                                }
+                                .padding(vertical = 10.dp, horizontal = 6.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) AppColors.BrandGreen else Color.White,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = sub,
+                                    color = AppColors.TextMuted,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // SECTION 3: General Parameters
             SettingsSectionTitle(text = if (isRu) "Основные параметры" else "General")
             SettingsCard {
                 SettingsSwitchRow(
@@ -227,11 +323,59 @@ fun SettingsScreen(
                         )
                     }
                 }
+
+                // Battery Optimization Notice
+                if (!isIgnoringBattery && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    SettingsDivider()
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF14241C))
+                            .border(1.dp, AppColors.BrandGreen.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .clickable {
+                                try {
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:${context.packageName}")
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(intent)
+                                } catch (_: Exception) {}
+                            }
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🔋", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (isRu) "Бесперебойная работа в фоне" else "Unrestricted Background Running",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isRu) "Разрешите работу без ограничений батареи, чтобы VPN не засыпал" else "Allow background activity so VPN never sleeps",
+                                    color = AppColors.TextSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (isRu) "Разрешить" else "Allow",
+                            color = AppColors.BrandGreen,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SECTION 3: Language Selector
+            // SECTION 4: Language Selector
             SettingsSectionTitle(text = if (isRu) "Язык приложения" else "Language")
             SettingsCard {
                 Row(
@@ -275,7 +419,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SECTION 4: Help and Support
+            // SECTION 5: Help & Support
             SettingsSectionTitle(text = if (isRu) "Справка и поддержка" else "Help & Support")
             SettingsCard {
                 // FAQ
@@ -400,7 +544,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // SECTION 5: Brand / Version (Figma Screen 09)
+            // SECTION 6: Brand / Version (Figma Screen 09)
             SettingsCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

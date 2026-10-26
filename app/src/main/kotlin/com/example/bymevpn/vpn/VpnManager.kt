@@ -81,6 +81,12 @@ class VpnManager private constructor(private val context: Context) {
     private val _bytesOut = MutableStateFlow(0L)
     val bytesOut: StateFlow<Long> = _bytesOut.asStateFlow()
 
+    private val _downloadSpeedBps = MutableStateFlow(0L)
+    val downloadSpeedBps: StateFlow<Long> = _downloadSpeedBps.asStateFlow()
+
+    private val _uploadSpeedBps = MutableStateFlow(0L)
+    val uploadSpeedBps: StateFlow<Long> = _uploadSpeedBps.asStateFlow()
+
     private val _connectedSeconds = MutableStateFlow(0L)
     val connectedSeconds: StateFlow<Long> = _connectedSeconds.asStateFlow()
 
@@ -93,6 +99,8 @@ class VpnManager private constructor(private val context: Context) {
             engine.statistics.collect { stats ->
                 _bytesIn.value = stats.bytesIn
                 _bytesOut.value = stats.bytesOut
+                _downloadSpeedBps.value = stats.downloadSpeedBps
+                _uploadSpeedBps.value = stats.uploadSpeedBps
             }
         }
     }
@@ -102,28 +110,28 @@ class VpnManager private constructor(private val context: Context) {
         if (servers.isEmpty()) return@withContext null
 
         val storage = SecureTokenStorage.getInstance(context)
-        var bestNode: ServerNode? = null
-        var lowestPing = Int.MAX_VALUE
-
-        servers.forEach { node ->
+        val targets = servers.mapNotNull { node ->
             val cfg = storage.getServerConfig(node.nodeCode)
-            val ping = if (cfg != null) {
-                com.example.bymevpn.data.PingTester.measureRealPing(cfg.server, cfg.port)
-            } else {
-                -1
-            }
-
-            if (ping in 1 until lowestPing) {
-                lowestPing = ping
-                bestNode = node
-            }
+            if (cfg != null) node.nodeCode to Pair(cfg.server, cfg.port) else null
         }
 
-        bestNode?.also {
+        val pings = if (targets.isNotEmpty()) {
+            com.example.bymevpn.data.PingTester.measureAllConcurrent(targets, timeoutMs = 1500)
+        } else {
+            emptyMap()
+        }
+
+        val bestNode = if (pings.isNotEmpty()) {
+            val minEntry = pings.minByOrNull { it.value }
+            servers.find { it.nodeCode == minEntry?.key }
+        } else null
+
+        val winner = bestNode ?: servers.firstOrNull()
+        winner?.also {
             withContext(Dispatchers.Main) {
                 selectServer(it)
             }
-        } ?: servers.firstOrNull()
+        }
     }
 
     suspend fun loadServers(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
