@@ -322,8 +322,8 @@ fun SignInScreen(
                                     } else {
                                         val rawErr = result.exceptionOrNull()?.message
                                         authError = if (rawErr != null && rawErr.contains("Google Web Client ID")) {
-                                            if (isRu) "Вход через Google требует Web Client ID в Google Cloud. Войдите по Email или используйте аккаунт администратора ниже."
-                                            else "Google Sign-In requires Web Client ID in Google Cloud. Sign in with Email or use Admin account below."
+                                            if (isRu) "Вход через Google требует Web Client ID в Google Cloud."
+                                            else "Google Sign-In requires Web Client ID in Google Cloud."
                                         } else {
                                             rawErr
                                         }
@@ -341,6 +341,141 @@ fun SignInScreen(
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Connect via Subscription Link / Telegram Bot
+                    var showSubDialog by remember { mutableStateOf(false) }
+                    var subInputUrl by remember { mutableStateOf("") }
+                    var subInputError by remember { mutableStateOf<String?>(null) }
+                    var isSubLoading by remember { mutableStateOf(false) }
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF0C1B33))
+                            .border(1.2.dp, Color(0xFF00D4FF), RoundedCornerShape(14.dp))
+                            .clickable(enabled = !isLoading) {
+                                showSubDialog = true
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚡", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isRu) "Подключить по ссылке из бота" else "Connect via Bot Link",
+                                color = Color(0xFF00D4FF),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (showSubDialog) {
+                        androidx.compose.ui.window.Dialog(onDismissRequest = { showSubDialog = false }) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF0C162A))
+                                    .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
+                                    .padding(22.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = if (isRu) "Подключение подписки" else "Connect Subscription",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = if (isRu) "Вставьте ссылку подписки или vless-ключ, полученный в боте Telegram:" else "Paste the subscription link or vless key from Telegram bot:",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+
+                                    BasicTextField(
+                                        value = subInputUrl,
+                                        onValueChange = {
+                                            subInputUrl = it
+                                            subInputError = null
+                                        },
+                                        textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp),
+                                        cursorBrush = SolidColor(Color(0xFF26E875)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(80.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color(0xFF060D1A))
+                                            .border(1.dp, if (subInputError != null) Color(0xFFFF5252) else Color(0xFF1E355B), RoundedCornerShape(12.dp))
+                                            .padding(12.dp)
+                                    )
+
+                                    if (subInputError != null) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(text = subInputError ?: "", color = Color(0xFFFF5252), fontSize = 12.sp)
+                                    }
+
+                                    Spacer(modifier = Modifier.height(20.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        Text(
+                                            text = if (isRu) "Отмена" else "Cancel",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            modifier = Modifier
+                                                .clickable { showSubDialog = false }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(10.dp))
+                                                .background(Brush.horizontalGradient(listOf(Color(0xFF00C4FF), Color(0xFF26E875))))
+                                                .clickable(enabled = !isSubLoading && subInputUrl.isNotBlank()) {
+                                                    isSubLoading = true
+                                                    subInputError = null
+                                                    scope.launch {
+                                                        val res = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(subInputUrl.trim())
+                                                        isSubLoading = false
+                                                        if (res.isSuccess) {
+                                                            // Auto-create local user profile if none
+                                                            AccountRepository.createLocalProfile(context, "ByMe User")
+                                                            showSubDialog = false
+                                                            onSignInSuccess()
+                                                        } else {
+                                                            subInputError = res.exceptionOrNull()?.message ?: "Ошибка загрузки подписки"
+                                                        }
+                                                    }
+                                                }
+                                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSubLoading) {
+                                                CircularProgressIndicator(color = Color(0xFF031015), modifier = Modifier.size(16.dp))
+                                            } else {
+                                                Text(
+                                                    text = if (isRu) "Подключить" else "Connect",
+                                                    color = Color(0xFF031015),
+                                                    fontSize = 14.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
 

@@ -160,6 +160,119 @@ fun AccountScreen(
                         fontSize = 13.5.sp
                     )
 
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    var showEditSubDialog by remember { mutableStateOf(false) }
+                    var editSubUrl by remember { mutableStateOf(com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context).getSubscriptionUrl() ?: "") }
+                    var isSyncingSub by remember { mutableStateOf(false) }
+
+                    // Button to update or add subscription URL
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFF162A4E))
+                            .border(1.dp, Color(0xFF00D4FF).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                            .clickable { showEditSubDialog = true }
+                            .padding(horizontal = 14.dp, vertical = 7.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚡", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isRu) "Управление подпиской (3x-ui)" else "Manage Subscription (3x-ui)",
+                                color = Color(0xFF00D4FF),
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    if (showEditSubDialog) {
+                        androidx.compose.ui.window.Dialog(onDismissRequest = { showEditSubDialog = false }) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF0C162A))
+                                    .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
+                                    .padding(20.dp)
+                            ) {
+                                Column {
+                                    Text(
+                                        text = if (isRu) "Ссылка подписки" else "Subscription Link",
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = if (isRu) "Укажите ссылку подписки (из Telegram-бота или панели):" else "Enter subscription link (from Telegram bot or panel):",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    androidx.compose.foundation.text.BasicTextField(
+                                        value = editSubUrl,
+                                        onValueChange = { editSubUrl = it },
+                                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 13.sp),
+                                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color(0xFF26E875)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(80.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(Color(0xFF060D1A))
+                                            .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    )
+
+                                    Spacer(modifier = Modifier.height(18.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        Text(
+                                            text = if (isRu) "Отмена" else "Cancel",
+                                            color = Color(0xFF94A3B8),
+                                            fontSize = 14.sp,
+                                            modifier = Modifier
+                                                .clickable { showEditSubDialog = false }
+                                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFF26E875))
+                                                .clickable(enabled = !isSyncingSub) {
+                                                    isSyncingSub = true
+                                                    scope.launch {
+                                                        val res = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(editSubUrl.trim())
+                                                        isSyncingSub = false
+                                                        if (res.isSuccess) {
+                                                            com.example.bymevpn.vpn.VpnManager.getInstance(context).loadServers()
+                                                            showEditSubDialog = false
+                                                        } else {
+                                                            Toast.makeText(context, res.exceptionOrNull()?.message ?: "Ошибка", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                }
+                                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                                        ) {
+                                            Text(
+                                                text = if (isRu) "Сохранить" else "Save",
+                                                color = Color(0xFF031015),
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     if (currentUser?.isGoogle == true) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(

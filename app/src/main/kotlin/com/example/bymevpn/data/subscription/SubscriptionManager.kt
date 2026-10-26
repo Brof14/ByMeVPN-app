@@ -7,14 +7,19 @@ import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.storage.SecureTokenStorage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 import java.security.KeyFactory
 import java.security.PublicKey
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
+import javax.net.ssl.HttpsURLConnection
 
 /**
  * Manages the current subscription, offline entitlement evaluation, and trial activation.
@@ -76,6 +81,24 @@ class SubscriptionManager private constructor(private val context: Context) {
     suspend fun refreshStatus(): Result<SubscriptionStatus> {
         _isSyncing.value = true
         return try {
+            val customSubUrl = storage.getSubscriptionUrl()
+            if (!customSubUrl.isNullOrBlank()) {
+                val parsed = fetchSubscriptionFromUrl(customSubUrl)
+                storage.saveServerConfigs(parsed.configs)
+                val status = SubscriptionStatus(
+                    status = "active",
+                    planName = "ByMeVPN Cloud",
+                    expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
+                    secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 86400L * 30,
+                    activeDevices = 1,
+                    maxDevices = 5,
+                    lastFetchedAt = System.currentTimeMillis()
+                )
+                _subscriptionStatus.value = status
+                storage.saveCachedSubscription(status)
+                return Result.success(status)
+            }
+
             val status = apiClient.getSubscriptionStatus()
             _subscriptionStatus.value = status
             storage.saveCachedSubscription(status)
@@ -90,6 +113,60 @@ class SubscriptionManager private constructor(private val context: Context) {
         } finally {
             _isSyncing.value = false
         }
+    }
+
+    suspend fun applySubscriptionUrl(url: String): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
+        _isSyncing.value = true
+        try {
+            val parsed = fetchSubscriptionFromUrl(url.trim())
+            if (parsed.servers.isEmpty()) {
+                throw IllegalStateException("Подписка не содержит доступных VLESS-серверов")
+            }
+            storage.saveSubscriptionUrl(url.trim())
+            storage.saveServerConfigs(parsed.configs)
+
+            val status = SubscriptionStatus(
+                status = "active",
+                planName = "ByMeVPN Cloud",
+                expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
+                secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 86400L * 30,
+                activeDevices = 1,
+                maxDevices = 5,
+                lastFetchedAt = System.currentTimeMillis()
+            )
+            _subscriptionStatus.value = status
+            storage.saveCachedSubscription(status)
+            Result.success(parsed)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to apply subscription URL: ${e.message}", e)
+            Result.failure(e)
+        } finally {
+            _isSyncing.value = false
+        }
+    }
+
+    private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
+        val url = URL(subUrl)
+        val conn = (url.openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 15000
+            readTimeout = 15000
+            setRequestProperty("User-Agent", "ByMeVPN/1.0 (Android; v2rayNG; Happ)")
+            if (this is HttpsURLConnection) {
+                // Allow self-signed or custom certs on panel ports if needed
+                setHostnameVerifier { _, _ -> true }
+            }
+        }
+
+        val code = conn.responseCode
+        if (code !in 200..299) {
+            throw IllegalStateException("Ошибка сервера подписки (HTTP $code)")
+        }
+
+        val userInfoHeader = conn.getHeaderField("Subscription-Userinfo")
+            ?: conn.getHeaderField("subscription-userinfo")
+        val body = conn.inputStream.bufferedReader().use { it.readText() }
+        XraySubscriptionParser.parse(body, userInfoHeader)
     }
 
     suspend fun activateTrial(): Result<SubscriptionStatus> {

@@ -177,4 +177,17 @@ object AccountRepository {
             Result.failure(e)
         }
     }
+
+    fun createLocalProfile(context: Context, name: String) {
+        val storage = SecureTokenStorage.getInstance(context)
+        val profile = UserProfile(
+            id = storage.getInstallId(context),
+            email = "user@bymevpn.app",
+            name = name,
+            isGoogle = false,
+            createdAt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        )
+        storage.saveCachedUser(profile)
+        _currentUser.value = profile
+    }
 }

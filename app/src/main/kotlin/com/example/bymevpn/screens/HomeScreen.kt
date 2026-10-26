@@ -711,14 +711,26 @@ fun HomeScreen(
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Text(
-                            text = "✕",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 18.sp,
-                            modifier = Modifier
-                                .clickable { showServerPicker = false }
-                                .padding(4.dp)
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "↻",
+                                color = Color(0xFF00D4FF),
+                                fontSize = 20.sp,
+                                modifier = Modifier
+                                    .clickable {
+                                        scope.launch { vpnManager.loadServers() }
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                            Text(
+                                text = "✕",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 18.sp,
+                                modifier = Modifier
+                                    .clickable { showServerPicker = false }
+                                    .padding(4.dp)
+                            )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(12.dp))

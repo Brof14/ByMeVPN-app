@@ -57,6 +57,7 @@ class VpnManager private constructor(private val context: Context) {
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
     private val apiClient = ByMeApiClient(context)
+    private val storage = SecureTokenStorage.getInstance(context)
     private val subscriptionManager = SubscriptionManager.getInstance(context)
     private val settingsRepo = SettingsRepository.getInstance(context)
     private val engine = XrayVpnEngine.getInstance(context)
@@ -97,6 +98,28 @@ class VpnManager private constructor(private val context: Context) {
 
     suspend fun loadServers(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
         try {
+            val subUrl = storage.getSubscriptionUrl()
+            if (!subUrl.isNullOrBlank()) {
+                val subResult = subscriptionManager.refreshStatus()
+                if (subResult.isSuccess) {
+                    val status = subResult.getOrNull()
+                    // If cached custom servers exist, populate available servers
+                }
+            }
+
+            // Check if we have subscription servers
+            val customUrl = storage.getSubscriptionUrl()
+            if (!customUrl.isNullOrBlank()) {
+                val parsed = subscriptionManager.applySubscriptionUrl(customUrl).getOrNull()
+                if (parsed != null && parsed.servers.isNotEmpty()) {
+                    _availableServers.value = parsed.servers
+                    if (_currentServer.value == null) {
+                        _currentServer.value = parsed.servers.first()
+                    }
+                    return@withContext Result.success(parsed.servers)
+                }
+            }
+
             val servers = apiClient.getServers()
             _availableServers.value = servers
             if (_currentServer.value == null && servers.isNotEmpty()) {
@@ -104,7 +127,7 @@ class VpnManager private constructor(private val context: Context) {
             }
             Result.success(servers)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load servers from API: ${e.message}")
+            Log.w(TAG, "Failed to load servers: ${e.message}")
             Result.failure(e)
         }
     }
@@ -162,8 +185,8 @@ class VpnManager private constructor(private val context: Context) {
                     _currentServer.value = targetServer
                 }
 
-                // 3. Obtain VLESS+Reality session configuration from backend
-                val sessionConfig = try {
+                // 3. Obtain VLESS+Reality session configuration from backend or local subscription store
+                val sessionConfig = storage.getServerConfig(targetServer.nodeCode) ?: try {
                     apiClient.createVpnSession(targetServer.nodeCode)
                 } catch (e: Exception) {
                     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
