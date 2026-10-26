@@ -4,42 +4,55 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 object AppColors {
-    // Deep midnight navy background
-    val BgTop = Color(0xFF060A17)
-    val BgMiddle = Color(0xFF0A1326)
-    val BgBottom = Color(0xFF060B18)
-    val BgGlow = Color(0xFF0D2248)
+    // Deep carbon emerald dark background matching Figma
+    val BgCanvas = Color(0xFF080C0E)
+    val BgTop = Color(0xFF0A0F13)
+    val BgMiddle = Color(0xFF080C0E)
+    val BgBottom = Color(0xFF06090B)
 
-    // Brand colors
+    // Containers & Cards
+    val CardBg = Color(0xFF101A1F)
+    val CardBgElevated = Color(0xFF142228)
+    val CardBorder = Color(0xFF16282E)
+    val CardBorderActive = Color(0xFF26E875)
+
+    // Inputs
+    val InputBg = Color(0xFF0C1418)
+    val InputBorder = Color(0xFF182A31)
+
+    // Brand Neon Accents (Figma & Logo)
     val BrandGreen = Color(0xFF26E875)
-    val NeonGreen = Color(0xFF00FF85)
+    val BrandGreenGlow = Color(0xFF6EFFA6)
+    val BrandGreenDark = Color(0xFF158241)
     val ElectricBlue = Color(0xFF0062FF)
-    val BrandBlue = ElectricBlue
     val SkyBlue = Color(0xFF00ACFF)
-    val Cyan = Color(0xFF00C8FF)
+    val Cyan = Color(0xFF00FFA2)
 
-    // Neutral / text colors
+    // Neutrals & Typography
     val White = Color(0xFFFFFFFF)
-    val DarkText = Color(0xFF082010)
-    val SloganGrey = Color(0xFF8E9EB8)
-    val DotInactive = Color(0xFF19263E)
+    val TextPrimary = Color(0xFFFFFFFF)
+    val TextSecondary = Color(0xFF8B9FA8)
+    val TextMuted = Color(0xFF566B74)
+    val DarkText = Color(0xFF04150A)
 
-    // Button gradients
-    val BlueBtnStart = Color(0xFF0058F6)
-    val BlueBtnEnd = Color(0xFF008BFF)
-    val GreenBtnStart = Color(0xFF14DE6C)
-    val GreenBtnEnd = Color(0xFF43F38B)
+    // Telegram Brand
+    val TelegramBlue = Color(0xFF2AABEE)
+
+    // Status Colors
+    val StatusActive = Color(0xFF26E875)
+    val StatusInactive = Color(0xFF566B74)
+    val StatusError = Color(0xFFFF5252)
+    val StatusWarning = Color(0xFFFFB74D)
 }
 
 object AppGradients {
-    // Screen background gradient
     val Background = Brush.verticalGradient(
         0.0f to AppColors.BgTop,
-        0.45f to AppColors.BgMiddle,
+        0.5f to AppColors.BgMiddle,
         1.0f to AppColors.BgBottom
     )
 
-    // Shield rim gradient: Electric Blue -> Cyan -> Neon Green -> Emerald
+    // Official Shield Rim: Electric Blue -> Sky Blue -> Cyan -> Neon Green
     val Shield = Brush.linearGradient(
         colors = listOf(
             Color(0xFF0062FF),
@@ -49,29 +62,18 @@ object AppGradients {
         )
     )
 
-    // Ribbon gradient: Cyan/Blue -> Bright Cyan -> Neon Mint -> Emerald
-    val Ribbon = Brush.linearGradient(
+    // Brand Button Gradient (Figma Primary Button)
+    val PrimaryButton = Brush.horizontalGradient(
         colors = listOf(
-            Color(0xFF0099FF),
-            Color(0xFF00D4FF),
-            Color(0xFF00FF88),
-            Color(0xFF2AE678)
+            Color(0xFF26E875),
+            Color(0xFF6EFFA6)
         )
     )
 
-    // Sign Up button gradient
-    val SignUp = Brush.horizontalGradient(
+    val BlueButton = Brush.horizontalGradient(
         colors = listOf(
-            AppColors.BlueBtnStart,
-            AppColors.BlueBtnEnd
-        )
-    )
-
-    // Log In button gradient
-    val LogIn = Brush.horizontalGradient(
-        colors = listOf(
-            AppColors.GreenBtnStart,
-            AppColors.GreenBtnEnd
+            Color(0xFF0058F6),
+            Color(0xFF008BFF)
         )
     )
 }

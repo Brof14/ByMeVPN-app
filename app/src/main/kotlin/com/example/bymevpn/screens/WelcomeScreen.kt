@@ -1,186 +1,341 @@
 package com.example.bymevpn.screens
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bymevpn.components.GradientBackground
-import com.example.bymevpn.components.GradientButton
-import com.example.bymevpn.components.PageIndicator
 import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.components.TelegramLogoIcon
-import com.example.bymevpn.data.LocaleManager
-import com.example.bymevpn.theme.AppGradients
-import com.example.bymevpn.theme.AppTypography
+import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.vpn.VpnManager
+import kotlinx.coroutines.launch
 
 /**
- * Welcome screen matching the reference design 1:1.
+ * 01 Welcome Screen matching Figma 1:1:
+ * - ByMeVPN Header with Shield & infinity badge
+ * - "Создайте подписку в Telegram" main action
+ * - "Подключить аккаунт" / paste subscription link directly
  */
 @Composable
 fun WelcomeScreen(
     onSignUpClick: () -> Unit = {},
     onLogInClick: () -> Unit = {},
+    onLoginSuccess: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val currentLang by LocaleManager.currentLanguage.collectAsState()
-    val isRu = LocaleManager.isRussian(context, currentLang)
+    val scope = rememberCoroutineScope()
 
-    val signUpText = if (isRu) "Регистрация" else "Sign Up"
-    val logInText = if (isRu) "Войти" else "Log In"
-    val sloganText = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty."
+    var subInputUrl by remember { mutableStateOf("") }
+    var isSubLoading by remember { mutableStateOf(false) }
+    var subError by remember { mutableStateOf<String?>(null) }
+    var showInputCard by remember { mutableStateOf(false) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent
+        containerColor = AppColors.BgCanvas
     ) { innerPadding ->
-        GradientBackground(
-            modifier = Modifier.padding(innerPadding)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 1. Top Brand Logo & Shield
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val screenWidth = maxWidth
-                val screenHeight = maxHeight
+                ShieldLogo(
+                    size = 110.dp,
+                    isActive = true
+                )
 
-                val logoSize = (screenWidth * 0.53f).coerceIn(195.dp, 230.dp)
-                val horizontalPadding = (screenWidth * 0.065f).coerceIn(22.dp, 28.dp)
+                Spacer(modifier = Modifier.height(14.dp))
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 600.dp)
-                        .padding(horizontal = horizontalPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Spacer(modifier = Modifier.height(screenHeight * 0.05f))
-
-                    // Shield Logo with centered crossover ribbon
-                    ShieldLogo(size = logoSize)
-
-                    Spacer(modifier = Modifier.height(screenHeight * 0.04f))
-
-                    // Brand Title: "ByMe" (White) + "VPN" (Emerald Green)
-                    val brandText = buildAnnotatedString {
-                        withStyle(AppTypography.BrandWhite.toSpanStyle()) {
+                Text(
+                    text = buildAnnotatedString {
+                        withStyle(SpanStyle(color = Color.White)) {
                             append("ByMe")
                         }
-                        withStyle(AppTypography.BrandGreen.toSpanStyle()) {
+                        withStyle(SpanStyle(color = AppColors.BrandGreen)) {
                             append("VPN")
                         }
+                    },
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 0.5.sp
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = "Скорость. Анонимность. Честность.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(30.dp))
+
+            // 2. Central Card: "Создайте подписку в Telegram" (Matching Figma Frame 01)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(22.dp))
+                    .padding(22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Добро пожаловать",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = "Подключайтесь в один клик. Сервер выберется автоматически.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.5.sp,
+                    textAlign = TextAlign.Center,
+                    lineHeight = 18.sp
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Primary Neon Button: "Создайте подписку в Telegram"
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                            )
+                        )
+                        .clickable {
+                            openTelegramBot(context, "start=login")
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TelegramLogoIcon(size = 20.dp, color = AppColors.DarkText)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Войти через Telegram-бота",
+                            color = AppColors.DarkText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Secondary Button: Toggle direct subscription link field
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppColors.InputBg)
+                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
+                        .clickable { showInputCard = !showInputCard },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text(
-                        text = brandText,
-                        modifier = Modifier.testTag("brand_title")
+                        text = if (showInputCard) "Скрыть ввод ссылки" else "Подключить по ссылке из бота",
+                        color = Color.White,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
+                }
+
+                // Expandable Link/Key Input field
+                if (showInputCard) {
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    BasicTextField(
+                        value = subInputUrl,
+                        onValueChange = {
+                            subInputUrl = it
+                            subError = null
+                        },
+                        textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                        cursorBrush = SolidColor(AppColors.BrandGreen),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(65.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF070B0E))
+                            .border(1.dp, if (subError != null) AppColors.StatusError else AppColors.InputBorder, RoundedCornerShape(12.dp))
+                            .padding(10.dp),
+                        decorationBox = { innerTextField ->
+                            if (subInputUrl.isEmpty()) {
+                                Text(
+                                    text = "Вставьте ссылку подписки или vless://...",
+                                    color = AppColors.TextMuted,
+                                    fontSize = 12.5.sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
+                    if (subError != null) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = subError ?: "",
+                            color = AppColors.StatusError,
+                            fontSize = 12.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // Slogan: "Speed. Anonymity. Honesty."
-                    Text(
-                        text = sloganText,
-                        style = AppTypography.Slogan,
-                        modifier = Modifier.testTag("brand_slogan")
-                    )
-
-                    // Push action controls to the bottom
-                    Spacer(modifier = Modifier.weight(1f))
-
-                    // Action Buttons: Sign Up & Log In
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        GradientButton(
-                            label = signUpText,
-                            gradient = AppGradients.SignUp,
-                            shadowColor = Color(0x350058F6),
-                            onClick = onSignUpClick,
-                            modifier = Modifier.weight(1f),
-                            testTag = "sign_up_button"
-                        )
-
-                        GradientButton(
-                            label = logInText,
-                            gradient = AppGradients.LogIn,
-                            shadowColor = Color(0x3014DE6C),
-                            onClick = onLogInClick,
-                            modifier = Modifier.weight(1f),
-                            testTag = "log_in_button"
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Direct Telegram Bot Login on Welcome Screen
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
-                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
-                            .background(Color(0xFF2AABEE))
-                            .clickable {
-                                try {
-                                    val tgIntent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
-                                    )
-                                    context.startActivity(tgIntent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(AppColors.BrandGreen)
+                            .clickable(enabled = !isSubLoading && subInputUrl.isNotBlank()) {
+                                isSubLoading = true
+                                subError = null
+                                scope.launch {
+                                    val res = SubscriptionManager.getInstance(context).applySubscriptionUrl(subInputUrl.trim())
+                                    isSubLoading = false
+                                    if (res.isSuccess) {
+                                        AccountRepository.createLocalProfile(context, "ByMe User")
+                                        VpnManager.getInstance(context).loadServers()
+                                        onLoginSuccess()
+                                    } else {
+                                        subError = res.exceptionOrNull()?.message ?: "Ошибка подключения подписки"
+                                    }
                                 }
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            com.example.bymevpn.components.TelegramLogoIcon(size = 20.dp, color = Color.White)
-                            Spacer(modifier = Modifier.width(10.dp))
+                        if (isSubLoading) {
+                            CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
                             Text(
-                                text = if (isRu) "Вход через Telegram" else "Log In with Telegram",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                text = "Активировать подписку",
+                                color = AppColors.DarkText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // Four Page Indicator Dots (Active: Dot 2)
-                    PageIndicator(total = 4, active = 1)
-
-                    Spacer(modifier = Modifier.height(screenHeight * 0.025f))
                 }
             }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 3. Bottom Links: Log In via Email or Support
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.clickable { onLogInClick() },
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Уже есть аккаунт? ",
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.5.sp
+                    )
+                    Text(
+                        text = "Войти по почте",
+                        color = AppColors.BrandGreen,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Нужна помощь? Написать в Telegram",
+                    color = AppColors.TextMuted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.clickable {
+                        openTelegramBot(context, null)
+                    }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
+    }
+}
+
+private fun openTelegramBot(context: Context, param: String?) {
+    val url = if (param != null) "https://t.me/ByMeVPNBot?$param" else "https://t.me/ByMeVPNSupportBot"
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
     }
 }

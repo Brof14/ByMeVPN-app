@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
-import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -18,12 +17,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
@@ -41,10 +43,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,11 +56,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.bymevpn.components.AccountIcon
 import com.example.bymevpn.components.GoogleLogoIcon
-import com.example.bymevpn.components.GradientBackground
+import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
-import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.launch
 
 @Composable
@@ -74,10 +79,10 @@ fun AccountScreen(
     val userDevices by AccountRepository.userDevices.collectAsState()
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
-    val isSyncing by subManager.isSyncing.collectAsState()
 
+    var showTariffModal by remember { mutableStateOf(false) }
+    var showEditSubDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
-    var showTrialErrorDialog by remember { mutableStateOf<String?>(null) }
     var isDeleting by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -87,249 +92,381 @@ fun AccountScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent
+        containerColor = AppColors.BgCanvas
     ) { innerPadding ->
-        GradientBackground(modifier = Modifier.padding(innerPadding)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 1. Top App Bar
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(AppColors.CardBg)
+                        .border(1.dp, AppColors.CardBorder, CircleShape)
+                        .clickable { onBackClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("←", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Text(
+                    text = if (isRu) "Аккаунт" else "Account",
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 2. User Profile Card (Figma Screen 07)
+            val isSubActive = subscription?.status == "active" || subscription?.status == "trial"
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 24.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(22.dp))
+                .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top App Bar
+                Box(
+                    modifier = Modifier
+                        .size(68.dp)
+                        .clip(CircleShape)
+                        .background(AppColors.CardBgElevated)
+                        .border(1.5.dp, if (isSubActive) AppColors.BrandGreen else AppColors.CardBorder, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    TelegramLogoIcon(size = 36.dp, color = AppColors.TelegramBlue)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = currentUser?.name?.ifBlank { "ByMe User" } ?: "ByMe User",
+                    color = Color.White,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Active Status Pill
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isSubActive) AppColors.BrandGreen.copy(alpha = 0.12f) else AppColors.StatusError.copy(alpha = 0.12f))
+                        .border(
+                            1.dp,
+                            if (isSubActive) AppColors.BrandGreen.copy(alpha = 0.4f) else AppColors.StatusError.copy(alpha = 0.4f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (isSubActive) AppColors.BrandGreen else AppColors.StatusError)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isSubActive) (if (isRu) "Активна" else "Active") else (if (isRu) "Не активна" else "Inactive"),
+                        color = if (isSubActive) AppColors.BrandGreen else AppColors.StatusError,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3. Current Subscription Card (Figma Screen 07)
+            val secondsRemaining = subscription?.secondsRemaining ?: (29L * 86400L)
+            val daysRemaining = (secondsRemaining / 86400).coerceAtLeast(0)
+            val totalPeriodDays = 30f
+            val progressFraction = (daysRemaining / totalPeriodDays).coerceIn(0f, 1f)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(22.dp))
+                    .padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isRu) "Текущий тариф" else "Current Plan",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(AppColors.CardBgElevated)
+                            .border(1.dp, AppColors.BrandGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = subscription?.planName ?: if (isRu) "Стандартный безлимит" else "Standard Unlimited",
+                            color = AppColors.BrandGreen,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF0F1D36))
-                            .border(1.dp, Color(0xFF1E355B), CircleShape)
-                            .clickable { onBackClick() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("←", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                    }
-
-                    Spacer(modifier = Modifier.width(16.dp))
-
-                    Text(
-                        text = if (isRu) "Аккаунт" else "Account",
-                        color = Color.White,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // User Info Card
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFF0C162A))
-                        .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
-                        .padding(20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF162A4E)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        AccountIcon(color = Color(0xFF26E875), size = 36.dp)
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Text(
-                        text = currentUser?.name?.ifBlank { "ByMe User" } ?: "ByMe User",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Text(
-                        text = currentUser?.email ?: "account@bymevpn.com",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 13.5.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    var showEditSubDialog by remember { mutableStateOf(false) }
-                    var editSubUrl by remember { mutableStateOf(com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context).getSubscriptionUrl() ?: "") }
-                    var isSyncingSub by remember { mutableStateOf(false) }
-
-                    // Button to update or add subscription URL
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF162A4E))
-                            .border(1.dp, Color(0xFF00D4FF).copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                            .clickable { showEditSubDialog = true }
-                            .padding(horizontal = 14.dp, vertical = 7.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("⚡", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
+                    // Circular Progress
+                    Box(modifier = Modifier.size(76.dp), contentAlignment = Alignment.Center) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            drawArc(
+                                color = Color(0xFF142026),
+                                startAngle = -90f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                style = Stroke(width = 7.dp.toPx())
+                            )
+                            drawArc(
+                                color = if (isSubActive) AppColors.BrandGreen else AppColors.StatusError,
+                                startAngle = -90f,
+                                sweepAngle = 360f * (if (isSubActive) progressFraction else 0f),
+                                useCenter = false,
+                                style = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round)
+                            )
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = if (isRu) "Управление подпиской (3x-ui)" else "Manage Subscription (3x-ui)",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold
+                                text = "$daysRemaining",
+                                color = Color.White,
+                                fontSize = 19.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                text = if (isRu) "дн." else "days",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.sp
                             )
                         }
                     }
 
-                    if (showEditSubDialog) {
-                        androidx.compose.ui.window.Dialog(onDismissRequest = { showEditSubDialog = false }) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFF0C162A))
-                                    .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
-                                    .padding(20.dp)
-                            ) {
-                                Column {
-                                    Text(
-                                        text = if (isRu) "Ссылка подписки" else "Subscription Link",
-                                        color = Color.White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = if (isRu) "Укажите ссылку подписки (из Telegram-бота или панели):" else "Enter subscription link (from Telegram bot or panel):",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 13.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.width(18.dp))
 
-                                    androidx.compose.foundation.text.BasicTextField(
-                                        value = editSubUrl,
-                                        onValueChange = { editSubUrl = it },
-                                        textStyle = androidx.compose.ui.text.TextStyle(color = Color.White, fontSize = 13.sp),
-                                        cursorBrush = androidx.compose.ui.graphics.SolidColor(Color(0xFF26E875)),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(80.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(Color(0xFF060D1A))
-                                            .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(10.dp))
-                                            .padding(10.dp)
-                                    )
-
-                                    Spacer(modifier = Modifier.height(18.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Text(
-                                            text = if (isRu) "Отмена" else "Cancel",
-                                            color = Color(0xFF94A3B8),
-                                            fontSize = 14.sp,
-                                            modifier = Modifier
-                                                .clickable { showEditSubDialog = false }
-                                                .padding(horizontal = 12.dp, vertical = 8.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFF26E875))
-                                                .clickable(enabled = !isSyncingSub) {
-                                                    isSyncingSub = true
-                                                    scope.launch {
-                                                        val res = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(editSubUrl.trim())
-                                                        isSyncingSub = false
-                                                        if (res.isSuccess) {
-                                                            com.example.bymevpn.vpn.VpnManager.getInstance(context).loadServers()
-                                                            showEditSubDialog = false
-                                                        } else {
-                                                            Toast.makeText(context, res.exceptionOrNull()?.message ?: "Ошибка", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                    }
-                                                }
-                                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                                        ) {
-                                            Text(
-                                                text = if (isRu) "Сохранить" else "Save",
-                                                color = Color(0xFF031015),
-                                                fontSize = 14.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
+                    Column {
+                        Text(
+                            text = if (isSubActive) (if (isRu) "Действует до 24 ноября 2026" else "Valid until Nov 24, 2026") else (if (isRu) "Подписка истекла" else "Subscription expired"),
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = if (isRu) "2 из 5 устройств • Подключено сейчас" else "2 of 5 devices connected now",
+                            color = AppColors.TextSecondary,
+                            fontSize = 12.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            repeat(5) { index ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(if (index < 2) AppColors.BrandGreen else AppColors.CardBorder)
+                                )
                             }
-                        }
-                    }
-
-                    if (currentUser?.isGoogle == true) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF13223D))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            GoogleLogoIcon(size = 14.dp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = if (isRu) "Google ID подключен" else "Google ID Connected",
-                                color = Color(0xFFCBD5E1),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Medium
-                            )
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Subscription & Circular Progress Card
-                val status = subscription?.status ?: "none"
-                val rawPlanName = subscription?.planName
-                val planName = when {
-                    rawPlanName == "Admin VIP (Безлимит)" -> if (isRu) "Admin VIP (Безлимит)" else "Admin VIP (Unlimited)"
-                    rawPlanName != null -> rawPlanName
-                    else -> if (isRu) "Базовый доступ" else "Free Account"
-                }
-                val secondsRemaining = subscription?.secondsRemaining ?: 0L
-                val daysRemaining = (secondsRemaining / 86400).coerceAtLeast(0)
-                val totalPeriodDays = 30f
-                val progressFraction = (daysRemaining / totalPeriodDays).coerceIn(0f, 1f)
-
-                // Status Badge
-                val badgeColor = when (status) {
-                    "active" -> Color(0xFF26E875)
-                    "trial" -> Color(0xFF00D4FF)
-                    "grace" -> Color(0xFFFFB74D)
-                    else -> Color(0xFFFF5252)
-                }
-                val badgeText = when (status) {
-                    "active" -> if (isRu) "АКТИВНА" else "ACTIVE"
-                    "trial" -> if (isRu) "ПРОБНЫЙ" else "TRIAL"
-                    "grace" -> if (isRu) "ЛЬГОТНЫЙ" else "GRACE"
-                    else -> if (isRu) "НЕТ ПОДПИСКИ" else "INACTIVE"
+                // Primary Action Button: "Продлить или изменить тариф" (Opens Figma Screen 08 Tariffs Modal)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                            )
+                        )
+                        .clickable { showTariffModal = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isRu) "⚡ Продлить или изменить тариф" else "⚡ Renew or Change Plan",
+                        color = AppColors.DarkText,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 }
 
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Secondary Link: Manage 3x-ui link directly
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppColors.InputBg)
+                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
+                        .clickable { showEditSubDialog = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isRu) "Вставить ссылку из Telegram-бота" else "Paste Link from Telegram Bot",
+                        color = AppColors.SkyBlue,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 4. Connected Devices Section
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(22.dp))
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = if (isRu) "Подключенные устройства" else "Connected Devices",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Current phone card
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppColors.InputBg)
+                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("📱", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = android.os.Build.MODEL ?: "Android Device",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = if (isRu) "(это устройство)" else "(this device)",
+                                    color = AppColors.BrandGreen,
+                                    fontSize = 11.sp
+                                )
+                            }
+                            Text(
+                                text = if (isRu) "Android • Активно сейчас" else "Android • Active now",
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .clip(CircleShape)
+                            .background(AppColors.BrandGreen)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 5. Log Out & Danger Zone
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
+                    .clickable {
+                        scope.launch {
+                            AccountRepository.logout(context)
+                            onLogOut()
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isRu) "Выйти из аккаунта" else "Log Out",
+                    color = AppColors.TextSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+
+    // Modal: Figma Screen 08 Tariffs (Тарифы)
+    if (showTariffModal) {
+        Dialog(onDismissRequest = { showTariffModal = false }) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
+                    .padding(20.dp)
+            ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFF0C162A))
-                        .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
-                        .padding(20.dp)
+                        .verticalScroll(rememberScrollState())
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -337,394 +474,203 @@ fun AccountScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isRu) "Подписка" else "Subscription",
+                            text = if (isRu) "Выберите тариф" else "Choose Plan",
                             color = Color.White,
-                            fontSize = 16.sp,
+                            fontSize = 19.sp,
                             fontWeight = FontWeight.Bold
                         )
-
-                        Box(
+                        Text(
+                            text = "✕",
+                            color = AppColors.TextSecondary,
+                            fontSize = 18.sp,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(badgeColor.copy(alpha = 0.15f))
-                                .border(1.dp, badgeColor.copy(alpha = 0.5f), RoundedCornerShape(6.dp))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            Text(text = badgeText, color = badgeColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
+                                .clickable { showTariffModal = false }
+                                .padding(4.dp)
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Circular gauge
-                        Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
-                            Canvas(modifier = Modifier.fillMaxSize()) {
-                                drawArc(
-                                    color = Color(0xFF162542),
-                                    startAngle = -90f,
-                                    sweepAngle = 360f,
-                                    useCenter = false,
-                                    style = Stroke(width = 8.dp.toPx())
-                                )
-                                drawArc(
-                                    color = badgeColor,
-                                    startAngle = -90f,
-                                    sweepAngle = 360f * (if (status == "none" || status == "expired") 0f else progressFraction),
-                                    useCenter = false,
-                                    style = Stroke(width = 8.dp.toPx(), cap = StrokeCap.Round)
-                                )
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "$daysRemaining",
-                                    color = Color.White,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.ExtraBold
-                                )
-                                Text(
-                                    text = if (isRu) "дн." else "days",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 11.sp
-                                )
-                            }
+                    // 12 Months Card ("МАКСИМАЛЬНАЯ ВЫГОДА")
+                    TariffItemCard(
+                        title = if (isRu) "12 месяцев" else "12 Months",
+                        price = "1 199 ₽",
+                        subprice = if (isRu) "99 ₽ / месяц • Скидка 50%" else "99 ₽ / month • 50% OFF",
+                        badge = if (isRu) "МАКСИМАЛЬНАЯ ВЫГОДА" else "BEST VALUE",
+                        isHighlight = true,
+                        onClick = {
+                            openTelegramBot(context, "start=tariff_12m")
+                            showTariffModal = false
                         }
+                    )
 
-                        Spacer(modifier = Modifier.width(18.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                        Column {
-                            Text(
-                                text = planName,
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = if (subscription?.expiresAt != null) {
-                                    if (isRu) "Действует до: ${subscription?.expiresAt}" else "Valid until: ${subscription?.expiresAt}"
-                                } else {
-                                    if (isRu) "Нет активного тарифа" else "No active plan"
-                                },
-                                color = Color(0xFF94A3B8),
-                                fontSize = 12.5.sp
-                            )
-                            Text(
-                                text = if (isRu)
-                                    "Устройств: ${subscription?.activeDevices ?: 1} из ${subscription?.maxDevices ?: 5}"
-                                else
-                                    "Devices: ${subscription?.activeDevices ?: 1} of ${subscription?.maxDevices ?: 5}",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
+                    // 6 Months Card ("ВЫГОДНЕЕ")
+                    TariffItemCard(
+                        title = if (isRu) "6 месяцев" else "6 Months",
+                        price = "699 ₽",
+                        subprice = if (isRu) "116 ₽ / месяц" else "116 ₽ / month",
+                        badge = if (isRu) "ВЫГОДНЕЕ" else "POPULAR",
+                        isHighlight = false,
+                        onClick = {
+                            openTelegramBot(context, "start=tariff_6m")
+                            showTariffModal = false
                         }
-                    }
+                    )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // Buttons: "Try 3 days free" or "Renew in Web"
-                    if (subscription?.trialAvailable == true && (status == "none" || status == "expired")) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26E875))
-                                .clickable {
-                                    scope.launch {
-                                        val result = subManager.activateTrial()
-                                        if (result.isSuccess) {
-                                            Toast.makeText(context, if (isRu) "Пробный период 3 дня активирован!" else "3-day trial activated!", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            showTrialErrorDialog = result.exceptionOrNull()?.message ?: "Trial activation error"
-                                        }
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (isRu) "🎁 Попробовать 3 дня бесплатно" else "🎁 Try 3 days free",
-                                color = Color(0xFF060B17),
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
+                    // 3 Months Card
+                    TariffItemCard(
+                        title = if (isRu) "3 месяца" else "3 Months",
+                        price = "399 ₽",
+                        subprice = if (isRu) "133 ₽ / месяц" else "133 ₽ / month",
+                        badge = null,
+                        isHighlight = false,
+                        onClick = {
+                            openTelegramBot(context, "start=tariff_3m")
+                            showTariffModal = false
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
-                    }
+                    )
 
-                    // Open Web portal via Chrome Custom Tabs
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // 1 Month Card
+                    TariffItemCard(
+                        title = if (isRu) "1 месяц" else "1 Month",
+                        price = "149 ₽",
+                        subprice = if (isRu) "Базовый доступ" else "Standard Access",
+                        badge = null,
+                        isHighlight = false,
+                        onClick = {
+                            openTelegramBot(context, "start=tariff_1m")
+                            showTariffModal = false
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Open Telegram Bot button
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(46.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF142442))
-                            .border(1.dp, Color(0xFF203B6B), RoundedCornerShape(12.dp))
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                                )
+                            )
                             .clickable {
-                                openCustomTab(context, "https://bymevpn-site.duckdns.org/billing")
+                                openTelegramBot(context, "start=subscribe")
+                                showTariffModal = false
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (isRu) "Управление подпиской на сайте ↗" else "Manage subscription on web ↗",
-                            color = Color(0xFF00D4FF),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Devices List Card
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFF0C162A))
-                        .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
-                        .padding(20.dp)
-                ) {
-                    Text(
-                        text = if (isRu) "Подключенные устройства" else "Connected Devices",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (userDevices.isEmpty()) {
-                        Text(
-                            text = if (isRu) "Нет данных об устройствах" else "No devices registered yet",
-                            color = Color(0xFF64748B),
-                            fontSize = 13.sp
-                        )
-                    } else {
-                        userDevices.forEach { device ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF091222))
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = device.deviceModel,
-                                            color = Color.White,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        if (device.isCurrent) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = if (isRu) "(это устройство)" else "(this device)",
-                                                color = Color(0xFF26E875),
-                                                fontSize = 11.sp
-                                            )
-                                        }
-                                    }
-                                    val localizedLastActive = if (device.lastActive == "Сейчас") {
-                                        if (isRu) "Сейчас" else "Active now"
-                                    } else {
-                                        device.lastActive
-                                    }
-                                    Text(
-                                        text = "${device.platform} • $localizedLastActive",
-                                        color = Color(0xFF64748B),
-                                        fontSize = 11.5.sp
-                                    )
-                                }
-
-                                if (!device.isCurrent) {
-                                    Text(
-                                        text = if (isRu) "Удалить" else "Remove",
-                                        color = Color(0xFFFF5252),
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .clickable {
-                                                scope.launch {
-                                                    AccountRepository.removeDevice(context, device.id)
-                                                }
-                                            }
-                                            .padding(6.dp)
-                                    )
-                                }
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isRu) "Оплатить в Telegram-боте" else "Pay via Telegram Bot",
+                                color = AppColors.DarkText,
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Log Out Button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF14223A))
-                        .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(14.dp))
-                        .clickable {
-                            scope.launch {
-                                AccountRepository.logout(context)
-                                onLogOut()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isRu) "Выйти из аккаунта" else "Log Out",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Delete Account (2-step confirm)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(46.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF261017))
-                        .border(1.dp, Color(0xFF5A1C29), RoundedCornerShape(14.dp))
-                        .clickable { showDeleteConfirmDialog = true },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isRu) "Удалить аккаунт навсегда" else "Delete Account Permanently",
-                        color = Color(0xFFFF5252),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }
 
-    // Delete Account Confirmation Dialog
-    if (showDeleteConfirmDialog) {
-        Dialog(onDismissRequest = { if (!isDeleting) showDeleteConfirmDialog = false }) {
+    // Modal: Edit 3x-ui Link
+    if (showEditSubDialog) {
+        var editSubUrl by remember {
+            mutableStateOf(com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context).getSubscriptionUrl() ?: "")
+        }
+        var isSyncingSub by remember { mutableStateOf(false) }
+
+        Dialog(onDismissRequest = { showEditSubDialog = false }) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Color(0xFF0F172A))
-                    .border(1.2.dp, Color(0xFF5A1C29), RoundedCornerShape(22.dp))
-                    .padding(22.dp)
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(22.dp))
+                    .padding(20.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column {
                     Text(
-                        text = if (isRu) "Удаление аккаунта" else "Delete Account",
-                        color = Color(0xFFFF5252),
+                        text = if (isRu) "Ссылка подписки" else "Subscription Link",
+                        color = Color.White,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (isRu)
-                            "Вы уверены, что хотите удалить аккаунт ByMeVPN? Все подписки, сессии и история будут стёрты без возможности восстановления."
-                        else
-                            "Are you sure you want to permanently delete your ByMeVPN account? All subscriptions and sessions will be deleted.",
-                        color = Color(0xFFCBD5E1),
-                        fontSize = 13.5.sp,
-                        textAlign = TextAlign.Center
+                        text = if (isRu) "Вставьте ссылку подписки или ключ из Telegram-бота:" else "Paste subscription link or key from Telegram bot:",
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp
                     )
+                    Spacer(modifier = Modifier.height(14.dp))
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    if (isDeleting) {
-                        CircularProgressIndicator(color = Color(0xFFFF5252))
-                    } else {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF1E293B))
-                                    .clickable { showDeleteConfirmDialog = false },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(if (isRu) "Отмена" else "Cancel", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            }
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFDC2626))
-                                    .clickable {
-                                        isDeleting = true
-                                        scope.launch {
-                                            val res = AccountRepository.deleteAccount(context)
-                                            isDeleting = false
-                                            showDeleteConfirmDialog = false
-                                            if (res.isSuccess) {
-                                                onLogOut()
-                                            } else {
-                                                Toast.makeText(context, res.exceptionOrNull()?.message ?: "Error deleting account", Toast.LENGTH_LONG).show()
-                                            }
-                                        }
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(if (isRu) "Да, удалить" else "Confirm", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Trial error dialog
-    showTrialErrorDialog?.let { err ->
-        Dialog(onDismissRequest = { showTrialErrorDialog = null }) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF0C162A))
-                    .padding(20.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = if (isRu) "Пробный период" else "Trial Activation", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(text = err, color = Color(0xFFCBD5E1), fontSize = 13.5.sp, textAlign = TextAlign.Center)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Box(
+                    BasicTextField(
+                        value = editSubUrl,
+                        onValueChange = { editSubUrl = it },
+                        textStyle = TextStyle(color = Color.White, fontSize = 13.sp),
+                        cursorBrush = SolidColor(AppColors.BrandGreen),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(42.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF1E355B))
-                            .clickable { showTrialErrorDialog = null },
-                        contentAlignment = Alignment.Center
+                            .height(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AppColors.InputBg)
+                            .border(1.dp, AppColors.InputBorder, RoundedCornerShape(12.dp))
+                            .padding(10.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(text = "OK", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = if (isRu) "Отмена" else "Cancel",
+                            color = AppColors.TextSecondary,
+                            fontSize = 14.sp,
+                            modifier = Modifier
+                                .clickable { showEditSubDialog = false }
+                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AppColors.BrandGreen)
+                                .clickable(enabled = !isSyncingSub) {
+                                    isSyncingSub = true
+                                    scope.launch {
+                                        val res = subManager.applySubscriptionUrl(editSubUrl.trim())
+                                        isSyncingSub = false
+                                        if (res.isSuccess) {
+                                            VpnManager.getInstance(context).loadServers()
+                                            showEditSubDialog = false
+                                        } else {
+                                            Toast.makeText(context, res.exceptionOrNull()?.message ?: "Ошибка", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = if (isRu) "Сохранить" else "Save",
+                                color = AppColors.DarkText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
             }
@@ -732,14 +678,65 @@ fun AccountScreen(
     }
 }
 
-private fun openCustomTab(context: Context, url: String) {
+@Composable
+private fun TariffItemCard(
+    title: String,
+    price: String,
+    subprice: String,
+    badge: String?,
+    isHighlight: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(if (isHighlight) AppColors.CardBgElevated else AppColors.InputBg)
+            .border(
+                1.2.dp,
+                if (isHighlight) AppColors.BrandGreen else AppColors.CardBorder,
+                RoundedCornerShape(14.dp)
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    if (badge != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(AppColors.BrandGreen.copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(text = badge, color = AppColors.BrandGreen, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(text = subprice, color = AppColors.TextSecondary, fontSize = 12.sp)
+            }
+
+            Text(text = price, color = if (isHighlight) AppColors.BrandGreen else Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
+        }
+    }
+}
+
+private fun openTelegramBot(context: Context, param: String?) {
+    val url = if (param != null) "https://t.me/ByMeVPNBot?$param" else "https://t.me/ByMeVPNSupportBot"
     try {
-        val customTabsIntent = CustomTabsIntent.Builder()
-            .setShowTitle(true)
-            .build()
-        customTabsIntent.launchUrl(context, Uri.parse(url))
-    } catch (e: Exception) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
         context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
     }
 }

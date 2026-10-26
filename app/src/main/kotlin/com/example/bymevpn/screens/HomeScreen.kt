@@ -12,12 +12,9 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,12 +32,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Scaffold
@@ -56,12 +53,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -69,18 +69,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.bymevpn.components.AccountIcon
-import com.example.bymevpn.components.ChangeServerIcon
 import com.example.bymevpn.components.ChatSupportIcon
-import com.example.bymevpn.components.CountryFlagView
-import com.example.bymevpn.components.FaqDialog
 import com.example.bymevpn.components.GlobeIcon
+import com.example.bymevpn.components.LiveSpeedWave
 import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.components.TelegramLogoIcon
-import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.PingTester
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import com.example.bymevpn.vpn.VpnConnectionState
 import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.launch
@@ -94,6 +93,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
     val currentLanguage by LocaleManager.currentLanguage.collectAsState()
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
@@ -111,16 +111,13 @@ fun HomeScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
 
     var showServerPicker by remember { mutableStateOf(false) }
-    var showTrialBanner by remember { mutableStateOf(false) }
-    var showFaqDialog by remember { mutableStateOf(false) }
-
     var measuredPings by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var isMeasuringPing by remember { mutableStateOf(false) }
+    var serverSearchQuery by remember { mutableStateOf("") }
 
     val isConnected = vpnState == VpnConnectionState.CONNECTED
     val isConnecting = vpnState == VpnConnectionState.CONNECTING
 
-    // Load servers from API on launch and sync VPN service state
     LaunchedEffect(Unit) {
         vpnManager.syncWithServiceState()
         vpnManager.loadServers()
@@ -151,29 +148,29 @@ fun HomeScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color(0xFF060B17),
+        containerColor = AppColors.BgCanvas,
         bottomBar = {
-            // Modern bottom bar with Servers, Settings, and Account
+            // Figma Studio Bottom Navigation Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF0C162A))
-                    .border(width = 1.dp, color = Color(0xFF1E355B))
+                    .background(AppColors.CardBg)
+                    .border(width = 1.dp, color = AppColors.CardBorder)
                     .navigationBarsPadding()
                     .padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Servers Tab (Active on Home)
+                // VPN Tab (Active)
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.clickable { /* Already on Home */ }
                 ) {
-                    GlobeIcon(color = Color(0xFF26E875), size = 24.dp)
+                    GlobeIcon(color = AppColors.BrandGreen, size = 24.dp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (isRu) "Серверы" else "Servers",
-                        color = Color(0xFF26E875),
+                        text = if (isRu) "Подключение" else "VPN",
+                        color = AppColors.BrandGreen,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -184,11 +181,11 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.clickable { onNavigateToSettings() }
                 ) {
-                    Text("⚙", color = Color(0xFF94A3B8), fontSize = 22.sp)
+                    Text("⚙", color = AppColors.TextSecondary, fontSize = 22.sp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (isRu) "Настройки" else "Settings",
-                        color = Color(0xFF94A3B8),
+                        color = AppColors.TextSecondary,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -199,11 +196,11 @@ fun HomeScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.clickable { onNavigateToAccount() }
                 ) {
-                    AccountIcon(color = Color(0xFF94A3B8), size = 24.dp)
+                    AccountIcon(color = AppColors.TextSecondary, size = 24.dp)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (isRu) "Аккаунт" else "Account",
-                        color = Color(0xFF94A3B8),
+                        color = AppColors.TextSecondary,
                         fontSize = 11.5.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -215,12 +212,13 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .statusBarsPadding()
                 .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
-            // Top Header Bar
+            // 1. Top Header Bar (ByMeVPN brand + Support buttons)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -228,12 +226,11 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // ByMeVPN Logo + App Name
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ShieldLogo(
                         size = 28.dp,
-                        isActive = true,
-                        glowAlpha = 1.0f
+                        isActive = isConnected,
+                        glowAlpha = if (isConnected) 1.0f else 0.4f
                     )
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
@@ -241,34 +238,34 @@ fun HomeScreen(
                             withStyle(SpanStyle(color = Color.White)) {
                                 append("ByMe")
                             }
-                            withStyle(SpanStyle(color = Color(0xFF26E875))) {
+                            withStyle(SpanStyle(color = AppColors.BrandGreen)) {
                                 append("VPN")
                             }
                         },
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 21.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.5.sp
                     )
                 }
 
-                // Top right buttons: Chat support bot first, then Telegram channel
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Chat support bot: https://t.me/ByMeVPNSupportBot
+                    // Support Bot: https://t.me/ByMeVPNSupportBot
                     Box(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF0C162A))
-                            .border(1.2.dp, Color(0xFF1E355B), CircleShape)
+                            .background(AppColors.CardBg)
+                            .border(1.dp, AppColors.CardBorder, CircleShape)
                             .clickable {
                                 openExternalUrl(context, "https://t.me/ByMeVPNSupportBot")
                             }
                             .testTag("support_bot_button"),
                         contentAlignment = Alignment.Center
                     ) {
-                        ChatSupportIcon(size = 20.dp, color = Color(0xFF00D4FF))
+                        ChatSupportIcon(size = 20.dp, color = AppColors.SkyBlue)
                     }
 
                     // Official Telegram channel: https://t.me/ByMeVPN
@@ -276,20 +273,20 @@ fun HomeScreen(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF0C162A))
-                            .border(1.2.dp, Color(0xFF1E355B), CircleShape)
+                            .background(AppColors.CardBg)
+                            .border(1.dp, AppColors.CardBorder, CircleShape)
                             .clickable {
                                 openExternalUrl(context, "https://t.me/ByMeVPN")
                             }
                             .testTag("telegram_channel_button"),
                         contentAlignment = Alignment.Center
                     ) {
-                        TelegramLogoIcon(size = 19.dp, color = Color(0xFF2AABEE))
+                        TelegramLogoIcon(size = 19.dp, color = AppColors.TelegramBlue)
                     }
                 }
             }
 
-            // Central Interactive & Status Section (Centered and scrollable on compact screens)
+            // 2. Central Scrollable Section
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -298,331 +295,262 @@ fun HomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Error Banner when connection fails
-            if (!errorMessage.isNullOrBlank()) {
-                val isSubError = errorMessage == "SUBSCRIPTION_REQUIRED"
-                val displayMsg = when {
-                    isSubError -> if (isRu) "Требуется активная подписка для подключения" else "Active subscription required to connect"
-                    else -> errorMessage ?: ""
-                }
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF2E0F14))
-                        .border(1.2.dp, Color(0xFFFF5252), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                // Connection Error Banner
+                if (!errorMessage.isNullOrBlank()) {
+                    val isSubError = errorMessage == "SUBSCRIPTION_REQUIRED"
+                    val displayMsg = when {
+                        isSubError -> if (isRu) "Требуется активная подписка для подключения" else "Active subscription required to connect"
+                        else -> errorMessage ?: ""
+                    }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF220A0E))
+                            .border(1.2.dp, AppColors.StatusError, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
                     ) {
                         Row(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("⚠️", fontSize = 20.sp)
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = if (isRu) "Ошибка подключения" else "Connection Error",
+                                        color = AppColors.StatusError,
+                                        fontSize = 13.5.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = displayMsg,
+                                        color = Color.White.copy(alpha = 0.9f),
+                                        fontSize = 12.sp,
+                                        maxLines = 3
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "✕",
+                                color = AppColors.TextSecondary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier
+                                    .clickable { vpnManager.clearErrorMessage() }
+                                    .padding(8.dp)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("⚠️", fontSize = 20.sp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
+                            if (isSubError) {
                                 Text(
-                                    text = if (isRu) "Ошибка подключения" else "Connection Error",
-                                    color = Color(0xFFFF5252),
-                                    fontSize = 13.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = if (isRu) "Оформить подписку →" else "Get Subscription →",
+                                    color = AppColors.BrandGreen,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.clickable {
+                                        vpnManager.clearErrorMessage()
+                                        onNavigateToAccount()
+                                    }
                                 )
-                                Text(
-                                    text = displayMsg,
-                                    color = Color.White.copy(alpha = 0.9f),
-                                    fontSize = 12.sp,
-                                    maxLines = 3
-                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(AppColors.CardBgElevated)
+                                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            vpnManager.clearErrorMessage()
+                                            vpnManager.connect()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = if (isRu) "↻ Повторить" else "↻ Retry",
+                                        color = AppColors.BrandGreen,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
-                        Text(
-                            text = "✕",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier
-                                .clickable { vpnManager.clearErrorMessage() }
-                                .padding(8.dp)
-                        )
                     }
+                    Spacer(modifier = Modifier.height(14.dp))
+                }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (isSubError) {
-                            Text(
-                                text = if (isRu) "Оформить подписку →" else "Get Subscription →",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clickable {
-                                    vpnManager.clearErrorMessage()
-                                    onNavigateToAccount()
+                // Interactive Shield Power Button with tactile haptics
+                val shieldPulseTransition = rememberInfiniteTransition(label = "shield_pulse")
+                val pulseGlow by shieldPulseTransition.animateFloat(
+                    initialValue = 0.55f,
+                    targetValue = 1.0f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(1200, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pulse_glow"
+                )
+
+                val logoInteractionSource = remember { MutableInteractionSource() }
+
+                Box(
+                    modifier = Modifier
+                        .size(215.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.radialGradient(
+                                colors = if (isConnected) {
+                                    listOf(
+                                        AppColors.BrandGreen.copy(alpha = 0.22f),
+                                        AppColors.ElectricBlue.copy(alpha = 0.08f),
+                                        Color.Transparent
+                                    )
+                                } else if (isConnecting) {
+                                    listOf(
+                                        AppColors.SkyBlue.copy(alpha = 0.30f * pulseGlow),
+                                        Color.Transparent
+                                    )
+                                } else {
+                                    listOf(
+                                        AppColors.CardBgElevated.copy(alpha = 0.40f),
+                                        Color.Transparent
+                                    )
                                 }
                             )
-                        } else {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF162A4E))
-                                    .clickable {
-                                        vpnManager.clearErrorMessage()
-                                        vpnManager.connect()
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = if (isRu) "↻ Повторить" else "↻ Retry",
-                                    color = Color(0xFF00D4FF),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                        )
+                        .border(
+                            width = if (isConnected) 2.dp else 1.5.dp,
+                            brush = Brush.sweepGradient(
+                                if (isConnected) listOf(AppColors.BrandGreen, AppColors.SkyBlue, AppColors.BrandGreen)
+                                else if (isConnecting) listOf(AppColors.SkyBlue, AppColors.CardBorder, AppColors.SkyBlue)
+                                else listOf(AppColors.CardBorder, AppColors.BgCanvas, AppColors.CardBorder)
+                            ),
+                            shape = CircleShape
+                        )
+                        .clickable(
+                            interactionSource = logoInteractionSource,
+                            indication = null
+                        ) {
+                            // Tactile Haptic Vibration
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+
+                            if (isConnected) {
+                                vpnManager.disconnect()
+                            } else if (isConnecting) {
+                                vpnManager.disconnect()
+                            } else {
+                                val prepIntent = VpnManager.getVpnPrepareIntent(context)
+                                if (prepIntent != null) {
+                                    vpnPrepareLauncher.launch(prepIntent)
+                                } else {
+                                    VpnManager.startVpn(context)
+                                }
                             }
                         }
+                        .testTag("shield_logo_toggle"),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ShieldLogo(
+                        size = 150.dp,
+                        isActive = isConnected,
+                        pulseAlpha = if (isConnecting) pulseGlow else 1.0f,
+                        glowAlpha = if (isConnected) 1.0f else 0.45f
+                    )
+
+                    if (isConnecting) {
+                        CircularProgressIndicator(
+                            color = AppColors.SkyBlue,
+                            strokeWidth = 3.dp,
+                            modifier = Modifier.size(195.dp)
+                        )
                     }
                 }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Connection Status Typography (Figma 04 & 05: "VPN подключён" / "VPN выключен")
+                val statusColor = when {
+                    isConnected -> AppColors.BrandGreen
+                    isConnecting -> AppColors.SkyBlue
+                    vpnState == VpnConnectionState.ERROR -> AppColors.StatusError
+                    else -> AppColors.TextSecondary
+                }
+                val statusHeadline = when {
+                    isConnected -> if (isRu) "VPN подключён" else "VPN Connected"
+                    isConnecting -> if (isRu) "Подключение..." else "Connecting..."
+                    vpnState == VpnConnectionState.ERROR -> if (isRu) "Ошибка соединения" else "Connection Failed"
+                    else -> if (isRu) "VPN выключен" else "VPN Disconnected"
+                }
+
+                val statusSubtext = when {
+                    isConnected -> if (isRu) "Соединение защищено • ${formatDuration(connectedSeconds)}" else "Connection secured • ${formatDuration(connectedSeconds)}"
+                    isConnecting -> if (isRu) "Устанавливаем безопасный туннель..." else "Securing connection..."
+                    vpnState == VpnConnectionState.ERROR -> if (isRu) "Нажмите на щит для повтора" else "Tap shield to retry"
+                    else -> if (isRu) "Нажмите на щит для включения" else "Tap shield to connect"
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(statusColor)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = statusHeadline,
+                        color = Color.White,
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = statusSubtext,
+                    color = if (isConnected) AppColors.BrandGreenGlow else AppColors.TextSecondary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                // Live Speed Wave Telemetry Graph (Only active when connected)
+                if (isConnected) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    LiveSpeedWave(
+                        bytesIn = bytesIn,
+                        bytesOut = bytesOut,
+                        isConnected = isConnected
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(14.dp))
             }
 
-            // Trial Reminder Banner if available
-            if (subscription?.trialAvailable == true && (subscription?.status == "none" || subscription?.status == "expired")) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF142442))
-                        .border(1.dp, Color(0xFF00D4FF), RoundedCornerShape(14.dp))
-                        .clickable { onNavigateToAccount() }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎁", fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = if (isRu) "Попробуйте 3 дня бесплатно!" else "Try 3 days for free!",
-                                color = Color.White,
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (isRu) "Активируйте в аккаунте" else "Activate in your account",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 11.5.sp
-                            )
-                        }
-                    }
-                    Text("→", color = Color(0xFF00D4FF), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
+            // 3. Lower Cards: Selected Server Card & Active Subscription Card (Figma Style)
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Shield Logo as the Main Interactive Power Button
-            val shieldPulseTransition = rememberInfiniteTransition(label = "shield_pulse")
-            val pulseGlow by shieldPulseTransition.animateFloat(
-                initialValue = 0.55f,
-                targetValue = 1.0f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(1200, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "pulse_glow"
-            )
-
-            val logoInteractionSource = remember { MutableInteractionSource() }
-
-            Box(
-                modifier = Modifier
-                    .size(210.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            colors = if (isConnected) {
-                                listOf(
-                                    Color(0xFF26E875).copy(alpha = 0.28f),
-                                    Color(0xFF00D4FF).copy(alpha = 0.10f),
-                                    Color.Transparent
-                                )
-                            } else if (isConnecting) {
-                                listOf(
-                                    Color(0xFF00D4FF).copy(alpha = 0.35f * pulseGlow),
-                                    Color.Transparent
-                                )
-                            } else {
-                                listOf(
-                                    Color(0xFF132B4F).copy(alpha = 0.35f),
-                                    Color.Transparent
-                                )
-                            }
-                        )
-                    )
-                    .border(
-                        width = if (isConnected) 2.dp else 1.5.dp,
-                        brush = Brush.sweepGradient(
-                            if (isConnected) listOf(Color(0xFF26E875), Color(0xFF00D4FF), Color(0xFF26E875))
-                            else if (isConnecting) listOf(Color(0xFF00D4FF), Color(0xFF1E355B), Color(0xFF00D4FF))
-                            else listOf(Color(0xFF1E355B), Color(0xFF0E1A2E), Color(0xFF1E355B))
-                        ),
-                        shape = CircleShape
-                    )
-                    .clickable(
-                        interactionSource = logoInteractionSource,
-                        indication = null
-                    ) {
-                        if (isConnected) {
-                            vpnManager.disconnect()
-                        } else if (isConnecting) {
-                            vpnManager.disconnect()
-                        } else {
-                            val prepIntent = VpnManager.getVpnPrepareIntent(context)
-                            if (prepIntent != null) {
-                                vpnPrepareLauncher.launch(prepIntent)
-                            } else {
-                                VpnManager.startVpn(context)
-                            }
-                        }
-                    }
-                    .testTag("shield_logo_toggle"),
-                contentAlignment = Alignment.Center
-            ) {
-                ShieldLogo(
-                    size = 145.dp,
-                    isActive = isConnected,
-                    pulseAlpha = if (isConnecting) pulseGlow else 1.0f,
-                    glowAlpha = if (isConnected) 1.0f else 0.45f
-                )
-
-                if (isConnecting) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF00D4FF),
-                        strokeWidth = 3.dp,
-                        modifier = Modifier.size(190.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Status indicator label (NO technical VLESS / Reality mentioned)
-            val isEngineBlocked = errorMessage?.contains("VPN-движок недоступен", ignoreCase = true) == true ||
-                errorMessage?.contains("VPN engine unavailable", ignoreCase = true) == true
-            val isVpnUnavailable = errorMessage?.contains("недоступен", ignoreCase = true) == true ||
-                errorMessage?.contains("unavailable", ignoreCase = true) == true ||
-                errorMessage?.contains("not configured", ignoreCase = true) == true
-            val statusColor = when {
-                isConnected -> Color(0xFF26E875)
-                isConnecting -> Color(0xFF00D4FF)
-                vpnState == VpnConnectionState.ERROR -> Color(0xFFFF5252)
-                else -> Color(0xFF94A3B8)
-            }
-            val statusText = when {
-                isConnected -> if (isRu) "ЗАЩИТА ВКЛЮЧЕНА" else "PROTECTED"
-                isConnecting -> if (isRu) "ПОДКЛЮЧЕНИЕ..." else "CONNECTING..."
-                vpnState == VpnConnectionState.ERROR -> {
-                    when {
-                        isVpnUnavailable -> if (isRu) "VPN НЕДОСТУПЕН" else "VPN UNAVAILABLE"
-                        isEngineBlocked -> if (isRu) "ДВИЖОК НЕДОСТУПЕН" else "ENGINE UNAVAILABLE"
-                        else -> if (isRu) "ОШИБКА ПОДКЛЮЧЕНИЯ" else "CONNECTION ERROR"
-                    }
-                }
-                else -> if (isRu) "ОТКЛЮЧЕНО" else "DISCONNECTED"
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(statusColor)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = statusText,
-                    color = statusColor,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 0.8.sp
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Tap hint under the logo
-            val tapHint = when {
-                isConnected -> if (isRu) "Нажмите на логотип для отключения" else "Tap logo to disconnect"
-                isConnecting -> if (isRu) "Устанавливаем безопасное соединение..." else "Securing connection..."
-                vpnState == VpnConnectionState.ERROR -> if (isRu) "Нажмите на логотип для повторной попытки" else "Tap logo to retry"
-                else -> if (isRu) "Нажмите на логотип для включения" else "Tap logo to connect"
-            }
-            Text(
-                text = tapHint,
-                color = if (isConnected) Color(0xFF86EFAC) else Color(0xFF94A3B8),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            // Connection Duration & Traffic Stats
-            if (isConnected) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = formatDuration(connectedSeconds),
-                    color = Color.White,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(18.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "↓ ${formatBytes(bytesIn)}",
-                        color = Color(0xFF26E875),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = "↑ ${formatBytes(bytesOut)}",
-                        color = Color(0xFF00D4FF),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            } else {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (isRu) "Ваш IP и трафик не защищены" else "Your IP and traffic are unprotected",
-                    color = Color(0xFF64748B),
-                    fontSize = 12.5.sp
-                )
-            }
-
-            }
-
-            // Lower Section: Selected Server Card (Cleanly styled and positioned lower down)
-            Spacer(modifier = Modifier.height(10.dp))
+            // Selected Server Card
             val server = currentServer
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFF0C162A))
-                    .border(1.2.dp, Color(0xFF1E355B), RoundedCornerShape(18.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
                     .clickable { showServerPicker = true }
                     .padding(horizontal = 16.dp, vertical = 13.dp)
                     .testTag("current_server_card")
@@ -636,12 +564,12 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(text = server?.flag ?: "🌐", fontSize = 26.sp)
+                        Text(text = server?.flag ?: "⚡", fontSize = 26.sp)
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = if (isRu) "Сервер подключения" else "Selected Server",
-                                color = Color(0xFF64748B),
+                                color = AppColors.TextMuted,
                                 fontSize = 11.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -649,10 +577,10 @@ fun HomeScreen(
                                 text = if (server != null) {
                                     "${server.localizedCountry(isRu)} (${server.localizedCity(isRu)})"
                                 } else {
-                                    if (isRu) "Сервер не выбран" else "No server selected"
+                                    if (isRu) "Автоматически (Лучший пинг)" else "Auto (Best latency)"
                                 },
                                 color = Color.White,
-                                fontSize = 15.sp,
+                                fontSize = 14.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -661,21 +589,21 @@ fun HomeScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFF162A4E))
-                            .border(1.dp, Color(0xFF00D4FF).copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                            .background(AppColors.CardBgElevated)
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(10.dp))
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = if (isRu) "Сменить" else "Change",
-                                color = Color(0xFF00D4FF),
+                                text = if (isRu) "Изменить" else "Change",
+                                color = AppColors.BrandGreen,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "⇄",
-                                color = Color(0xFF00D4FF),
+                                text = "→",
+                                color = AppColors.BrandGreen,
                                 fontSize = 12.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -684,19 +612,86 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Active Subscription Card (Figma Screen 04 & 05)
+            val isSubActive = subscription?.status == "active" || subscription?.status == "trial"
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
+                    .clickable { onNavigateToAccount() }
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(10.dp)
+                                .clip(CircleShape)
+                                .background(if (isSubActive) AppColors.BrandGreen else AppColors.StatusWarning)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = if (isSubActive) {
+                                    if (isRu) "Доступ активен" else "Subscription Active"
+                                } else {
+                                    if (isRu) "Нет активной подписки" else "No Active Subscription"
+                                },
+                                color = Color.White,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            val expDate = subscription?.expiresAt ?: "24 ноября 2026"
+                            val devicesCount = "${subscription?.activeDevices ?: 2} из ${subscription?.maxDevices ?: 5}"
+                            Text(
+                                text = if (isSubActive) {
+                                    if (isRu) "До $expDate • $devicesCount устройств" else "Until $expDate • $devicesCount devices"
+                                } else {
+                                    if (isRu) "Оформите подписку для безлимита" else "Get a plan for unlimited access"
+                                },
+                                color = AppColors.TextSecondary,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = if (isSubActive) {
+                            if (isRu) "Продлить →" else "Renew →"
+                        } else {
+                            if (isRu) "Оформить →" else "Get Plan →"
+                        },
+                        color = AppColors.BrandGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 
-    // Server Selection Modal
+    // 4. Server Selection Modal (Figma Screen 06)
     if (showServerPicker) {
         Dialog(onDismissRequest = { showServerPicker = false }) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF0C162A))
-                    .border(1.2.dp, Color(0xFF1E355B), RoundedCornerShape(24.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
                     .padding(20.dp)
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -706,44 +701,15 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isRu) "Выберите VPN сервер" else "Select VPN Server",
+                            text = if (isRu) "Выбор сервера" else "Select Server",
                             color = Color.White,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "⚡ Авто",
-                                color = Color(0xFF26E875),
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF162A4E))
-                                    .clickable {
-                                        scope.launch {
-                                            val fastest = vpnManager.autoSelectFastestServer()
-                                            if (fastest != null) {
-                                                showServerPicker = false
-                                            }
-                                        }
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "↻",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 20.sp,
-                                modifier = Modifier
-                                    .clickable {
-                                        scope.launch { vpnManager.loadServers() }
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                            Text(
                                 text = "✕",
-                                color = Color(0xFF94A3B8),
+                                color = AppColors.TextSecondary,
                                 fontSize = 18.sp,
                                 modifier = Modifier
                                     .clickable { showServerPicker = false }
@@ -752,15 +718,92 @@ fun HomeScreen(
                         }
                     }
 
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Search field
+                    BasicTextField(
+                        value = serverSearchQuery,
+                        onValueChange = { serverSearchQuery = it },
+                        textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp),
+                        cursorBrush = SolidColor(AppColors.BrandGreen),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AppColors.InputBg)
+                            .border(1.dp, AppColors.InputBorder, RoundedCornerShape(12.dp))
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        decorationBox = { innerTextField ->
+                            if (serverSearchQuery.isEmpty()) {
+                                Text(
+                                    text = if (isRu) "🔍 Найти сервер..." else "🔍 Search server...",
+                                    color = AppColors.TextMuted,
+                                    fontSize = 13.sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    )
+
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Dedicated button to test real ping on demand (Zero battery waste)
+                    // Recommended: Automatic fastest selection
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (currentServer == null) AppColors.CardBgElevated else AppColors.InputBg)
+                            .border(
+                                1.dp,
+                                if (currentServer == null) AppColors.BrandGreen else AppColors.CardBorder,
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable {
+                                scope.launch {
+                                    val fastest = vpnManager.autoSelectFastestServer()
+                                    showServerPicker = false
+                                    if (isConnected && fastest != null) {
+                                        vpnManager.disconnect()
+                                        VpnManager.startVpn(context, fastest)
+                                    }
+                                }
+                            }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚡", fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = if (isRu) "Автоматически" else "Automatic",
+                                    color = Color.White,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = if (isRu) "Рекомендуется • лучший доступный пинг" else "Recommended • lowest latency",
+                                    color = AppColors.TextSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+
+                        if (currentServer == null) {
+                            Text("✓", color = AppColors.BrandGreen, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Measure Ping Action Button
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF13223D))
-                            .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(12.dp))
+                            .background(AppColors.CardBgElevated)
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
                             .clickable(enabled = !isMeasuringPing) {
                                 scope.launch {
                                     isMeasuringPing = true
@@ -781,21 +824,21 @@ fun HomeScreen(
                                     isMeasuringPing = false
                                 }
                             }
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("⚡", fontSize = 16.sp)
+                            Text("📶", fontSize = 14.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (isMeasuringPing) {
                                     if (isRu) "Измерение задержки..." else "Measuring ping..."
                                 } else {
-                                    if (isRu) "Измерить пинг серверов" else "Measure server ping"
+                                    if (isRu) "Проверить реальный пинг" else "Measure real ping"
                                 },
-                                color = if (isMeasuringPing) Color(0xFF00D4FF) else Color.White,
-                                fontSize = 13.sp,
+                                color = if (isMeasuringPing) AppColors.SkyBlue else Color.White,
+                                fontSize = 12.5.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -803,22 +846,31 @@ fun HomeScreen(
                         if (isMeasuringPing) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
-                                color = Color(0xFF00D4FF),
+                                color = AppColors.SkyBlue,
                                 strokeWidth = 2.dp
                             )
                         } else {
                             Text(
-                                text = if (isRu) "Измерить" else "Measure",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 12.5.sp,
+                                text = if (isRu) "Замерить" else "Test",
+                                color = AppColors.BrandGreen,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    if (availableServers.isEmpty()) {
+                    val filteredServers = remember(availableServers, serverSearchQuery) {
+                        if (serverSearchQuery.isBlank()) availableServers
+                        else availableServers.filter {
+                            it.country.contains(serverSearchQuery, ignoreCase = true) ||
+                            it.city.contains(serverSearchQuery, ignoreCase = true) ||
+                            it.nodeCode.contains(serverSearchQuery, ignoreCase = true)
+                        }
+                    }
+
+                    if (filteredServers.isEmpty()) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -827,41 +879,24 @@ fun HomeScreen(
                             verticalArrangement = Arrangement.Center
                         ) {
                             Text(
-                                text = if (isRu) "Список серверов загружается или недоступен" else "Servers list is loading or unavailable",
-                                color = Color(0xFF94A3B8),
+                                text = if (isRu) "Серверы не найдены" else "No servers found",
+                                color = AppColors.TextSecondary,
                                 fontSize = 13.sp
                             )
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF162A4E))
-                                    .clickable {
-                                        scope.launch { vpnManager.loadServers() }
-                                    }
-                                    .padding(horizontal = 14.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = if (isRu) "Повторить попытку" else "Retry",
-                                    color = Color(0xFF00D4FF),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     } else {
                         LazyColumn(modifier = Modifier.fillMaxWidth().height(260.dp)) {
-                            items(availableServers) { node ->
+                            items(filteredServers) { node ->
                                 val isSelected = currentServer?.nodeCode == node.nodeCode
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(vertical = 4.dp)
                                         .clip(RoundedCornerShape(12.dp))
-                                        .background(if (isSelected) Color(0xFF162A4E) else Color(0xFF091222))
+                                        .background(if (isSelected) AppColors.CardBgElevated else AppColors.InputBg)
                                         .border(
                                             1.dp,
-                                            if (isSelected) Color(0xFF00D4FF) else Color(0xFF142442),
+                                            if (isSelected) AppColors.BrandGreen else AppColors.CardBorder,
                                             RoundedCornerShape(12.dp)
                                         )
                                         .clickable {
@@ -892,7 +927,7 @@ fun HomeScreen(
                                             if (isSelected) {
                                                 Text(
                                                     text = if (isRu) "Выбранный сервер" else "Selected server",
-                                                    color = Color(0xFF00D4FF),
+                                                    color = AppColors.BrandGreen,
                                                     fontSize = 11.5.sp
                                                 )
                                             }
@@ -904,20 +939,21 @@ fun HomeScreen(
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(8.dp))
-                                                .background(Color(0xFF0D1B33))
+                                                .background(AppColors.CardBg)
+                                                .border(1.dp, AppColors.CardBorder, RoundedCornerShape(8.dp))
                                                 .padding(horizontal = 8.dp, vertical = 4.dp)
                                         ) {
                                             Text(
                                                 text = "$realPing ms",
-                                                color = if (realPing < 45) Color(0xFF26E875) else Color(0xFF00D4FF),
-                                                fontSize = 12.5.sp,
+                                                color = if (realPing < 60) AppColors.BrandGreen else if (realPing < 120) AppColors.SkyBlue else AppColors.StatusWarning,
+                                                fontSize = 12.sp,
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
                                     } else if (isSelected) {
                                         Text(
                                             text = "✓",
-                                            color = Color(0xFF00D4FF),
+                                            color = AppColors.BrandGreen,
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -930,11 +966,6 @@ fun HomeScreen(
             }
         }
     }
-
-    // FAQ Dialog Modal
-    if (showFaqDialog) {
-        FaqDialog(onDismiss = { showFaqDialog = false })
-    }
 }
 
 private fun formatDuration(totalSecs: Long): String {
@@ -944,28 +975,14 @@ private fun formatDuration(totalSecs: Long): String {
     return String.format(Locale.US, "%02d:%02d:%02d", hours, minutes, secs)
 }
 
-private fun formatBytes(bytes: Long): String {
-    if (bytes <= 0) return "0 B"
-    val kb = bytes / 1024.0
-    val mb = kb / 1024.0
-    val gb = mb / 1024.0
-    return when {
-        gb >= 1.0 -> String.format(Locale.US, "%.1f GB", gb)
-        mb >= 1.0 -> String.format(Locale.US, "%.1f MB", mb)
-        kb >= 1.0 -> String.format(Locale.US, "%.1f KB", kb)
-        else -> "$bytes B"
-    }
-}
-
 private fun openExternalUrl(context: Context, url: String) {
     try {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(intent)
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         val isRu = LocaleManager.isRussian(context)
         Toast.makeText(context, if (isRu) "Не удалось открыть ссылку" else "Unable to open link", Toast.LENGTH_SHORT).show()
     }
 }
-

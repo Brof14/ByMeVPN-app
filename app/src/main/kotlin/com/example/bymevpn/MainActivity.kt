@@ -128,7 +128,8 @@ fun MainAppNav() {
             AppScreen.Welcome -> {
                 WelcomeScreen(
                     onSignUpClick = { currentScreen = AppScreen.SignUp },
-                    onLogInClick = { currentScreen = AppScreen.SignIn }
+                    onLogInClick = { currentScreen = AppScreen.SignIn },
+                    onLoginSuccess = { currentScreen = AppScreen.Home }
                 )
             }
             AppScreen.SignUp -> {

@@ -1,15 +1,9 @@
 package com.example.bymevpn.screens
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -19,12 +13,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -47,7 +42,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -70,12 +64,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.EyeIcon
 import com.example.bymevpn.components.GoogleLogoIcon
-import com.example.bymevpn.components.GradientBackground
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
@@ -139,402 +134,267 @@ fun SignInScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = Color.Transparent,
+        containerColor = AppColors.BgCanvas,
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(bottom = 24.dp))
         }
     ) { innerPadding ->
-        GradientBackground(modifier = Modifier.padding(innerPadding)) {
-            BoxWithConstraints(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
+        BoxWithConstraints(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
+            contentAlignment = Alignment.Center
+        ) {
+            val screenWidth = maxWidth
+            val screenHeight = maxHeight
+            val logoSize = (screenWidth * 0.38f).coerceIn(110.dp, 140.dp)
+            val horizontalPadding = (screenWidth * 0.065f).coerceIn(20.dp, 26.dp)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .widthIn(max = 500.dp)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = horizontalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val screenWidth = maxWidth
-                val screenHeight = maxHeight
-                val logoSize = (screenWidth * 0.42f).coerceIn(140.dp, 168.dp)
-                val horizontalPadding = (screenWidth * 0.065f).coerceIn(20.dp, 26.dp)
+                Spacer(modifier = Modifier.height(screenHeight * 0.02f))
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 500.dp)
-                        .verticalScroll(scrollState)
-                        .padding(horizontal = horizontalPadding),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Spacer(modifier = Modifier.height(screenHeight * 0.035f))
+                ShieldLogo(size = logoSize)
 
-                    ShieldLogo(size = logoSize)
+                Spacer(modifier = Modifier.height(14.dp))
 
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    val brandText = buildAnnotatedString {
-                        withStyle(SpanStyle(color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Bold)) {
-                            append("ByMe")
-                        }
-                        withStyle(SpanStyle(color = Color(0xFF26E875), fontSize = 34.sp, fontWeight = FontWeight.ExtraBold)) {
-                            append("VPN")
-                        }
+                val brandText = buildAnnotatedString {
+                    withStyle(SpanStyle(color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)) {
+                        append("ByMe")
                     }
-                    Text(text = brandText)
-
-                    Spacer(modifier = Modifier.height(6.dp))
-
-                    Text(
-                        text = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty.",
-                        color = Color(0xFFCBD5E1),
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    // Email Input Field
-                    SignInInputField(
-                        value = email,
-                        onValueChange = {
-                            email = it
-                            emailError = null
-                            authError = null
-                        },
-                        hintText = if (isRu) "Адрес эл. почты" else "Email address",
-                        leadingIcon = { MailIcon(color = if (emailError != null) Color(0xFFFF5252) else Color(0xFF00C4FF)) },
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Next,
-                        isError = emailError != null
-                    )
-
-                    if (emailError != null) {
-                        Text(
-                            text = emailError ?: "",
-                            color = Color(0xFFFF5252),
-                            fontSize = 12.sp,
-                            modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
-                        )
+                    withStyle(SpanStyle(color = AppColors.BrandGreen, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)) {
+                        append("VPN")
                     }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Password Input Field
-                    SignInInputField(
-                        value = password,
-                        onValueChange = {
-                            password = it
-                            passwordError = null
-                            authError = null
-                        },
-                        hintText = if (isRu) "Пароль" else "Password",
-                        leadingIcon = { LockIcon(color = if (passwordError != null) Color(0xFFFF5252) else Color(0xFF00C4FF)) },
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                EyeIcon(visible = passwordVisible, color = Color(0xFF94A3B8))
-                            }
-                        },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                        onImeAction = { submitLogin() },
-                        isError = passwordError != null
-                    )
-
-                    if (passwordError != null) {
-                        Text(
-                            text = passwordError ?: "",
-                            color = Color(0xFFFF5252),
-                            fontSize = 12.sp,
-                            modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
-                        )
-                    }
-
-                    if (authError != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            text = authError ?: "",
-                            color = Color(0xFFFF5252),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // Sign In Button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                Brush.horizontalGradient(listOf(Color(0xFF00C4FF), Color(0xFF26E875)))
-                            )
-                            .clickable(enabled = !isLoading) { submitLogin() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(color = Color(0xFF031015), modifier = Modifier.size(24.dp))
-                        } else {
-                            Text(
-                                text = if (isRu) "Войти" else "Sign In",
-                                color = Color(0xFF031015),
-                                fontSize = 16.5.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // Divider
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFF1E3250), thickness = 1.dp)
-                        Text(
-                            text = if (isRu) "ИЛИ" else "OR",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFF1E3250), thickness = 1.dp)
-                    }
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // Telegram Bot Sign In
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF2AABEE))
-                            .clickable {
-                                try {
-                                    val tgIntent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
-                                    )
-                                    context.startActivity(tgIntent)
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            com.example.bymevpn.components.TelegramLogoIcon(size = 22.dp, color = Color.White)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
-                                color = Color.White,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Google Sign-In with Credential Manager
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF0D172A))
-                            .border(1.2.dp, Color(0xFF1E3458), RoundedCornerShape(14.dp))
-                            .clickable(enabled = !isLoading) {
-                                isLoading = true
-                                authError = null
-                                scope.launch {
-                                    val result = AccountRepository.loginWithGoogle(context)
-                                    isLoading = false
-                                    if (result.isSuccess) {
-                                        onSignInSuccess()
-                                    } else {
-                                        val rawErr = result.exceptionOrNull()?.message
-                                        authError = if (rawErr != null && rawErr.contains("Google Web Client ID")) {
-                                            if (isRu) "Вход через Google требует привязки SHA-1 отпечатка приложения в Google Cloud Console."
-                                            else "Google Sign-In requires SHA-1 fingerprint registration in Google Cloud Console."
-                                        } else {
-                                            rawErr
-                                        }
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            GoogleLogoIcon(size = 22.dp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = if (isRu) "Войти через Google" else "Continue with Google",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // Connect via Subscription Link / Telegram Bot
-                    var showSubDialog by remember { mutableStateOf(false) }
-                    var subInputUrl by remember { mutableStateOf("") }
-                    var subInputError by remember { mutableStateOf<String?>(null) }
-                    var isSubLoading by remember { mutableStateOf(false) }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(52.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF0C1B33))
-                            .border(1.2.dp, Color(0xFF00D4FF), RoundedCornerShape(14.dp))
-                            .clickable(enabled = !isLoading) {
-                                showSubDialog = true
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("⚡", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isRu) "Подключить по ссылке из бота" else "Connect via Bot Link",
-                                color = Color(0xFF00D4FF),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-
-                    if (showSubDialog) {
-                        androidx.compose.ui.window.Dialog(onDismissRequest = { showSubDialog = false }) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFF0C162A))
-                                    .border(1.dp, Color(0xFF1E355B), RoundedCornerShape(20.dp))
-                                    .padding(22.dp)
-                            ) {
-                                Column {
-                                    Text(
-                                        text = if (isRu) "Подключение подписки" else "Connect Subscription",
-                                        color = Color.White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = if (isRu) "Вставьте ссылку подписки или vless-ключ, полученный в боте Telegram:" else "Paste the subscription link or vless key from Telegram bot:",
-                                        color = Color(0xFF94A3B8),
-                                        fontSize = 13.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    BasicTextField(
-                                        value = subInputUrl,
-                                        onValueChange = {
-                                            subInputUrl = it
-                                            subInputError = null
-                                        },
-                                        textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp),
-                                        cursorBrush = SolidColor(Color(0xFF26E875)),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(80.dp)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(Color(0xFF060D1A))
-                                            .border(1.dp, if (subInputError != null) Color(0xFFFF5252) else Color(0xFF1E355B), RoundedCornerShape(12.dp))
-                                            .padding(12.dp)
-                                    )
-
-                                    if (subInputError != null) {
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Text(text = subInputError ?: "", color = Color(0xFFFF5252), fontSize = 12.sp)
-                                    }
-
-                                    Spacer(modifier = Modifier.height(20.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
-                                    ) {
-                                        Text(
-                                            text = if (isRu) "Отмена" else "Cancel",
-                                            color = Color(0xFF94A3B8),
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            modifier = Modifier
-                                                .clickable { showSubDialog = false }
-                                                .padding(horizontal = 14.dp, vertical = 8.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(Brush.horizontalGradient(listOf(Color(0xFF00C4FF), Color(0xFF26E875))))
-                                                .clickable(enabled = !isSubLoading && subInputUrl.isNotBlank()) {
-                                                    isSubLoading = true
-                                                    subInputError = null
-                                                    scope.launch {
-                                                        val res = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(subInputUrl.trim())
-                                                        isSubLoading = false
-                                                        if (res.isSuccess) {
-                                                            // Auto-create local user profile if none
-                                                            AccountRepository.createLocalProfile(context, "ByMe User")
-                                                            showSubDialog = false
-                                                            onSignInSuccess()
-                                                        } else {
-                                                            subInputError = res.exceptionOrNull()?.message ?: "Ошибка загрузки подписки"
-                                                        }
-                                                    }
-                                                }
-                                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isSubLoading) {
-                                                CircularProgressIndicator(color = Color(0xFF031015), modifier = Modifier.size(16.dp))
-                                            } else {
-                                                Text(
-                                                    text = if (isRu) "Подключить" else "Connect",
-                                                    color = Color(0xFF031015),
-                                                    fontSize = 14.sp,
-                                                    fontWeight = FontWeight.Bold
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    // Footer
-                    val footerText = buildAnnotatedString {
-                        withStyle(SpanStyle(color = Color(0xFF94A3B8), fontSize = 14.5.sp)) {
-                            append(if (isRu) "Нет аккаунта? " else "Don't have an account? ")
-                        }
-                        withStyle(SpanStyle(color = Color(0xFF26E875), fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold)) {
-                            append(if (isRu) "Зарегистрироваться" else "Sign Up")
-                        }
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .clickable(onClick = onSignUpClick)
-                            .padding(vertical = 8.dp)
-                    ) {
-                        Text(text = footerText)
-                    }
-
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
+                Text(text = brandText)
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Text(
+                    text = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Fast Telegram Bot Sign In (Recommended)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                            )
+                        )
+                        .clickable {
+                            try {
+                                val tgIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
+                                )
+                                context.startActivity(tgIntent)
+                            } catch (_: Exception) {
+                                android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TelegramLogoIcon(size = 20.dp, color = AppColors.DarkText)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isRu) "Войти через Telegram-бота" else "Log In with Telegram",
+                            color = AppColors.DarkText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Divider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
+                    Text(
+                        text = if (isRu) "ИЛИ ПО ПОЧТЕ" else "OR VIA EMAIL",
+                        color = AppColors.TextMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 14.dp)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Email Input Field
+                SignInInputField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        emailError = null
+                        authError = null
+                    },
+                    hintText = if (isRu) "Адрес эл. почты" else "Email address",
+                    leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.BrandGreen) },
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next,
+                    isError = emailError != null
+                )
+
+                if (emailError != null) {
+                    Text(
+                        text = emailError ?: "",
+                        color = AppColors.StatusError,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Password Input Field
+                SignInInputField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        passwordError = null
+                        authError = null
+                    },
+                    hintText = if (isRu) "Пароль" else "Password",
+                    leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.BrandGreen) },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            EyeIcon(visible = passwordVisible, color = AppColors.TextSecondary)
+                        }
+                    },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                    onImeAction = { submitLogin() },
+                    isError = passwordError != null
+                )
+
+                if (passwordError != null) {
+                    Text(
+                        text = passwordError ?: "",
+                        color = AppColors.StatusError,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
+                    )
+                }
+
+                if (authError != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = authError ?: "",
+                        color = AppColors.StatusError,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Sign In Button
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppColors.CardBgElevated)
+                        .border(1.2.dp, AppColors.BrandGreen, RoundedCornerShape(14.dp))
+                        .clickable(enabled = !isLoading) { submitLogin() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(22.dp))
+                    } else {
+                        Text(
+                            text = if (isRu) "Войти" else "Sign In",
+                            color = AppColors.BrandGreen,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Google Sign-In with Credential Manager
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppColors.CardBg)
+                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
+                        .clickable(enabled = !isLoading) {
+                            isLoading = true
+                            authError = null
+                            scope.launch {
+                                val result = AccountRepository.loginWithGoogle(context)
+                                isLoading = false
+                                if (result.isSuccess) {
+                                    onSignInSuccess()
+                                } else {
+                                    val rawErr = result.exceptionOrNull()?.message
+                                    authError = rawErr
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        GoogleLogoIcon(size = 20.dp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = if (isRu) "Войти через Google" else "Continue with Google",
+                            color = Color.White,
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Switch to Sign Up
+                val footerText = buildAnnotatedString {
+                    withStyle(SpanStyle(color = AppColors.TextSecondary, fontSize = 14.sp)) {
+                        append(if (isRu) "Нет аккаунта? " else "Don't have an account? ")
+                    }
+                    withStyle(SpanStyle(color = AppColors.BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)) {
+                        append(if (isRu) "Зарегистрироваться" else "Sign Up")
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .clickable(onClick = onSignUpClick)
+                        .padding(vertical = 8.dp)
+                ) {
+                    Text(text = footerText)
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -557,19 +417,19 @@ private fun SignInInputField(
     var isFocused by remember { mutableStateOf(false) }
 
     val borderColor = when {
-        isError -> Color(0xFFFF5252)
-        isFocused -> Color(0xFF00C4FF)
-        else -> Color(0xFF1E355B)
+        isError -> AppColors.StatusError
+        isFocused -> AppColors.BrandGreen
+        else -> AppColors.CardBorder
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(54.dp)
+            .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF0B1424))
-            .border(1.5.dp, borderColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 16.dp),
+            .background(AppColors.InputBg)
+            .border(1.2.dp, borderColor, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -577,14 +437,14 @@ private fun SignInInputField(
             verticalAlignment = Alignment.CenterVertically
         ) {
             leadingIcon()
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
             Box(modifier = Modifier.weight(1f)) {
                 if (value.isEmpty()) {
                     Text(
                         text = hintText,
-                        color = Color(0xFF64748B),
-                        fontSize = 15.sp
+                        color = AppColors.TextMuted,
+                        fontSize = 14.sp
                     )
                 }
 
@@ -594,7 +454,7 @@ private fun SignInInputField(
                     singleLine = true,
                     textStyle = TextStyle(
                         color = Color.White,
-                        fontSize = 15.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     visualTransformation = visualTransformation,
@@ -606,7 +466,7 @@ private fun SignInInputField(
                         onDone = { onImeAction() },
                         onNext = { onImeAction() }
                     ),
-                    cursorBrush = SolidColor(Color(0xFF26E875)),
+                    cursorBrush = SolidColor(AppColors.BrandGreen),
                     modifier = Modifier
                         .fillMaxWidth()
                         .onFocusChanged { isFocused = it.isFocused }
