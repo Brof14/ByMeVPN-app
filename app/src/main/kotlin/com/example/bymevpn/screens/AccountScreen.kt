@@ -59,6 +59,7 @@ import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.vpn.VpnManager
@@ -78,6 +79,7 @@ fun AccountScreen(
     val currentUser by AccountRepository.currentUser.collectAsState()
     val userDevices by AccountRepository.userDevices.collectAsState()
     val subManager = remember { SubscriptionManager.getInstance(context) }
+    val storage = remember { SecureTokenStorage.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
 
     val totalDevices = userDevices.size.coerceAtLeast(1)
