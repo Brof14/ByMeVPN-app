@@ -746,8 +746,14 @@ fun HomeScreen(
                                 scope.launch {
                                     isMeasuringPing = true
                                     val newPings = mutableMapOf<String, Int>()
+                                    val storage = com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context)
                                     availableServers.forEach { s ->
-                                        val latency = PingTester.measureRealPing(s.countryCode)
+                                        val cfg = storage.getServerConfig(s.nodeCode)
+                                        val latency = if (cfg != null) {
+                                            PingTester.measureRealPing(cfg.server, cfg.port)
+                                        } else {
+                                            PingTester.measureRealPing("bymevpn.duckdns.org", 443)
+                                        }
                                         if (latency > 0) {
                                             newPings[s.nodeCode] = latency
                                         }

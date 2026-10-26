@@ -115,14 +115,21 @@ class SubscriptionManager private constructor(private val context: Context) {
         }
     }
 
-    suspend fun applySubscriptionUrl(url: String): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
+    suspend fun applySubscriptionUrl(urlOrConfig: String): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
         _isSyncing.value = true
         try {
-            val parsed = fetchSubscriptionFromUrl(url.trim())
+            val trimmed = urlOrConfig.trim()
+            val parsed = if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) {
+                storage.saveSubscriptionUrl(trimmed)
+                fetchSubscriptionFromUrl(trimmed)
+            } else {
+                // Direct vless:// or base64 blob
+                XraySubscriptionParser.parse(trimmed)
+            }
+
             if (parsed.servers.isEmpty()) {
                 throw IllegalStateException("Подписка не содержит доступных VLESS-серверов")
             }
-            storage.saveSubscriptionUrl(url.trim())
             storage.saveServerConfigs(parsed.configs)
 
             val status = SubscriptionStatus(
@@ -138,7 +145,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             storage.saveCachedSubscription(status)
             Result.success(parsed)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply subscription URL: ${e.message}", e)
+            Log.e(TAG, "Failed to apply subscription: ${e.message}", e)
             Result.failure(e)
         } finally {
             _isSyncing.value = false
@@ -153,7 +160,15 @@ class SubscriptionManager private constructor(private val context: Context) {
             readTimeout = 15000
             setRequestProperty("User-Agent", "ByMeVPN/1.0 (Android; v2rayNG; Happ)")
             if (this is HttpsURLConnection) {
-                // Allow self-signed or custom certs on panel ports if needed
+                // Allow self-signed or custom domain certs on panel ports
+                val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(object : javax.net.ssl.X509TrustManager {
+                    override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
+                    override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {}
+                    override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {}
+                })
+                val sc = javax.net.ssl.SSLContext.getInstance("TLS")
+                sc.init(null, trustAllCerts, java.security.SecureRandom())
+                sslSocketFactory = sc.socketFactory
                 setHostnameVerifier { _, _ -> true }
             }
         }

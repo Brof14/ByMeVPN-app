@@ -129,20 +129,34 @@ object XrayConfigGenerator {
                 put("vnext", vnextArray)
             })
 
-            // StreamSettings: Reality + XTLS
-            val realitySettings = JSONObject().apply {
-                put("show", false)
-                put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                put("serverName", config.serverName)
-                put("publicKey", config.publicKey)
-                put("shortId", config.shortId)
-                put("spiderX", "")
-            }
-
+            // StreamSettings: TLS / Reality
             val streamSettings = JSONObject().apply {
                 put("network", config.network.ifEmpty { "tcp" })
-                put("security", config.security.ifEmpty { "reality" })
-                put("realitySettings", realitySettings)
+                val sec = config.security.lowercase()
+                put("security", sec)
+
+                if (sec == "reality") {
+                    val realitySettings = JSONObject().apply {
+                        put("show", false)
+                        put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
+                        put("serverName", config.serverName)
+                        put("publicKey", config.publicKey)
+                        put("shortId", config.shortId)
+                        put("spiderX", "")
+                    }
+                    put("realitySettings", realitySettings)
+                } else if (sec == "tls") {
+                    val tlsSettings = JSONObject().apply {
+                        put("serverName", config.serverName)
+                        put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
+                        put("allowInsecure", true)
+                        val alpnArray = JSONArray()
+                        alpnArray.put("h2")
+                        alpnArray.put("http/1.1")
+                        put("alpn", alpnArray)
+                    }
+                    put("tlsSettings", tlsSettings)
+                }
             }
 
             put("streamSettings", streamSettings)

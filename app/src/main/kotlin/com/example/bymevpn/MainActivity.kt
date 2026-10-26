@@ -63,12 +63,20 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        // Handles: bymevpn://sub?url=... OR https://bymevpn.app/sub?...
-        val subUrl = data.getQueryParameter("url") ?: if (data.scheme == "http" || data.scheme == "https") data.toString() else null
+        // Handles:
+        // 1) bymevpn://sub?url=...
+        // 2) bymevpn://login?sub=...&name=...
+        // 3) direct https://bymevpn.duckdns.org:2096/yay/...
+        val subUrl = data.getQueryParameter("url")
+            ?: data.getQueryParameter("sub")
+            ?: if (data.scheme == "http" || data.scheme == "https") data.toString() else null
+        val userName = data.getQueryParameter("name") ?: "Telegram User"
+
         if (!subUrl.isNullOrBlank()) {
             kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
                 val result = SubscriptionManager.getInstance(applicationContext).applySubscriptionUrl(subUrl)
                 if (result.isSuccess) {
+                    AccountRepository.createLocalProfile(applicationContext, userName)
                     Toast.makeText(applicationContext, "Подписка успешно подключена!", Toast.LENGTH_LONG).show()
                     VpnManager.getInstance(applicationContext).loadServers()
                 } else {

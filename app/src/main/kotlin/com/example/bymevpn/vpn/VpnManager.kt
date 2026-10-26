@@ -111,12 +111,19 @@ class VpnManager private constructor(private val context: Context) {
                 }
             }
 
-            val servers = apiClient.getServers()
-            _availableServers.value = servers
-            if (_currentServer.value == null && servers.isNotEmpty()) {
-                _currentServer.value = servers.first()
+            val servers = try {
+                apiClient.getServers()
+            } catch (e: Exception) {
+                emptyList()
             }
-            Result.success(servers)
+            if (servers.isNotEmpty()) {
+                _availableServers.value = servers
+                if (_currentServer.value == null) {
+                    _currentServer.value = servers.first()
+                }
+                return@withContext Result.success(servers)
+            }
+            Result.failure(Exception("Серверы не найдены. Подключите подписку из Telegram-бота."))
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load servers: ${e.message}")
             Result.failure(e)

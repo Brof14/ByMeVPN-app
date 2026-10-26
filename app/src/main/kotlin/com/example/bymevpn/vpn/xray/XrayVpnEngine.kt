@@ -106,8 +106,11 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             _state.value = VpnConnectionState.CONNECTING
             activeConfig = config
 
-            if (config.server.isBlank() || config.uuid.isBlank() || config.publicKey.isBlank()) {
-                throw IllegalArgumentException("Invalid VLESS configuration: server, uuid, or publicKey missing")
+            if (config.server.isBlank() || config.uuid.isBlank()) {
+                throw IllegalArgumentException("Invalid VLESS configuration: server or uuid missing")
+            }
+            if (config.security.equals("reality", ignoreCase = true) && config.publicKey.isBlank()) {
+                throw IllegalArgumentException("Invalid VLESS configuration: publicKey missing for Reality security")
             }
 
             initCoreEnv()

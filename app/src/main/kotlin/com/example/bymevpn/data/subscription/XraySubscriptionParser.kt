@@ -1,6 +1,5 @@
 package com.example.bymevpn.data.subscription
 
-import android.net.Uri
 import android.util.Base64
 import android.util.Log
 import com.example.bymevpn.data.api.ServerNode
@@ -17,10 +16,10 @@ data class ParsedSubscription(
 )
 
 /**
- * Universal parser for 3x-ui, Happ, and v2ray standard subscriptions.
- * - Decodes Base64 subscription body into vless:// links
- * - Parses VLESS + Reality query parameters (pbk, sid, sni, flow, fp)
- * - Parses Subscription-Userinfo HTTP response header for data usage and expiration
+ * Universal parser for 3x-ui, Happ, and standard v2ray/xray subscriptions:
+ * - Direct HTTP(S) Base64 subscriptions
+ * - Direct single vless:// links
+ * - Base64 text blobs containing multiple vless:// lines
  */
 object XraySubscriptionParser {
 
@@ -47,7 +46,6 @@ object XraySubscriptionParser {
             }
         }
 
-        // Parse Subscription-Userinfo header: "upload=1024; download=2048; total=107374182400; expire=1735689600"
         var upload = 0L
         var download = 0L
         var total = 0L
@@ -80,18 +78,21 @@ object XraySubscriptionParser {
     }
 
     private fun decodeContent(raw: String): String {
-        val clean = raw.trim().replace("\\s".toRegex(), "")
+        val trimmed = raw.trim()
+        if (trimmed.startsWith("vless://", ignoreCase = true)) {
+            return trimmed
+        }
+        val clean = trimmed.replace("\\s".toRegex(), "")
         return try {
             val bytes = Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
-            String(bytes, Charsets.UTF_8)
+            val decoded = String(bytes, Charsets.UTF_8)
+            if (decoded.contains("vless://", ignoreCase = true)) decoded else trimmed
         } catch (e: Exception) {
-            // Might already be raw plain text lines
-            raw
+            trimmed
         }
     }
 
     private fun parseVlessUri(uriString: String, index: Int): Pair<ServerNode, VpnSessionConfig> {
-        // Format: vless://UUID@HOST:PORT?query#REMARK
         val withoutScheme = uriString.removePrefix("vless://").removePrefix("VLESS://")
         val hashSplit = withoutScheme.split("#", limit = 2)
         val mainPart = hashSplit[0]
@@ -122,18 +123,16 @@ object XraySubscriptionParser {
             }
         }
 
-        val security = queryParams["security"] ?: "reality"
-        val flow = queryParams["flow"] ?: "xtls-rprx-vision"
+        val security = queryParams["security"] ?: if (queryParams.containsKey("pbk")) "reality" else "tls"
+        val flow = queryParams["flow"] ?: ""
         val pbk = queryParams["pbk"] ?: ""
         val sid = queryParams["sid"] ?: ""
         val sni = queryParams["sni"] ?: queryParams["host"] ?: host
-        val fp = queryParams["fp"] ?: "chrome"
+        val fp = queryParams["fp"] ?: "firefox"
         val type = queryParams["type"] ?: "tcp"
         val encryption = queryParams["encryption"] ?: "none"
 
         val nodeCode = "node_${index}_${host.replace(".", "_")}_$port"
-
-        // Detect country and flag from remark
         val (country, countryCode, flag) = detectLocation(remark)
 
         val serverNode = ServerNode(
@@ -142,8 +141,8 @@ object XraySubscriptionParser {
             countryCode = countryCode,
             city = remark,
             flag = flag,
-            pingMs = 25 + (index * 5),
-            loadPercent = 20 + (index * 7) % 60,
+            pingMs = -1, // -1 means not measured yet
+            loadPercent = 0,
             isPremium = false,
             countryEn = country,
             cityEn = remark
@@ -170,21 +169,21 @@ object XraySubscriptionParser {
     private fun detectLocation(remark: String): Triple<String, String, String> {
         val lower = remark.lowercase()
         return when {
-            lower.contains("герман") || lower.contains("germany") || lower.contains("de") || lower.contains("frankfurt") ->
+            lower.contains("герман") || lower.contains("germany") || lower.contains("de") || remark.contains("🇩🇪") ->
                 Triple("Германия", "DE", "🇩🇪")
-            lower.contains("нидерланд") || lower.contains("netherlands") || lower.contains("nl") || lower.contains("amsterdam") ->
+            lower.contains("нидерланд") || lower.contains("netherlands") || lower.contains("nl") || remark.contains("🇳🇱") ->
                 Triple("Нидерланды", "NL", "🇳🇱")
-            lower.contains("финлянд") || lower.contains("finland") || lower.contains("fi") || lower.contains("helsinki") ->
+            lower.contains("финлянд") || lower.contains("finland") || lower.contains("fi") || remark.contains("🇫🇮") ->
                 Triple("Финляндия", "FI", "🇫🇮")
-            lower.contains("сша") || lower.contains("usa") || lower.contains("united states") || lower.contains("us") ->
+            lower.contains("сша") || lower.contains("usa") || lower.contains("us") || remark.contains("🇺🇸") ->
                 Triple("США", "US", "🇺🇸")
-            lower.contains("турци") || lower.contains("turkey") || lower.contains("tr") || lower.contains("istanbul") ->
+            lower.contains("турци") || lower.contains("turkey") || lower.contains("tr") || remark.contains("🇹🇷") ->
                 Triple("Турция", "TR", "🇹🇷")
-            lower.contains("швеци") || lower.contains("sweden") || lower.contains("se") || lower.contains("stockholm") ->
+            lower.contains("швеци") || lower.contains("sweden") || lower.contains("se") || remark.contains("🇸🇪") ->
                 Triple("Швеция", "SE", "🇸🇪")
-            lower.contains("польш") || lower.contains("poland") || lower.contains("pl") || lower.contains("warsaw") ->
+            lower.contains("польш") || lower.contains("poland") || lower.contains("pl") || remark.contains("🇵🇱") ->
                 Triple("Польша", "PL", "🇵🇱")
-            lower.contains("росси") || lower.contains("russia") || lower.contains("ru") || lower.contains("moscow") ->
+            lower.contains("росси") || lower.contains("russia") || lower.contains("ru") || remark.contains("🇷🇺") ->
                 Triple("Россия", "RU", "🇷🇺")
             else ->
                 Triple("Европа", "EU", "🌐")

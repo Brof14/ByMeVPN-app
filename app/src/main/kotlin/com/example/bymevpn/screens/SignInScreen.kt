@@ -303,6 +303,40 @@ fun SignInScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
+                    // Telegram Bot Sign In
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color(0xFF2AABEE))
+                            .clickable {
+                                try {
+                                    val tgIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
+                                    )
+                                    context.startActivity(tgIntent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            com.example.bymevpn.components.TelegramLogoIcon(size = 22.dp, color = Color.White)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     // Google Sign-In with Credential Manager
                     Box(
                         modifier = Modifier
@@ -322,8 +356,8 @@ fun SignInScreen(
                                     } else {
                                         val rawErr = result.exceptionOrNull()?.message
                                         authError = if (rawErr != null && rawErr.contains("Google Web Client ID")) {
-                                            if (isRu) "Вход через Google требует Web Client ID в Google Cloud."
-                                            else "Google Sign-In requires Web Client ID in Google Cloud."
+                                            if (isRu) "Вход через Google требует привязки SHA-1 отпечатка приложения в Google Cloud Console."
+                                            else "Google Sign-In requires SHA-1 fingerprint registration in Google Cloud Console."
                                         } else {
                                             rawErr
                                         }

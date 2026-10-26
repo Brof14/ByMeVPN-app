@@ -23,12 +23,18 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Deep Link Handler for 3x-ui / Happ subscriptions: bymevpn://sub?url=... -->
+            <!-- Deep Link Handler for 3x-ui / Happ subscriptions & Telegram login -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="bymevpn" android:host="sub" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bymevpn" android:host="login" />
             </intent-filter>
         </activity>
 

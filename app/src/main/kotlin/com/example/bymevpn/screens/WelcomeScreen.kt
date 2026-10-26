@@ -130,6 +130,40 @@ fun WelcomeScreen(
                         )
                     }
 
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Direct Telegram Bot Login on Welcome Screen
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp)
+                            .clip(androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                            .background(Color(0xFF2AABEE))
+                            .clickable {
+                                try {
+                                    val tgIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
+                                    )
+                                    context.startActivity(tgIntent)
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            com.example.bymevpn.components.TelegramLogoIcon(size = 20.dp, color = Color.White)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isRu) "Вход через Telegram" else "Log In with Telegram",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+                    }
+
                     Spacer(modifier = Modifier.height(20.dp))
 
                     // Four Page Indicator Dots (Active: Dot 2)
