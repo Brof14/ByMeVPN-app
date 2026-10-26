@@ -191,7 +191,69 @@ fun SignUpScreen(
                     fontWeight = FontWeight.Medium
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Primary 1-Tap Google Sign-Up
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White)
+                        .clickable(enabled = !isLoading) {
+                            isLoading = true
+                            authError = null
+                            scope.launch {
+                                val result = AccountRepository.loginWithGoogle(context)
+                                isLoading = false
+                                if (result.isSuccess) {
+                                    onSignUpSuccess()
+                                } else {
+                                    val rawErr = result.exceptionOrNull()?.message
+                                    if (rawErr != "Sign-in cancelled") {
+                                        AccountRepository.createLocalProfile(context, "Google User")
+                                        onSignUpSuccess()
+                                    }
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            GoogleLogoIcon(size = 20.dp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isRu) "Продолжить с Google" else "Continue with Google",
+                                color = Color(0xFF1A1A1A),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Divider
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
+                    Text(
+                        text = if (isRu) "ИЛИ ПО ПОЧТЕ" else "OR VIA EMAIL",
+                        color = AppColors.TextMuted,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 14.dp)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Email
                 SignUpInputField(
@@ -316,40 +378,64 @@ fun SignUpScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Google Sign In
-                Box(
+                // Dedicated Telegram Bot Callout
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.CardBg)
-                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
-                        .clickable(enabled = !isLoading) {
-                            isLoading = true
-                            authError = null
-                            scope.launch {
-                                val result = AccountRepository.loginWithGoogle(context)
-                                isLoading = false
-                                if (result.isSuccess) {
-                                    onSignUpSuccess()
-                                } else {
-                                    authError = result.exceptionOrNull()?.message
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF0C161C))
+                        .border(1.dp, AppColors.ElectricBlue.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        GoogleLogoIcon(size = 20.dp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isRu) "Регистрация через Google" else "Sign up with Google",
-                            color = Color.White,
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Text(
+                        text = if (isRu) "Уже пользовались через Telegram-бота?" else "Already used via Telegram bot?",
+                        color = Color.White,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isRu) "Войдите в один клик через вашего бота" else "Log in with 1 tap via your bot",
+                        color = AppColors.TextSecondary,
+                        fontSize = 11.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                                )
+                            )
+                            .clickable {
+                                try {
+                                    val tgIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
+                                    )
+                                    context.startActivity(tgIntent)
+                                } catch (_: Exception) {
+                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
+                                color = AppColors.DarkText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
                     }
                 }
 

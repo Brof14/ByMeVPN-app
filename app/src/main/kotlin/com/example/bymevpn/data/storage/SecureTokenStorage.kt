@@ -6,8 +6,10 @@ import android.os.Build
 import android.provider.Settings
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.api.UserProfile
+import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
@@ -246,5 +248,82 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getDismissedClipboardKey(): String? {
         return prefs.getString("dismissed_clipboard_key", null)
+    }
+
+    fun getRegisteredDevices(): List<DeviceItem> {
+        val raw = prefs.getString("registered_devices_json", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            val list = mutableListOf<DeviceItem>()
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                list.add(
+                    DeviceItem(
+                        id = obj.optString("id", UUID.randomUUID().toString()),
+                        deviceModel = obj.optString("device_model", "Android Device"),
+                        platform = obj.optString("platform", "Android"),
+                        lastActive = obj.optString("last_active", "Just now"),
+                        isCurrent = obj.optBoolean("is_current", false)
+                    )
+                )
+            }
+            list
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveRegisteredDevices(devices: List<DeviceItem>) {
+        val arr = JSONArray()
+        devices.forEach { d ->
+            val obj = JSONObject().apply {
+                put("id", d.id)
+                put("device_model", d.deviceModel)
+                put("platform", d.platform)
+                put("last_active", d.lastActive)
+                put("is_current", d.isCurrent)
+            }
+            arr.put(obj)
+        }
+        prefs.edit().putString("registered_devices_json", arr.toString()).apply()
+    }
+
+    fun removeRegisteredDevice(deviceId: String) {
+        val current = getRegisteredDevices().filter { it.id != deviceId }
+        saveRegisteredDevices(current)
+    }
+
+    fun addRegisteredDevice(device: DeviceItem) {
+        val current = getRegisteredDevices().filter { it.id != device.id }.toMutableList()
+        current.add(device)
+        saveRegisteredDevices(current)
+    }
+
+    fun savePendingPayment(planCode: String, days: Int) {
+        prefs.edit()
+            .putString("pending_payment_plan", planCode)
+            .putInt("pending_payment_days", days)
+            .putLong("pending_payment_time", System.currentTimeMillis())
+            .apply()
+    }
+
+    fun getPendingPayment(): Pair<String, Int>? {
+        val plan = prefs.getString("pending_payment_plan", null) ?: return null
+        val days = prefs.getInt("pending_payment_days", 30)
+        val time = prefs.getLong("pending_payment_time", 0L)
+        // Valid within 24 hours
+        if (System.currentTimeMillis() - time > 24 * 3600 * 1000) {
+            clearPendingPayment()
+            return null
+        }
+        return Pair(plan, days)
+    }
+
+    fun clearPendingPayment() {
+        prefs.edit()
+            .remove("pending_payment_plan")
+            .remove("pending_payment_days")
+            .remove("pending_payment_time")
+            .apply()
     }
 }

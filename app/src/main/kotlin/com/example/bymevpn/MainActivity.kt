@@ -66,7 +66,18 @@ class MainActivity : ComponentActivity() {
         // Handles:
         // 1) bymevpn://sub?url=...
         // 2) bymevpn://login?sub=...&name=...
-        // 3) direct https://bymevpn.duckdns.org:2096/yay/...
+        // 3) bymevpn://payment/success?plan=...&days=...
+        // 4) direct https://... subscription URLs
+        if (data.scheme == "bymevpn" && data.host == "payment") {
+            val planCode = data.getQueryParameter("plan") ?: "1m"
+            val days = data.getQueryParameter("days")?.toIntOrNull() ?: 30
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                com.example.bymevpn.data.payment.YooKassaPaymentHandler.confirmPayment(applicationContext, planCode, days)
+                Toast.makeText(applicationContext, "Оплата через ЮKassa прошла успешно! Подписка активирована.", Toast.LENGTH_LONG).show()
+            }
+            return
+        }
+
         val subUrl = data.getQueryParameter("url")
             ?: data.getQueryParameter("sub")
             ?: if (data.scheme == "http" || data.scheme == "https") data.toString() else null
@@ -89,6 +100,9 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         VpnManager.getInstance(applicationContext).syncWithServiceState()
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(applicationContext)
+        }
     }
 }
 

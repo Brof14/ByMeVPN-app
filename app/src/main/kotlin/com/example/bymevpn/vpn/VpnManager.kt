@@ -54,6 +54,69 @@ class VpnManager private constructor(private val context: Context) {
         fun stopVpn(context: Context) {
             getInstance(context).disconnect()
         }
+
+        val DEFAULT_NODES = listOf(
+            ServerNode(
+                nodeCode = "nl_ams",
+                country = "Нидерланды",
+                countryCode = "nl",
+                city = "Амстердам",
+                flag = "🇳🇱",
+                pingMs = 28,
+                loadPercent = 22,
+                isPremium = false,
+                countryEn = "Netherlands",
+                cityEn = "Amsterdam"
+            ),
+            ServerNode(
+                nodeCode = "de_fra",
+                country = "Германия",
+                countryCode = "de",
+                city = "Франкфурт",
+                flag = "🇩🇪",
+                pingMs = 34,
+                loadPercent = 35,
+                isPremium = false,
+                countryEn = "Germany",
+                cityEn = "Frankfurt"
+            ),
+            ServerNode(
+                nodeCode = "fi_hel",
+                country = "Финляндия",
+                countryCode = "fi",
+                city = "Хельсинки",
+                flag = "🇫🇮",
+                pingMs = 41,
+                loadPercent = 18,
+                isPremium = false,
+                countryEn = "Finland",
+                cityEn = "Helsinki"
+            ),
+            ServerNode(
+                nodeCode = "se_sto",
+                country = "Швеция",
+                countryCode = "se",
+                city = "Стокгольм",
+                flag = "🇸🇪",
+                pingMs = 46,
+                loadPercent = 25,
+                isPremium = false,
+                countryEn = "Sweden",
+                cityEn = "Stockholm"
+            ),
+            ServerNode(
+                nodeCode = "us_nyc",
+                country = "США",
+                countryCode = "us",
+                city = "Нью-Йорк",
+                flag = "🇺🇸",
+                pingMs = 95,
+                loadPercent = 40,
+                isPremium = false,
+                countryEn = "USA",
+                cityEn = "New York"
+            )
+        )
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
@@ -160,6 +223,16 @@ class VpnManager private constructor(private val context: Context) {
                 }
                 return@withContext Result.success(servers)
             }
+
+            if (subscriptionManager.canConnect() || storage.getCachedSubscription()?.isUsable == true) {
+                subscriptionManager.ensureDefaultServerConfigs()
+                _availableServers.value = DEFAULT_NODES
+                if (_currentServer.value == null) {
+                    _currentServer.value = DEFAULT_NODES.first()
+                }
+                return@withContext Result.success(DEFAULT_NODES)
+            }
+
             Result.failure(Exception("Серверы не найдены. Подключите подписку из Telegram-бота."))
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load servers: ${e.message}")

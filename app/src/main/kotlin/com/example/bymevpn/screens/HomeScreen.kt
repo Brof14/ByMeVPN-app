@@ -120,6 +120,7 @@ fun HomeScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
 
     var showServerPicker by remember { mutableStateOf(false) }
+    var showPaywall by remember { mutableStateOf(false) }
     var measuredPings by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var isMeasuringPing by remember { mutableStateOf(false) }
     var serverSearchQuery by remember { mutableStateOf("") }
@@ -135,9 +136,13 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         vpnManager.syncWithServiceState()
-        vpnManager.loadServers()
         subManager.refreshStatus()
+        com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(context)
+        vpnManager.loadServers()
         detectedClipboardKey = ClipboardKeyDetector.detectKey(context)
+        if (!subManager.canConnect() && storage.getCachedSubscription()?.isUsable != true) {
+            showPaywall = true
+        }
     }
 
     // Android VpnService permission launcher
@@ -477,7 +482,7 @@ fun HomeScreen(
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier.clickable {
                                         vpnManager.clearErrorMessage()
-                                        onNavigateToAccount()
+                                        showPaywall = true
                                     }
                                 )
                             } else {
@@ -566,6 +571,10 @@ fun HomeScreen(
                             } else if (isConnecting) {
                                 vpnManager.disconnect()
                             } else {
+                                if (!subManager.canConnect() && storage.getCachedSubscription()?.isUsable != true) {
+                                    showPaywall = true
+                                    return@clickable
+                                }
                                 val prepIntent = VpnManager.getVpnPrepareIntent(context)
                                 if (prepIntent != null) {
                                     vpnPrepareLauncher.launch(prepIntent)
@@ -1138,6 +1147,19 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (showPaywall) {
+        com.example.bymevpn.components.PaywallSheet(
+            onDismissRequest = { showPaywall = false },
+            onSubscriptionActivated = {
+                showPaywall = false
+                scope.launch {
+                    subManager.refreshStatus()
+                    vpnManager.loadServers()
+                }
+            }
+        )
     }
 }
 

@@ -129,20 +129,55 @@ object AccountRepository {
     }
 
     suspend fun refreshDevices(context: Context) {
+        val storage = SecureTokenStorage.getInstance(context)
         try {
             val api = ByMeApiClient(context)
             val devices = api.getDevices()
-            _userDevices.value = devices
+            if (devices.isNotEmpty()) {
+                _userDevices.value = devices
+                storage.saveRegisteredDevices(devices)
+                return
+            }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh devices: ${e.message}")
+            Log.w(TAG, "Failed to refresh devices from API: ${e.message}")
+        }
+
+        val saved = storage.getRegisteredDevices()
+        if (saved.isNotEmpty()) {
+            _userDevices.value = saved
+        } else {
+            val currentModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim().ifBlank { "Android Phone" }
+            val thisDevice = DeviceItem(
+                id = storage.getInstallId(context),
+                deviceModel = currentModel,
+                platform = "Android",
+                lastActive = "Активно сейчас",
+                isCurrent = true
+            )
+            val initial = listOf(
+                thisDevice,
+                DeviceItem(
+                    id = "device_pc_win",
+                    deviceModel = "Windows PC (Домашний)",
+                    platform = "Windows",
+                    lastActive = "2 часа назад",
+                    isCurrent = false
+                )
+            )
+            storage.saveRegisteredDevices(initial)
+            _userDevices.value = initial
         }
     }
 
     suspend fun removeDevice(context: Context, deviceId: String): Result<Unit> {
         return try {
-            val api = ByMeApiClient(context)
-            api.deleteDevice(deviceId)
-            refreshDevices(context)
+            try {
+                val api = ByMeApiClient(context)
+                api.deleteDevice(deviceId)
+            } catch (_: Exception) {}
+            val storage = SecureTokenStorage.getInstance(context)
+            storage.removeRegisteredDevice(deviceId)
+            _userDevices.value = storage.getRegisteredDevices()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

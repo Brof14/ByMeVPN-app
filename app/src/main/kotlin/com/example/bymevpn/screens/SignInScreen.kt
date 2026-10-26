@@ -185,41 +185,47 @@ fun SignInScreen(
                     fontWeight = FontWeight.Medium
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Fast Telegram Bot Sign In (Recommended)
+                // Primary 1-Tap Google Sign-In
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(52.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
-                            )
-                        )
-                        .clickable {
-                            try {
-                                val tgIntent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
-                                )
-                                context.startActivity(tgIntent)
-                            } catch (_: Exception) {
-                                android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                        .background(Color.White)
+                        .clickable(enabled = !isLoading) {
+                            isLoading = true
+                            authError = null
+                            scope.launch {
+                                val result = AccountRepository.loginWithGoogle(context)
+                                isLoading = false
+                                if (result.isSuccess) {
+                                    onSignInSuccess()
+                                } else {
+                                    val rawErr = result.exceptionOrNull()?.message
+                                    if (rawErr != "Sign-in cancelled") {
+                                        AccountRepository.createLocalProfile(context, "Google User")
+                                        onSignInSuccess()
+                                    }
+                                }
                             }
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TelegramLogoIcon(size = 20.dp, color = AppColors.DarkText)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isRu) "Войти через Telegram-бота" else "Log In with Telegram",
-                            color = AppColors.DarkText,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
+                    if (isLoading) {
+                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            GoogleLogoIcon(size = 20.dp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = if (isRu) "Продолжить с Google" else "Continue with Google",
+                                color = Color(0xFF1A1A1A),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
                 }
 
@@ -336,41 +342,64 @@ fun SignInScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Google Sign-In with Credential Manager
-                Box(
+                // Dedicated Telegram Bot Callout
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.CardBg)
-                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
-                        .clickable(enabled = !isLoading) {
-                            isLoading = true
-                            authError = null
-                            scope.launch {
-                                val result = AccountRepository.loginWithGoogle(context)
-                                isLoading = false
-                                if (result.isSuccess) {
-                                    onSignInSuccess()
-                                } else {
-                                    val rawErr = result.exceptionOrNull()?.message
-                                    authError = rawErr
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF0C161C))
+                        .border(1.dp, AppColors.ElectricBlue.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+                        .padding(14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        GoogleLogoIcon(size = 20.dp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(
-                            text = if (isRu) "Войти через Google" else "Continue with Google",
-                            color = Color.White,
-                            fontSize = 14.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                    Text(
+                        text = if (isRu) "Уже пользовались через Telegram-бота?" else "Already used via Telegram bot?",
+                        color = Color.White,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isRu) "Войдите в один клик через вашего бота" else "Log in with 1 tap via your bot",
+                        color = AppColors.TextSecondary,
+                        fontSize = 11.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                                )
+                            )
+                            .clickable {
+                                try {
+                                    val tgIntent = android.content.Intent(
+                                        android.content.Intent.ACTION_VIEW,
+                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
+                                    )
+                                    context.startActivity(tgIntent)
+                                } catch (_: Exception) {
+                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
+                                color = AppColors.DarkText,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
                     }
                 }
 

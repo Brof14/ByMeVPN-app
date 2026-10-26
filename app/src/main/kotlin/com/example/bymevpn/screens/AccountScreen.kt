@@ -84,6 +84,7 @@ fun AccountScreen(
     var showEditSubDialog by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
+    var deviceToDelete by remember { mutableStateOf<com.example.bymevpn.data.api.DeviceItem?>(null) }
 
     LaunchedEffect(Unit) {
         subManager.refreshStatus()
@@ -283,27 +284,39 @@ fun AccountScreen(
 
                     Spacer(modifier = Modifier.width(18.dp))
 
+                    val totalDevices = userDevices.size.coerceAtLeast(1)
+                    val maxDevices = subscription?.maxDevices ?: 5
+                    val expiresText = if (isSubActive) {
+                        if (!subscription?.expiresAt.isNullOrBlank()) {
+                            if (isRu) "Действует до ${subscription?.expiresAt}" else "Valid until ${subscription?.expiresAt}"
+                        } else {
+                            if (isRu) "Действует ещё $daysRemaining дн." else "Valid for $daysRemaining days"
+                        }
+                    } else {
+                        if (isRu) "Подписка истекла" else "Subscription expired"
+                    }
+
                     Column {
                         Text(
-                            text = if (isSubActive) (if (isRu) "Действует до 24 ноября 2026" else "Valid until Nov 24, 2026") else (if (isRu) "Подписка истекла" else "Subscription expired"),
+                            text = expiresText,
                             color = Color.White,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (isRu) "2 из 5 устройств • Подключено сейчас" else "2 of 5 devices connected now",
+                            text = if (isRu) "$totalDevices из $maxDevices устройств занято" else "$totalDevices of $maxDevices devices active",
                             color = AppColors.TextSecondary,
                             fontSize = 12.sp
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            repeat(5) { index ->
+                            repeat(maxDevices) { index ->
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
                                         .clip(CircleShape)
-                                        .background(if (index < 2) AppColors.BrandGreen else AppColors.CardBorder)
+                                        .background(if (index < totalDevices) AppColors.BrandGreen else AppColors.CardBorder)
                                 )
                             }
                         }
@@ -437,57 +450,138 @@ fun AccountScreen(
                     .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(22.dp))
                     .padding(20.dp)
             ) {
-                Text(
-                    text = if (isRu) "Подключенные устройства" else "Connected Devices",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Current phone card
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.InputBg)
-                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("📱", fontSize = 20.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = android.os.Build.MODEL ?: "Android Device",
-                                    color = Color.White,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = if (isRu) "(это устройство)" else "(this device)",
-                                    color = AppColors.BrandGreen,
-                                    fontSize = 11.sp
-                                )
-                            }
-                            Text(
-                                text = if (isRu) "Android • Активно сейчас" else "Android • Active now",
-                                color = AppColors.TextSecondary,
-                                fontSize = 11.5.sp
-                            )
-                        }
-                    }
+                    Text(
+                        text = if (isRu) "Подключенные устройства" else "Connected Devices",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
 
                     Box(
                         modifier = Modifier
-                            .size(8.dp)
-                            .clip(CircleShape)
-                            .background(AppColors.BrandGreen)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(AppColors.CardBgElevated)
+                            .border(1.dp, AppColors.BrandGreen.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "$totalDevices / $maxDevices",
+                            color = AppColors.BrandGreen,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // List of connected devices
+                userDevices.forEach { dev ->
+                    val isCurrent = dev.isCurrent || dev.id == com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(context).getInstallId(context)
+                    val devIcon = when {
+                        dev.platform.contains("Windows", ignoreCase = true) || dev.deviceModel.contains("PC", ignoreCase = true) -> "💻"
+                        dev.platform.contains("TV", ignoreCase = true) || dev.deviceModel.contains("TV", ignoreCase = true) -> "📺"
+                        dev.platform.contains("iOS", ignoreCase = true) || dev.deviceModel.contains("iPhone", ignoreCase = true) -> "🍏"
+                        dev.platform.contains("Mac", ignoreCase = true) -> "🖥️"
+                        else -> "📱"
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(AppColors.InputBg)
+                            .border(1.dp, if (isCurrent) AppColors.BrandGreen.copy(alpha = 0.45f) else AppColors.CardBorder, RoundedCornerShape(14.dp))
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                            Text(devIcon, fontSize = 20.sp)
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = dev.deviceModel,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    if (isCurrent) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isRu) "(это устройство)" else "(this device)",
+                                            color = AppColors.BrandGreen,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = if (isCurrent) (if (isRu) "${dev.platform} • Активно сейчас" else "${dev.platform} • Active now") else "${dev.platform} • ${dev.lastActive}",
+                                    color = AppColors.TextSecondary,
+                                    fontSize = 11.5.sp
+                                )
+                            }
+                        }
+
+                        if (isCurrent) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(AppColors.BrandGreen)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(AppColors.CardBgElevated)
+                                    .border(1.dp, AppColors.StatusError.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                    .clickable { deviceToDelete = dev }
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = if (isRu) "Отключить" else "Disconnect",
+                                    color = AppColors.StatusError,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Add device instructions card
+                Spacer(modifier = Modifier.height(4.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFF0C161C))
+                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = if (isRu) "ℹ️ Как подключить ПК, ТВ или другое устройство:" else "ℹ️ How to connect PC, TV or other devices:",
+                        color = Color.White,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (isRu)
+                            "1. Скопируйте ключ или ссылку подписки выше.\n2. Вставьте в ByMeVPN (или v2rayNG / Hiddify).\n3. Устройство мгновенно подключится к вашей подписке."
+                        else
+                            "1. Copy your key or share subscription link above.\n2. Paste into ByMeVPN (or v2rayNG / Hiddify).\n3. Connected device will appear here instantly.",
+                        color = AppColors.TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
                     )
                 }
             }
@@ -522,131 +616,82 @@ fun AccountScreen(
         }
     }
 
-    // Modal: Figma Screen 08 Tariffs (Тарифы)
+    // Paywall Modal with YooKassa and Trial
     if (showTariffModal) {
-        Dialog(onDismissRequest = { showTariffModal = false }) {
+        com.example.bymevpn.components.PaywallSheet(
+            onDismissRequest = { showTariffModal = false },
+            onSubscriptionActivated = {
+                showTariffModal = false
+                scope.launch {
+                    subManager.refreshStatus()
+                    AccountRepository.refreshDevices(context)
+                }
+            }
+        )
+    }
+
+    // Confirmation dialog for removing a device
+    if (deviceToDelete != null) {
+        val dev = deviceToDelete!!
+        Dialog(onDismissRequest = { deviceToDelete = null }) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(AppColors.CardBg)
-                    .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
+                    .border(1.2.dp, AppColors.StatusError, RoundedCornerShape(20.dp))
                     .padding(20.dp)
             ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
-                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = if (isRu) "Отключить устройство?" else "Disconnect device?",
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = if (isRu)
+                            "Устройство «${dev.deviceModel}» будет отключено, и слот освободится для нового подключения."
+                        else
+                            "Device «${dev.deviceModel}» will be disconnected and its slot freed.",
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(18.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Text(
-                            text = if (isRu) "Выберите тариф" else "Choose Plan",
-                            color = Color.White,
-                            fontSize = 19.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "✕",
-                            color = AppColors.TextSecondary,
-                            fontSize = 18.sp,
+                        Box(
                             modifier = Modifier
-                                .clickable { showTariffModal = false }
-                                .padding(4.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    // 12 Months Card ("МАКСИМАЛЬНАЯ ВЫГОДА")
-                    TariffItemCard(
-                        title = if (isRu) "12 месяцев" else "12 Months",
-                        price = "1 199 ₽",
-                        subprice = if (isRu) "99 ₽ / месяц • Скидка 50%" else "99 ₽ / month • 50% OFF",
-                        badge = if (isRu) "МАКСИМАЛЬНАЯ ВЫГОДА" else "BEST VALUE",
-                        isHighlight = true,
-                        onClick = {
-                            openTelegramBot(context, "start=tariff_12m")
-                            showTariffModal = false
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AppColors.InputBg)
+                                .clickable { deviceToDelete = null },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (isRu) "Отмена" else "Cancel", color = Color.White, fontSize = 13.5.sp)
                         }
-                    )
 
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // 6 Months Card ("ВЫГОДНЕЕ")
-                    TariffItemCard(
-                        title = if (isRu) "6 месяцев" else "6 Months",
-                        price = "699 ₽",
-                        subprice = if (isRu) "116 ₽ / месяц" else "116 ₽ / month",
-                        badge = if (isRu) "ВЫГОДНЕЕ" else "POPULAR",
-                        isHighlight = false,
-                        onClick = {
-                            openTelegramBot(context, "start=tariff_6m")
-                            showTariffModal = false
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // 3 Months Card
-                    TariffItemCard(
-                        title = if (isRu) "3 месяца" else "3 Months",
-                        price = "399 ₽",
-                        subprice = if (isRu) "133 ₽ / месяц" else "133 ₽ / month",
-                        badge = null,
-                        isHighlight = false,
-                        onClick = {
-                            openTelegramBot(context, "start=tariff_3m")
-                            showTariffModal = false
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // 1 Month Card
-                    TariffItemCard(
-                        title = if (isRu) "1 месяц" else "1 Month",
-                        price = "149 ₽",
-                        subprice = if (isRu) "Базовый доступ" else "Standard Access",
-                        badge = null,
-                        isHighlight = false,
-                        onClick = {
-                            openTelegramBot(context, "start=tariff_1m")
-                            showTariffModal = false
-                        }
-                    )
-
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // Open Telegram Bot button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
-                                )
-                            )
-                            .clickable {
-                                openTelegramBot(context, "start=subscribe")
-                                showTariffModal = false
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isRu) "Оплатить в Telegram-боте" else "Pay via Telegram Bot",
-                                color = AppColors.DarkText,
-                                fontSize = 14.5.sp,
-                                fontWeight = FontWeight.Bold
-                            )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(AppColors.StatusError)
+                                .clickable {
+                                    scope.launch {
+                                        AccountRepository.removeDevice(context, dev.id)
+                                        deviceToDelete = null
+                                        Toast.makeText(context, if (isRu) "Устройство отключено, слот освобожден" else "Device disconnected", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (isRu) "Отключить" else "Disconnect", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
