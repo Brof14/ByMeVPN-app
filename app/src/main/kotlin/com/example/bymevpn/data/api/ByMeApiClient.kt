@@ -36,6 +36,45 @@ class ByMeApiClient(private val context: Context) {
     // AUTHENTICATION ENDPOINTS
     // -------------------------------------------------------------
 
+    private suspend fun processAuthPayload(json: JSONObject, auth: AuthResponse) {
+        storage.saveTokens(auth.access, auth.refresh)
+        storage.saveCachedUser(auth.user)
+        auth.subscription?.let { storage.saveCachedSubscription(it) }
+
+        // Extract real subscription URL and sync nodes
+        val subUrl = auth.subscription?.subscriptionUrl
+            ?: json.optString("subscription_url").ifBlank {
+                json.optJSONObject("subscription")?.optString("subscription_url") ?: ""
+            }
+        if (subUrl.isNotBlank()) {
+            storage.saveSubscriptionUrl(subUrl)
+            try {
+                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(subUrl)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to apply subscription URL: ${e.message}")
+            }
+        }
+
+        // Extract and persist real server configurations if present
+        val serversArray = json.optJSONArray("servers")
+        if (serversArray != null && serversArray.length() > 0) {
+            val serverList = mutableListOf<ServerNode>()
+            for (i in 0 until serversArray.length()) {
+                val sObj = serversArray.getJSONObject(i)
+                val node = ApiJsonParsers.parseServers(JSONArray().apply { put(sObj) }).firstOrNull()
+                val cfgObj = sObj.optJSONObject("config")
+                if (node != null && cfgObj != null) {
+                    val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
+                    storage.saveServerConfig(node.nodeCode, cfg)
+                    serverList.add(node)
+                }
+            }
+            if (serverList.isNotEmpty()) {
+                com.example.bymevpn.vpn.VpnManager.getInstance(context).setServers(serverList)
+            }
+        }
+    }
+
     suspend fun register(email: String, password: String, name: String): AuthResponse {
         val body = JSONObject().apply {
             put("email", email.trim())
@@ -45,9 +84,7 @@ class ByMeApiClient(private val context: Context) {
         }
         val json = request("POST", "/auth/register", body, requiresAuth = false)
         val auth = ApiJsonParsers.parseAuthResponse(json)
-        storage.saveTokens(auth.access, auth.refresh)
-        storage.saveCachedUser(auth.user)
-        auth.subscription?.let { storage.saveCachedSubscription(it) }
+        processAuthPayload(json, auth)
         return auth
     }
 
@@ -59,9 +96,7 @@ class ByMeApiClient(private val context: Context) {
         }
         val json = request("POST", "/auth/login", body, requiresAuth = false)
         val auth = ApiJsonParsers.parseAuthResponse(json)
-        storage.saveTokens(auth.access, auth.refresh)
-        storage.saveCachedUser(auth.user)
-        auth.subscription?.let { storage.saveCachedSubscription(it) }
+        processAuthPayload(json, auth)
         return auth
     }
 
@@ -72,9 +107,7 @@ class ByMeApiClient(private val context: Context) {
         }
         val json = request("POST", "/auth/google", body, requiresAuth = false)
         val auth = ApiJsonParsers.parseAuthResponse(json)
-        storage.saveTokens(auth.access, auth.refresh)
-        storage.saveCachedUser(auth.user)
-        auth.subscription?.let { storage.saveCachedSubscription(it) }
+        processAuthPayload(json, auth)
         return auth
     }
 
@@ -99,9 +132,7 @@ class ByMeApiClient(private val context: Context) {
                 user = user,
                 subscription = sub
             )
-            storage.saveTokens(auth.access, auth.refresh)
-            storage.saveCachedUser(auth.user)
-            auth.subscription?.let { storage.saveCachedSubscription(it) }
+            processAuthPayload(json, auth)
             return TelegramCheckResult(status = "authenticated", auth = auth)
         }
         return TelegramCheckResult(status = status, auth = null)
@@ -207,12 +238,27 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun getServers(): List<ServerNode> {
         val json = request("GET", "/servers", null, requiresAuth = true)
+        val subUrl = json.optString("subscription_url")
+        if (subUrl.isNotBlank()) {
+            storage.saveSubscriptionUrl(subUrl)
+            try {
+                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(subUrl)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to apply subscription URL from servers endpoint: ${e.message}")
+            }
+        }
         val array = json.optJSONArray("servers") ?: JSONArray()
         val parsed = ApiJsonParsers.parseServers(array)
-        if (parsed.isNotEmpty()) {
-            return parsed
+        for (i in 0 until array.length()) {
+            val sObj = array.getJSONObject(i)
+            val code = sObj.optString("node_code")
+            val cfgObj = sObj.optJSONObject("config")
+            if (code.isNotBlank() && cfgObj != null) {
+                val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
+                storage.saveServerConfig(code, cfg)
+            }
         }
-        throw ApiError("NO_SERVERS", "No active servers returned by backend")
+        return parsed
     }
 
     suspend fun createVpnSession(nodeCode: String): VpnSessionConfig {

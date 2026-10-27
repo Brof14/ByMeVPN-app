@@ -213,7 +213,6 @@ class SubscriptionManager private constructor(private val context: Context) {
             }
             _subscriptionStatus.value = activeStatus
             storage.saveCachedSubscription(activeStatus)
-            ensureDefaultServerConfigs()
             Result.success(activeStatus)
         } catch (e: Exception) {
             Result.failure(e)
@@ -245,44 +244,11 @@ class SubscriptionManager private constructor(private val context: Context) {
             )
             _subscriptionStatus.value = status
             storage.saveCachedSubscription(status)
-            ensureDefaultServerConfigs()
             Result.success(status)
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
             _isSyncing.value = false
-        }
-    }
-
-    fun ensureDefaultServerConfigs() {
-        val currentConfigs = mutableMapOf<String, com.example.bymevpn.data.api.VpnSessionConfig>()
-        val defaultNodes = listOf(
-            Triple("nl_ams", "2.27.120.247", "www.cloudflare.com"),
-            Triple("de_fra", "2.27.120.247", "www.cloudflare.com"),
-            Triple("fi_hel", "2.27.120.247", "www.cloudflare.com"),
-            Triple("se_sto", "2.27.120.247", "www.cloudflare.com"),
-            Triple("us_nyc", "2.27.120.247", "www.cloudflare.com")
-        )
-        defaultNodes.forEach { (code, ip, sni) ->
-            if (storage.getServerConfig(code) == null) {
-                currentConfigs[code] = com.example.bymevpn.data.api.VpnSessionConfig(
-                    protocol = "vless",
-                    server = ip,
-                    port = 16287,
-                    uuid = "e463a504-2038-4e8c-8517-5e04cb249826",
-                    encryption = "none",
-                    flow = "xtls-rprx-vision",
-                    security = "reality",
-                    serverName = sni,
-                    publicKey = "Y7215X88jZ1_W1Z1Kj4p7l_9v2eZ0x9_abcdef12345",
-                    shortId = "1a2b3c4d",
-                    fingerprint = "chrome",
-                    network = "tcp"
-                )
-            }
-        }
-        if (currentConfigs.isNotEmpty()) {
-            storage.saveServerConfigs(currentConfigs)
         }
     }
 

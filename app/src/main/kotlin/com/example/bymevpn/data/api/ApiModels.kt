@@ -42,6 +42,7 @@ data class SubscriptionStatus(
     val activeDevices: Int = 1,
     val entitlement: String? = null,
     val serverTime: String? = null,
+    val subscriptionUrl: String? = null,
     val lastFetchedAt: Long = System.currentTimeMillis()
 ) {
     val isUsable: Boolean
@@ -147,6 +148,7 @@ object ApiJsonParsers {
             activeDevices = target.optInt("active_devices", 1),
             entitlement = optNullableString("entitlement"),
             serverTime = optNullableString("server_time"),
+            subscriptionUrl = optNullableString("subscription_url") ?: optNullableString("sub_url"),
             lastFetchedAt = System.currentTimeMillis()
         )
     }

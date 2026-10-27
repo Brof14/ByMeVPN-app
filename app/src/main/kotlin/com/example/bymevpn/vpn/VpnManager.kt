@@ -54,69 +54,6 @@ class VpnManager private constructor(private val context: Context) {
         fun stopVpn(context: Context) {
             getInstance(context).disconnect()
         }
-
-        val DEFAULT_NODES = listOf(
-            ServerNode(
-                nodeCode = "nl_ams",
-                country = "Нидерланды",
-                countryCode = "nl",
-                city = "Амстердам",
-                flag = "🇳🇱",
-                pingMs = 28,
-                loadPercent = 22,
-                isPremium = false,
-                countryEn = "Netherlands",
-                cityEn = "Amsterdam"
-            ),
-            ServerNode(
-                nodeCode = "de_fra",
-                country = "Германия",
-                countryCode = "de",
-                city = "Франкфурт",
-                flag = "🇩🇪",
-                pingMs = 34,
-                loadPercent = 35,
-                isPremium = false,
-                countryEn = "Germany",
-                cityEn = "Frankfurt"
-            ),
-            ServerNode(
-                nodeCode = "fi_hel",
-                country = "Финляндия",
-                countryCode = "fi",
-                city = "Хельсинки",
-                flag = "🇫🇮",
-                pingMs = 41,
-                loadPercent = 18,
-                isPremium = false,
-                countryEn = "Finland",
-                cityEn = "Helsinki"
-            ),
-            ServerNode(
-                nodeCode = "se_sto",
-                country = "Швеция",
-                countryCode = "se",
-                city = "Стокгольм",
-                flag = "🇸🇪",
-                pingMs = 46,
-                loadPercent = 25,
-                isPremium = false,
-                countryEn = "Sweden",
-                cityEn = "Stockholm"
-            ),
-            ServerNode(
-                nodeCode = "us_nyc",
-                country = "США",
-                countryCode = "us",
-                city = "Нью-Йорк",
-                flag = "🇺🇸",
-                pingMs = 95,
-                loadPercent = 40,
-                isPremium = false,
-                countryEn = "USA",
-                cityEn = "New York"
-            )
-        )
     }
 
     private val scope = CoroutineScope(Dispatchers.Main + Job())
@@ -197,43 +134,60 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
+    fun setServers(servers: List<ServerNode>) {
+        _availableServers.value = servers
+        if (_currentServer.value == null || !servers.any { it.nodeCode == _currentServer.value?.nodeCode }) {
+            _currentServer.value = servers.firstOrNull()
+        }
+    }
+
     suspend fun loadServers(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
         try {
+            // 1. Load from subscription URL if set
             val subUrl = storage.getSubscriptionUrl()
             if (!subUrl.isNullOrBlank()) {
                 val parsed = subscriptionManager.applySubscriptionUrl(subUrl).getOrNull()
                 if (parsed != null && parsed.servers.isNotEmpty()) {
-                    _availableServers.value = parsed.servers
-                    if (_currentServer.value == null) {
-                        _currentServer.value = parsed.servers.first()
-                    }
+                    setServers(parsed.servers)
                     return@withContext Result.success(parsed.servers)
                 }
             }
 
+            // 2. Fetch directly from backend API
             val servers = try {
                 apiClient.getServers()
             } catch (e: Exception) {
                 emptyList()
             }
             if (servers.isNotEmpty()) {
-                _availableServers.value = servers
-                if (_currentServer.value == null) {
-                    _currentServer.value = servers.first()
-                }
+                setServers(servers)
                 return@withContext Result.success(servers)
             }
 
-            if (subscriptionManager.canConnect() || storage.getCachedSubscription()?.isUsable == true) {
-                subscriptionManager.ensureDefaultServerConfigs()
-                _availableServers.value = DEFAULT_NODES
-                if (_currentServer.value == null) {
-                    _currentServer.value = DEFAULT_NODES.first()
+            // 3. Fallback to existing valid cached configs in local storage
+            val cachedConfigs = storage.getServerConfigs()
+            if (cachedConfigs.isNotEmpty()) {
+                val localNodes = cachedConfigs.map { (code, cfg) ->
+                    ServerNode(
+                        nodeCode = code,
+                        country = "Нидерланды",
+                        countryCode = "nl",
+                        city = "ByMeVPN",
+                        flag = "🇳🇱",
+                        pingMs = 25,
+                        loadPercent = 20,
+                        isPremium = false,
+                        countryEn = "Netherlands",
+                        cityEn = "ByMeVPN"
+                    )
                 }
-                return@withContext Result.success(DEFAULT_NODES)
+                setServers(localNodes)
+                return@withContext Result.success(localNodes)
             }
 
-            Result.failure(Exception("Серверы не найдены. Подключите подписку из Telegram-бота."))
+            _availableServers.value = emptyList()
+            _currentServer.value = null
+            Result.failure(Exception("Нет доступных серверов. Активируйте подписку или войдите через Telegram-бота."))
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load servers: ${e.message}")
             Result.failure(e)
