@@ -10,6 +10,16 @@ data class AuthResponse(
     val subscription: SubscriptionStatus?
 )
 
+data class TelegramSessionResponse(
+    val sessionToken: String,
+    val botUrl: String
+)
+
+data class TelegramCheckResult(
+    val status: String,
+    val auth: AuthResponse? = null
+)
+
 data class UserProfile(
     val id: String,
     val email: String,

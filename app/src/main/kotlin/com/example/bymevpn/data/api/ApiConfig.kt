@@ -7,9 +7,9 @@ import org.json.JSONObject
  */
 object ApiConfig {
     /**
-     * Backend API base URL. Production HTTPS API on port 8443.
+     * Backend API base URL. Active VPS API on port 8080.
      */
-    const val BASE_URL = "https://api.parahin.space:8443/api/v1"
+    const val BASE_URL = "http://2.27.120.247:8080/api/v1"
 
     /**
      * Google Web Client ID for Android Credential Manager OAuth.

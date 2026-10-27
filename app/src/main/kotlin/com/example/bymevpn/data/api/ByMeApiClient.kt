@@ -78,6 +78,35 @@ class ByMeApiClient(private val context: Context) {
         return auth
     }
 
+    suspend fun createTelegramSession(): TelegramSessionResponse {
+        val json = request("POST", "/auth/telegram/create-session", JSONObject(), requiresAuth = false)
+        return TelegramSessionResponse(
+            sessionToken = json.optString("session_token"),
+            botUrl = json.optString("bot_url")
+        )
+    }
+
+    suspend fun checkTelegramSession(token: String): TelegramCheckResult {
+        val json = request("GET", "/auth/telegram/check-session?token=$token", null, requiresAuth = false)
+        val status = json.optString("status", "pending")
+        if (status == "authenticated") {
+            val accessToken = json.optString("access_token")
+            val user = ApiJsonParsers.parseUserProfile(json.optJSONObject("user") ?: JSONObject())
+            val sub = json.optJSONObject("subscription")?.let { ApiJsonParsers.parseSubscriptionStatus(it) }
+            val auth = AuthResponse(
+                access = accessToken,
+                refresh = "ref_$accessToken",
+                user = user,
+                subscription = sub
+            )
+            storage.saveTokens(auth.access, auth.refresh)
+            storage.saveCachedUser(auth.user)
+            auth.subscription?.let { storage.saveCachedSubscription(it) }
+            return TelegramCheckResult(status = "authenticated", auth = auth)
+        }
+        return TelegramCheckResult(status = status, auth = null)
+    }
+
     suspend fun logout() {
         try {
             request("POST", "/auth/logout", JSONObject(), requiresAuth = true)

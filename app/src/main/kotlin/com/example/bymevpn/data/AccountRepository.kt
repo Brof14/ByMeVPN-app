@@ -118,6 +118,35 @@ object AccountRepository {
         }
     }
 
+    suspend fun createTelegramAuthSession(context: Context): Result<com.example.bymevpn.data.api.TelegramSessionResponse> {
+        return try {
+            val api = ByMeApiClient(context)
+            val session = api.createTelegramSession()
+            Result.success(session)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun checkTelegramAuthSession(context: Context, token: String): Result<UserProfile?> {
+        return try {
+            val api = ByMeApiClient(context)
+            val check = api.checkTelegramSession(token)
+            if (check.status == "authenticated" && check.auth != null) {
+                _currentUser.value = check.auth.user
+                refreshDevices(context)
+                SubscriptionManager.getInstance(context).refreshStatus()
+                Result.success(check.auth.user)
+            } else if (check.status == "expired") {
+                Result.failure(Exception("Сессия авторизации истекла"))
+            } else {
+                Result.success(null) // pending confirmation
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun refreshProfile(context: Context) {
         try {
             val api = ByMeApiClient(context)

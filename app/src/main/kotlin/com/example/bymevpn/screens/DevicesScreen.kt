@@ -12,13 +12,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,6 +32,8 @@ import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.components.SmartphoneIcon
+import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 
 @Composable
@@ -35,9 +43,17 @@ fun DevicesScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
     connectedDevicesCount: Int = 1,
-    maxDevicesCount: Int = 2,
+    maxDevicesCount: Int = 5,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val subManager = remember { SubscriptionManager.getInstance(context) }
+    val subscription by subManager.subscriptionStatus.collectAsState()
+    val devicesList by AccountRepository.userDevices.collectAsState()
+
+    val effectiveMax = subscription?.maxDevices ?: maxDevicesCount
+    val effectiveConnected = if (devicesList.isNotEmpty()) devicesList.size else connectedDevicesCount
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -53,19 +69,20 @@ fun DevicesScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 26.dp, vertical = 12.dp)
             ) {
                 // Large device count display matching mockup 15_devices
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = "$connectedDevicesCount",
+                        text = "$effectiveConnected",
                         color = AppColors.TextPrimary,
                         fontSize = 60.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = " из $maxDevicesCount",
+                        text = " из $effectiveMax",
                         color = Color(0xFF6EDBB0),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -74,65 +91,124 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = "Устройство подключено к вашей подписке",
+                    text = if (effectiveConnected == 1) "Устройство подключено к вашей подписке" else "Устройств подключено к вашей подписке",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 28.dp)
+                    modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
 
-                // Current Device Card
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(89.dp)
-                        .clip(RoundedCornerShape(17.dp))
-                        .background(Color(0xFF12221F))
-                        .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(37.dp)
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(Color(0xFF172A29)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
-                    }
+                // List of Devices
+                if (devicesList.isNotEmpty()) {
+                    devicesList.forEach { dev ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(89.dp)
+                                .clip(RoundedCornerShape(17.dp))
+                                .background(Color(0xFF12221F))
+                                .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(37.dp)
+                                    .clip(RoundedCornerShape(11.dp))
+                                    .background(Color(0xFF172A29)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
+                            }
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Этот телефон",
-                            color = Color(0xFFEAF1EF),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Android · Активно",
-                            color = Color(0xFF88A09F),
-                            fontSize = 11.5.sp
-                        )
-                    }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (dev.isCurrent) "Этот телефон (${dev.deviceModel})" else dev.deviceModel,
+                                    color = Color(0xFFEAF1EF),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "${dev.platform} · ${dev.lastActive}",
+                                    color = Color(0xFF88A09F),
+                                    fontSize = 11.5.sp
+                                )
+                            }
 
-                    Box(
+                            if (dev.isCurrent) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1A3B2C))
+                                        .padding(horizontal = 9.dp, vertical = 6.dp)
+                                ) {
+                                    Text(
+                                        text = "Вы здесь",
+                                        color = Color(0xFF65E3B1),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                } else {
+                    // Default current phone fallback card
+                    Row(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF1A3B2C))
-                            .padding(horizontal = 9.dp, vertical = 6.dp)
+                            .fillMaxWidth()
+                            .height(89.dp)
+                            .clip(RoundedCornerShape(17.dp))
+                            .background(Color(0xFF12221F))
+                            .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Text(
-                            text = "Вы здесь",
-                            color = Color(0xFF65E3B1),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(37.dp)
+                                .clip(RoundedCornerShape(11.dp))
+                                .background(Color(0xFF172A29)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Этот телефон",
+                                color = Color(0xFFEAF1EF),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Android · Активно сейчас",
+                                color = Color(0xFF88A09F),
+                                fontSize = 11.5.sp
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF1A3B2C))
+                                .padding(horizontal = 9.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "Вы здесь",
+                                color = Color(0xFF65E3B1),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 // Info Box "ДОБАВИТЬ УСТРОЙСТВО"
                 Column(
@@ -152,7 +228,7 @@ fun DevicesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь автоматически, если это поддерживается вашим тарифом и платформой.",
+                        text = "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь автоматически в рамках вашей подписки (до $effectiveMax устройств).",
                         color = Color(0xFF9DB6AC),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp

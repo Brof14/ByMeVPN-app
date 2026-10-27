@@ -154,7 +154,7 @@ class SubscriptionManager private constructor(private val context: Context) {
 
     private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
         val targetUrlStr = if (subUrl.contains("bymevpn.duckdns.org", ignoreCase = true)) {
-            subUrl.replace("bymevpn.duckdns.org", "138.124.240.14", ignoreCase = true)
+            subUrl.replace("bymevpn.duckdns.org", "2.27.120.247", ignoreCase = true)
         } else {
             subUrl
         }

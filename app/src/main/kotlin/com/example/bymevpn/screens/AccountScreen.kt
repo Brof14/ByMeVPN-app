@@ -70,10 +70,12 @@ fun AccountScreen(
     val currentUser by AccountRepository.currentUser.collectAsState()
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
+    val devices by AccountRepository.userDevices.collectAsState()
 
     val isActive = subscription?.isActive == true
     val remainingDays = subscription?.daysRemaining ?: 0
-    val maxDevices = 2
+    val maxDevices = subscription?.maxDevices ?: 5
+    val activeDevicesCount = if (devices.isNotEmpty()) devices.size else (subscription?.activeDevices ?: 1)
 
     var showAccountDialog by remember { mutableStateOf(false) }
 
@@ -290,7 +292,7 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isActive) "Мои устройства" else "Устройства",
-                        subtitle = if (isActive) "1 из $maxDevices подключено" else "Доступны после активации",
+                        subtitle = if (isActive) "$activeDevicesCount из $maxDevices подключено" else "Доступны после активации",
                         icon = { DevicesMultiIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToDevices

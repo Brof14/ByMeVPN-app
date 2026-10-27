@@ -85,6 +85,8 @@ fun WelcomeScreen(
     val scope = rememberCoroutineScope()
 
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var isTelegramLoading by remember { mutableStateOf(false) }
+    var telegramStatusText by remember { mutableStateOf<String?>(null) }
     var authError by remember { mutableStateOf<String?>(null) }
     var showPaywall by remember { mutableStateOf(false) }
     var showPrivacyDialog by remember { mutableStateOf(false) }
@@ -328,20 +330,74 @@ fun WelcomeScreen(
                                     listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
                                 )
                             )
-                            .clickable {
-                                openTelegramBot(context, "start=login")
+                            .clickable(enabled = !isTelegramLoading) {
+                                isTelegramLoading = true
+                                authError = null
+                                telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
+                                scope.launch {
+                                    val sessionRes = AccountRepository.createTelegramAuthSession(context)
+                                    if (sessionRes.isSuccess) {
+                                        val session = sessionRes.getOrThrow()
+                                        try {
+                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(session.botUrl))
+                                            context.startActivity(intent)
+                                        } catch (_: Exception) {
+                                            Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
+                                        }
+                                        telegramStatusText = if (isRu) "Ожидание подтверждения в боте..." else "Waiting for bot confirmation..."
+
+                                        var confirmed = false
+                                        for (attempt in 1..40) {
+                                            kotlinx.coroutines.delay(1500)
+                                            val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
+                                            if (checkRes.isSuccess && checkRes.getOrNull() != null) {
+                                                confirmed = true
+                                                break
+                                            }
+                                        }
+                                        isTelegramLoading = false
+                                        telegramStatusText = null
+                                        if (confirmed) {
+                                            val canConnect = SubscriptionManager.getInstance(context).canConnect()
+                                            if (canConnect) {
+                                                onLoginSuccess()
+                                            } else {
+                                                showPaywall = true
+                                            }
+                                        } else {
+                                            authError = if (isRu) "Время ожидания истекло. Нажмите кнопку снова." else "Confirmation timed out. Please try again."
+                                        }
+                                    } else {
+                                        isTelegramLoading = false
+                                        telegramStatusText = null
+                                        openTelegramBot(context, "start=login")
+                                    }
+                                }
                             },
                         contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isRu) "Войти через Telegram-бота" else "Log In with Telegram",
-                                color = AppColors.DarkText,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
+                        if (isTelegramLoading) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = telegramStatusText ?: (if (isRu) "Подключение..." else "Connecting..."),
+                                    color = AppColors.DarkText,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isRu) "Войти через Telegram-бота" else "Log In with Telegram",
+                                    color = AppColors.DarkText,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            }
                         }
                     }
 

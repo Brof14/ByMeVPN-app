@@ -111,6 +111,8 @@ fun SignInScreen(
     var authError by remember { mutableStateOf<String?>(null) }
     var isEmailLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var isTelegramLoading by remember { mutableStateOf(false) }
+    var telegramStatusText by remember { mutableStateOf<String?>(null) }
 
     fun submitLogin() {
         focusManager.clearFocus()
@@ -529,28 +531,77 @@ fun SignInScreen(
                                             )
                                         )
                                     )
-                                    .clickable {
-                                        openTelegram(context, "start=login")
+                                    .clickable(enabled = !isTelegramLoading) {
+                                        isTelegramLoading = true
+                                        authError = null
+                                        telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
+                                        scope.launch {
+                                            val sessionRes = AccountRepository.createTelegramAuthSession(context)
+                                            if (sessionRes.isSuccess) {
+                                                val session = sessionRes.getOrThrow()
+                                                try {
+                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(session.botUrl))
+                                                    context.startActivity(intent)
+                                                } catch (_: Exception) {
+                                                    Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
+                                                }
+                                                telegramStatusText = if (isRu) "Ожидание подтверждения в боте..." else "Waiting for confirmation..."
+
+                                                var confirmed = false
+                                                for (attempt in 1..40) {
+                                                    kotlinx.coroutines.delay(1500)
+                                                    val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
+                                                    if (checkRes.isSuccess && checkRes.getOrNull() != null) {
+                                                        confirmed = true
+                                                        break
+                                                    }
+                                                }
+                                                isTelegramLoading = false
+                                                telegramStatusText = null
+                                                if (confirmed) {
+                                                    onSignInSuccess()
+                                                } else {
+                                                    authError = if (isRu) "Время ожидания истекло. Попробуйте снова." else "Confirmation timed out. Please try again."
+                                                }
+                                            } else {
+                                                isTelegramLoading = false
+                                                telegramStatusText = null
+                                                openTelegram(context, "start=login")
+                                            }
+                                        }
                                     }
                                     .testTag("telegram_login_button"),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    PaperPlaneIcon(color = Color(0xFF002213), size = 18.dp)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
-                                        color = Color(0xFF002213),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.weight(1f))
-                                    ChevronRightIcon(color = Color(0xFF002213), size = 18.dp)
+                                if (isTelegramLoading) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        CircularProgressIndicator(color = Color(0xFF002213), modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = telegramStatusText ?: (if (isRu) "Вход..." else "Logging in..."),
+                                            color = Color(0xFF002213),
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        PaperPlaneIcon(color = Color(0xFF002213), size = 18.dp)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
+                                            color = Color(0xFF002213),
+                                            fontSize = 14.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.weight(1f))
+                                        ChevronRightIcon(color = Color(0xFF002213), size = 18.dp)
+                                    }
                                 }
                             }
                         }
