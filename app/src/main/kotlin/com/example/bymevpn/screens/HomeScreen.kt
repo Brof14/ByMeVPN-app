@@ -158,12 +158,14 @@ fun HomeScreen(
                         onPlansClick = onNavigateToPricing
                     )
                 } else if (vpnState == VpnConnectionState.ERROR) {
+                    val vpnError by vpnManager.errorMessage.collectAsState()
                     // MOCKUP 14_connection_error
                     HomeConnectionErrorContent(
                         onRetry = { toggleVpn() },
                         onSupportClick = onNavigateToSupport,
                         onServerSelectClick = { showServerSheet = true },
-                        currentServer = currentServer
+                        currentServer = currentServer,
+                        errorMessage = vpnError
                     )
                 } else if (vpnState == VpnConnectionState.CONNECTED) {
                     // MOCKUP 05_home_on
@@ -851,7 +853,8 @@ private fun HomeConnectionErrorContent(
     onRetry: () -> Unit,
     onSupportClick: () -> Unit,
     onServerSelectClick: () -> Unit,
-    currentServer: ServerNode?
+    currentServer: ServerNode?,
+    errorMessage: String? = null
 ) {
     Column(
         modifier = Modifier
@@ -918,9 +921,10 @@ private fun HomeConnectionErrorContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "Проверьте интернет и попробуйте ещё раз",
+            text = errorMessage?.takeIf { it.isNotBlank() } ?: "Проверьте интернет и попробуйте ещё раз",
             color = Color(0xFF859B9D),
-            fontSize = 13.sp
+            fontSize = 13.sp,
+            textAlign = TextAlign.Center
         )
 
         Spacer(modifier = Modifier.height(18.dp))

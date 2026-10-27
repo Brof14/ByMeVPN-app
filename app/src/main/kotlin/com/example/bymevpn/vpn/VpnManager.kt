@@ -136,8 +136,9 @@ class VpnManager private constructor(private val context: Context) {
 
     fun setServers(servers: List<ServerNode>) {
         _availableServers.value = servers
+        val preferred = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
         if (_currentServer.value == null || !servers.any { it.nodeCode == _currentServer.value?.nodeCode }) {
-            _currentServer.value = servers.firstOrNull()
+            _currentServer.value = preferred
         }
     }
 
@@ -224,8 +225,8 @@ class VpnManager private constructor(private val context: Context) {
             try {
                 // 1. Verify subscription entitlement
                 if (!subscriptionManager.canConnect()) {
-                    val refreshed = subscriptionManager.refreshStatus()
-                    if (refreshed.isFailure || !subscriptionManager.canConnect()) {
+                    subscriptionManager.refreshStatus()
+                    if (!subscriptionManager.canConnect()) {
                         _state.value = VpnConnectionState.ERROR
                         _errorMessage.value = "SUBSCRIPTION_REQUIRED"
                         return@launch
@@ -237,7 +238,7 @@ class VpnManager private constructor(private val context: Context) {
                 if (targetServer == null) {
                     val servers = apiClient.getServers()
                     _availableServers.value = servers
-                    targetServer = servers.firstOrNull()
+                    targetServer = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
                         ?: throw IllegalStateException(
                             if (com.example.bymevpn.data.LocaleManager.isRussian(context))
                                 "Не удалось получить список серверов"

@@ -148,8 +148,17 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             // Start loop in Xray core passing config JSON and TUN fd
             controller.startLoop(xrayConfigJson, tunFd)
 
-            // Verify the core actually started and is running
-            if (!controller.isRunning) {
+            // Verify the core actually started and is running (poll up to 1500ms for Go initialization)
+            var isRunning = false
+            for (i in 0 until 15) {
+                if (controller.isRunning) {
+                    isRunning = true
+                    break
+                }
+                delay(100)
+            }
+
+            if (!isRunning) {
                 _state.value = VpnConnectionState.ERROR
                 throw IllegalStateException("Xray core loop failed to start (isRunning=false)")
             }
