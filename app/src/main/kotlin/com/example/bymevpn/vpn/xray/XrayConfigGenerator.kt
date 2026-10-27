@@ -27,6 +27,15 @@ object XrayConfigGenerator {
         }
         root.put("log", logObj)
 
+        // DNS configuration (Fast, resilient public DNS servers)
+        val dnsObj = JSONObject().apply {
+            put("servers", JSONArray().apply {
+                put("1.1.1.1")
+                put("8.8.8.8")
+            })
+        }
+        root.put("dns", dnsObj)
+
         // 2. Stats & Policy (for real-time uplink/downlink traffic telemetry)
         root.put("stats", JSONObject())
         root.put("policy", JSONObject().apply {
@@ -223,24 +232,28 @@ object XrayConfigGenerator {
 
         // 4. Routing
         val rulesArray = JSONArray().apply {
-            // Route private IPs direct to bypass local LAN traffic
+            // Route private IPs direct to bypass local LAN traffic (pure CIDR, zero dependency on external geoip.dat)
             put(JSONObject().apply {
                 put("type", "field")
                 put("ip", JSONArray().apply {
-                    put("geoip:private")
+                    put("10.0.0.0/8")
+                    put("172.16.0.0/12")
+                    put("192.168.0.0/16")
+                    put("127.0.0.0/8")
+                    put("fc00::/7")
+                    put("fe80::/10")
                 })
                 put("outboundTag", "direct")
             })
 
-            // Bypass Russian services, banks, gov sites and RU IP blocks directly
+            // Bypass Russian services, banks, gov sites directly without geosite.dat EOF risk
             if (bypassRussianTraffic) {
                 put(JSONObject().apply {
                     put("type", "field")
                     put("domain", JSONArray().apply {
-                        put("geosite:ru")
-                        put("regexp:.*\\.ru$")
-                        put("regexp:.*\\.su$")
-                        put("regexp:.*\\.рф$")
+                        put("domain:ru")
+                        put("domain:su")
+                        put("domain:xn--p1ai")
                         put("domain:gosuslugi.ru")
                         put("domain:mos.ru")
                         put("domain:sberbank.ru")
@@ -257,9 +270,9 @@ object XrayConfigGenerator {
                         put("domain:ozon.ru")
                         put("domain:wildberries.ru")
                         put("domain:avito.ru")
-                    })
-                    put("ip", JSONArray().apply {
-                        put("geoip:ru")
+                        put("domain:kinopoisk.ru")
+                        put("domain:dzen.ru")
+                        put("domain:rutube.ru")
                     })
                     put("outboundTag", "direct")
                 })

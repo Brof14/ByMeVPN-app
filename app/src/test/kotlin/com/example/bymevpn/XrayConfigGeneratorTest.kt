@@ -66,8 +66,9 @@ class XrayConfigGeneratorTest {
         assertEquals("123456", reality.getString("shortId"))
         assertEquals("chrome", reality.getString("fingerprint"))
 
-        // Check stats and policy
+        // Check stats, policy, and dns
         assertNotNull(json.optJSONObject("stats"))
         assertNotNull(json.optJSONObject("policy"))
+        assertNotNull(json.optJSONObject("dns"))
     }
 }
