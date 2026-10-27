@@ -17,11 +17,14 @@ android {
     }
 
     signingConfigs {
-        create("debugConfig") {
-            storeFile = file("${rootDir}/debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        val rootDebugKeystore = file("${rootDir}/debug.keystore")
+        if (rootDebugKeystore.exists()) {
+            create("debugConfig") {
+                storeFile = rootDebugKeystore
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
         }
         create("release") {
             val keystoreFile = file("bymevpn-upload.jks")
@@ -38,7 +41,9 @@ android {
 
     buildTypes {
         debug {
-            signingConfig = signingConfigs.getByName("debugConfig")
+            signingConfigs.findByName("debugConfig")?.let {
+                signingConfig = it
+            }
         }
         release {
             isMinifyEnabled = false
