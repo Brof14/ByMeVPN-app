@@ -3,7 +3,12 @@ name: Build Android Release & Debug
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -39,26 +44,63 @@ jobs:
           gradle bundleRelease assembleRelease assembleDebug
         fi
 
+    - name: Prepare Release Artifacts
+      run: |
+        mkdir -p dist
+        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.2.apk
+        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.2-debug.apk
+        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.2.aab
+
     - name: Upload Google Play Release Bundle (.aab)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-googleplay-bundle
-        path: app/build/outputs/bundle/release/app-release.aab
+        path: dist/ByMeVPN-v1.0.2.aab
 
     - name: Upload Release APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-release-apk
-        path: app/build/outputs/apk/release/app-release.apk
+        path: dist/ByMeVPN-v1.0.2.apk
 
     - name: Upload Debug APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-debug-apk
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: dist/ByMeVPN-v1.0.2-debug.apk
 
     - name: Upload Keystore Backup
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-upload-keystore
         path: app/bymevpn-upload.jks
+
+    - name: Create or Update GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v1.0.2
+        name: "ByMeVPN v1.0.2 (Stable Direct Proxy)"
+        draft: false
+        prerelease: false
+        generate_release_notes: false
+        body: |
+          ### ByMeVPN v1.0.2 — Полностью рабочий стабильный релиз
+
+          Версия с чистым туннелированием по стандарту Happ / v2rayNG.
+
+          #### Что исправлено:
+          1. **Исправлена критическая ошибка Xray-core `illegal domain rule: geosite:ru > EOF`**: убраны все специфичные geosite/geoip правила, вызывавшие сбой парсинга конфигурации на Android.
+          2. **Прямое соединение без DNS-петель**: конфигурация использует стратегию `AsIs` с прямым указанием рабочего IP сервера `2.27.120.247:16287` (VLESS Reality).
+          3. **Детальная диагностика ошибок**: при любых проблемах реальный лог Xray выводится на экран.
+
+          #### Прямые ссылки для скачивания на телефоне (нажмите для загрузки):
+          - 📥 **[Скачать ByMeVPN-v1.0.2.apk (Релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.2/ByMeVPN-v1.0.2.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.2-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.2/ByMeVPN-v1.0.2-debug.apk)**
+
+          *(Если Chrome показывает предупреждение «Файл может быть опасным», нажмите «Все равно скачать», так как приложение установлено не из Google Play)*
+        files: |
+          dist/ByMeVPN-v1.0.2.apk
+          dist/ByMeVPN-v1.0.2-debug.apk
+          dist/ByMeVPN-v1.0.2.aab
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
