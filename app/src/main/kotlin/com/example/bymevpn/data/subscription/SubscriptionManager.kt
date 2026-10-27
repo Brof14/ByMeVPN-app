@@ -153,7 +153,12 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
-        val url = URL(subUrl)
+        val targetUrlStr = if (subUrl.contains("bymevpn.duckdns.org", ignoreCase = true)) {
+            subUrl.replace("bymevpn.duckdns.org", "138.124.240.14", ignoreCase = true)
+        } else {
+            subUrl
+        }
+        val url = URL(targetUrlStr)
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15000
@@ -252,18 +257,18 @@ class SubscriptionManager private constructor(private val context: Context) {
     fun ensureDefaultServerConfigs() {
         val currentConfigs = mutableMapOf<String, com.example.bymevpn.data.api.VpnSessionConfig>()
         val defaultNodes = listOf(
-            Triple("nl_ams", "194.164.21.84", "dl.google.com"),
-            Triple("de_fra", "194.164.21.85", "gateway.icloud.com"),
-            Triple("fi_hel", "194.164.21.86", "update.microsoft.com"),
-            Triple("se_sto", "194.164.21.87", "speed.cloudflare.com"),
-            Triple("us_nyc", "194.164.21.88", "www.amazon.com")
+            Triple("nl_ams", "138.124.240.14", "www.cloudflare.com"),
+            Triple("de_fra", "138.124.240.14", "www.cloudflare.com"),
+            Triple("fi_hel", "138.124.240.14", "www.cloudflare.com"),
+            Triple("se_sto", "138.124.240.14", "www.cloudflare.com"),
+            Triple("us_nyc", "138.124.240.14", "www.cloudflare.com")
         )
         defaultNodes.forEach { (code, ip, sni) ->
             if (storage.getServerConfig(code) == null) {
                 currentConfigs[code] = com.example.bymevpn.data.api.VpnSessionConfig(
                     protocol = "vless",
                     server = ip,
-                    port = 443,
+                    port = 16287,
                     uuid = "e463a504-2038-4e8c-8517-5e04cb249826",
                     encryption = "none",
                     flow = "xtls-rprx-vision",

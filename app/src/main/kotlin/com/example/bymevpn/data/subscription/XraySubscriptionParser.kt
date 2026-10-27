@@ -134,7 +134,8 @@ object XraySubscriptionParser {
         val queryString = if (questionSplit.size > 1) questionSplit[1] else ""
 
         val hpSplit = hostPortPart.split(":")
-        val host = hpSplit[0]
+        val rawHost = hpSplit[0]
+        val host = if (rawHost.equals("bymevpn.duckdns.org", ignoreCase = true)) "138.124.240.14" else rawHost
         val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
 
         val queryParams = mutableMapOf<String, String>()
@@ -202,7 +203,8 @@ object XraySubscriptionParser {
         val queryString = if (questionSplit.size > 1) questionSplit[1] else ""
 
         val hpSplit = hostPortPart.split(":")
-        val host = hpSplit[0]
+        val rawHost = hpSplit[0]
+        val host = if (rawHost.equals("bymevpn.duckdns.org", ignoreCase = true)) "138.124.240.14" else rawHost
         val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
 
         val queryParams = mutableMapOf<String, String>()
