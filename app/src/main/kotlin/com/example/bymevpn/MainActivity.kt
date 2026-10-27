@@ -17,28 +17,39 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.screens.AccountScreen
+import com.example.bymevpn.screens.AdvancedSettingsScreen
+import com.example.bymevpn.screens.DevicesScreen
 import com.example.bymevpn.screens.HomeScreen
+import com.example.bymevpn.screens.PricingScreen
+import com.example.bymevpn.screens.RenewalScreen
 import com.example.bymevpn.screens.SettingsScreen
 import com.example.bymevpn.screens.SignInScreen
 import com.example.bymevpn.screens.SignUpScreen
-import com.example.bymevpn.screens.WelcomeScreen
+import com.example.bymevpn.screens.SupportScreen
+import com.example.bymevpn.screens.TrialScreen
 import com.example.bymevpn.theme.ByMeVPNTheme
 import com.example.bymevpn.vpn.VpnManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 enum class AppScreen {
-    Welcome,
-    SignUp,
     SignIn,
+    SignUp,
     Home,
     Settings,
-    Account
+    AdvancedSettings,
+    Account,
+    Devices,
+    Renewal,
+    Support,
+    Trial,
+    Pricing
 }
 
 class MainActivity : ComponentActivity() {
@@ -63,15 +74,10 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
-        // Handles:
-        // 1) bymevpn://sub?url=...
-        // 2) bymevpn://login?sub=...&name=...
-        // 3) bymevpn://payment/success?plan=...&days=...
-        // 4) direct https://... subscription URLs
         if (data.scheme == "bymevpn" && data.host == "payment") {
             val planCode = data.getQueryParameter("plan") ?: "1m"
             val days = data.getQueryParameter("days")?.toIntOrNull() ?: 30
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            CoroutineScope(Dispatchers.Main).launch {
                 com.example.bymevpn.data.payment.YooKassaPaymentHandler.confirmPayment(applicationContext, planCode, days)
                 Toast.makeText(applicationContext, "Оплата через ЮKassa прошла успешно! Подписка активирована.", Toast.LENGTH_LONG).show()
             }
@@ -84,7 +90,7 @@ class MainActivity : ComponentActivity() {
         val userName = data.getQueryParameter("name") ?: "Telegram User"
 
         if (!subUrl.isNullOrBlank()) {
-            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            CoroutineScope(Dispatchers.Main).launch {
                 val result = SubscriptionManager.getInstance(applicationContext).applySubscriptionUrl(subUrl)
                 if (result.isSuccess) {
                     AccountRepository.createLocalProfile(applicationContext, userName)
@@ -100,7 +106,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         VpnManager.getInstance(applicationContext).syncWithServiceState()
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+        CoroutineScope(Dispatchers.Main).launch {
             com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(applicationContext)
         }
     }
@@ -112,38 +118,41 @@ fun MainAppNav() {
     val currentUser by AccountRepository.currentUser.collectAsState()
 
     var currentScreen by remember {
-        mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.Welcome)
+        mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.SignIn)
     }
 
     LaunchedEffect(currentUser) {
         val user = currentUser
-        if (user != null && (currentScreen == AppScreen.Welcome || currentScreen == AppScreen.SignIn || currentScreen == AppScreen.SignUp)) {
+        if (user != null && (currentScreen == AppScreen.SignIn || currentScreen == AppScreen.SignUp)) {
             currentScreen = AppScreen.Home
-        } else if (user == null && currentScreen != AppScreen.Welcome && currentScreen != AppScreen.SignIn && currentScreen != AppScreen.SignUp) {
-            currentScreen = AppScreen.Welcome
+        } else if (user == null && currentScreen != AppScreen.SignIn && currentScreen != AppScreen.SignUp) {
+            currentScreen = AppScreen.SignIn
         }
     }
 
-    BackHandler(enabled = currentScreen != AppScreen.Welcome && currentScreen != AppScreen.Home) {
+    // Predictive back handling
+    BackHandler(enabled = currentScreen != AppScreen.SignIn && currentScreen != AppScreen.Home) {
         currentScreen = when (currentScreen) {
+            AppScreen.AdvancedSettings -> AppScreen.Settings
+            AppScreen.Devices, AppScreen.Renewal -> AppScreen.Account
+            AppScreen.Support -> AppScreen.Account
+            AppScreen.Trial, AppScreen.Pricing -> AppScreen.Home
             AppScreen.Settings, AppScreen.Account -> AppScreen.Home
-            else -> AppScreen.Welcome
+            AppScreen.SignUp -> AppScreen.SignIn
+            else -> AppScreen.Home
         }
     }
 
     AnimatedContent(
         targetState = currentScreen,
-        transitionSpec = {
-            fadeIn() togetherWith fadeOut()
-        },
+        transitionSpec = { fadeIn() togetherWith fadeOut() },
         label = "screen_transition"
     ) { screen ->
         when (screen) {
-            AppScreen.Welcome -> {
-                WelcomeScreen(
+            AppScreen.SignIn -> {
+                SignInScreen(
                     onSignUpClick = { currentScreen = AppScreen.SignUp },
-                    onLogInClick = { currentScreen = AppScreen.SignIn },
-                    onLoginSuccess = { currentScreen = AppScreen.Home }
+                    onSignInSuccess = { currentScreen = AppScreen.Home }
                 )
             }
             AppScreen.SignUp -> {
@@ -152,36 +161,87 @@ fun MainAppNav() {
                     onSignUpSuccess = { currentScreen = AppScreen.Home }
                 )
             }
-            AppScreen.SignIn -> {
-                SignInScreen(
-                    onSignUpClick = { currentScreen = AppScreen.SignUp },
-                    onSignInSuccess = { currentScreen = AppScreen.Home }
-                )
-            }
             AppScreen.Home -> {
                 HomeScreen(
                     onNavigateToAccount = { currentScreen = AppScreen.Account },
                     onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                    onNavigateToTrial = { currentScreen = AppScreen.Trial },
+                    onNavigateToPricing = { currentScreen = AppScreen.Pricing },
+                    onNavigateToSupport = { currentScreen = AppScreen.Support },
                     onLogOut = {
                         VpnManager.stopVpn(context)
                         AccountRepository.logout(context)
-                        currentScreen = AppScreen.Welcome
+                        currentScreen = AppScreen.SignIn
                     }
                 )
             }
             AppScreen.Settings -> {
                 SettingsScreen(
-                    onBackClick = { currentScreen = AppScreen.Home }
+                    onBackClick = { currentScreen = AppScreen.Home },
+                    onNavigateToHome = { currentScreen = AppScreen.Home },
+                    onNavigateToAccount = { currentScreen = AppScreen.Account },
+                    onNavigateToAdvanced = { currentScreen = AppScreen.AdvancedSettings }
+                )
+            }
+            AppScreen.AdvancedSettings -> {
+                AdvancedSettingsScreen(
+                    onBackClick = { currentScreen = AppScreen.Settings },
+                    onNavigateToHome = { currentScreen = AppScreen.Home },
+                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                    onNavigateToAccount = { currentScreen = AppScreen.Account }
                 )
             }
             AppScreen.Account -> {
                 AccountScreen(
                     onBackClick = { currentScreen = AppScreen.Home },
+                    onNavigateToHome = { currentScreen = AppScreen.Home },
+                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                    onNavigateToDevices = { currentScreen = AppScreen.Devices },
+                    onNavigateToRenewal = { currentScreen = AppScreen.Renewal },
+                    onNavigateToSupport = { currentScreen = AppScreen.Support },
+                    onNavigateToTrial = { currentScreen = AppScreen.Trial },
+                    onNavigateToPricing = { currentScreen = AppScreen.Pricing },
                     onLogOut = {
                         VpnManager.stopVpn(context)
                         AccountRepository.logout(context)
-                        currentScreen = AppScreen.Welcome
+                        currentScreen = AppScreen.SignIn
                     }
+                )
+            }
+            AppScreen.Devices -> {
+                DevicesScreen(
+                    onBackClick = { currentScreen = AppScreen.Account },
+                    onNavigateToHome = { currentScreen = AppScreen.Home },
+                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                )
+            }
+            AppScreen.Renewal -> {
+                RenewalScreen(
+                    onBackClick = { currentScreen = AppScreen.Account },
+                    onNavigateToHome = { currentScreen = AppScreen.Home },
+                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                )
+            }
+            AppScreen.Support -> {
+                SupportScreen(
+                    onBackClick = { currentScreen = AppScreen.Account },
+                    onNavigateToHome = { currentScreen = AppScreen.Home },
+                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
+                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                )
+            }
+            AppScreen.Trial -> {
+                TrialScreen(
+                    onBackClick = { currentScreen = AppScreen.Home },
+                    onChoosePlanClick = { currentScreen = AppScreen.Pricing },
+                    onTrialActivated = { currentScreen = AppScreen.Home }
+                )
+            }
+            AppScreen.Pricing -> {
+                PricingScreen(
+                    onBackClick = { currentScreen = AppScreen.Home }
                 )
             }
         }

@@ -15,9 +15,9 @@ class RealUserSubscriptionTest {
 
         val parsed = XraySubscriptionParser.parse(realBase64, userInfo)
 
-        // Must extract 3 VLESS servers (Germany-1, Germany-2, Germany-4)
-        assertEquals(3, parsed.servers.size)
-        assertEquals(3, parsed.configs.size)
+        // Must extract 4 servers (3 VLESS + 1 Hysteria2)
+        assertEquals(4, parsed.servers.size)
+        assertEquals(4, parsed.configs.size)
 
         val server1 = parsed.servers[0]
         assertEquals("Германия", server1.country)

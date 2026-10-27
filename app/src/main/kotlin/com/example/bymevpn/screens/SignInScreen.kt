@@ -1,12 +1,14 @@
 package com.example.bymevpn.screens
 
-import androidx.compose.animation.AnimatedVisibility
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,17 +22,15 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -42,7 +42,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -59,15 +61,16 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bymevpn.components.ChevronRightIcon
+import com.example.bymevpn.components.CosmicGlobeBackground
 import com.example.bymevpn.components.EyeIcon
 import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
+import com.example.bymevpn.components.PaperPlaneIcon
 import com.example.bymevpn.components.ShieldLogo
-import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
@@ -75,6 +78,17 @@ import kotlinx.coroutines.launch
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
+/**
+ * Main Sign-In Screen styled to match the user's reference design to the pixel:
+ * 1. Deep space backdrop with Earth curvature, atmosphere halo and global network arcs
+ * 2. ByMeVPN shield logo with neon infinity loop and ambient backglow
+ * 3. Prominent Google Sign-In button with white pill card and right chevron
+ * 4. Distinct "или по почте" horizontal divider
+ * 5. High-contrast dark inputs for email and password
+ * 6. Vibrant neon green "Войти" button with right chevron
+ * 7. Dedicated Telegram Bot card with badge and green "Войти через Telegram" button
+ * 8. "Нет аккаунта? Зарегистрироваться >" footer link
+ */
 @Composable
 fun SignInScreen(
     onSignUpClick: () -> Unit = {},
@@ -87,7 +101,6 @@ fun SignInScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -96,7 +109,8 @@ fun SignInScreen(
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var authError by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
+    var isEmailLoading by remember { mutableStateOf(false) }
+    var isGoogleLoading by remember { mutableStateOf(false) }
 
     fun submitLogin() {
         focusManager.clearFocus()
@@ -118,11 +132,11 @@ fun SignInScreen(
         }
 
         if (valid) {
-            isLoading = true
+            isEmailLoading = true
             authError = null
             scope.launch {
                 val result = AccountRepository.loginWithEmail(context, trimmed, password)
-                isLoading = false
+                isEmailLoading = false
                 if (result.isSuccess) {
                     onSignInSuccess()
                 } else {
@@ -132,305 +146,451 @@ fun SignInScreen(
         }
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = AppColors.BgCanvas,
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(bottom = 24.dp))
-        }
-    ) { innerPadding ->
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .statusBarsPadding()
-                .navigationBarsPadding(),
-            contentAlignment = Alignment.Center
-        ) {
-            val screenWidth = maxWidth
-            val screenHeight = maxHeight
-            val logoSize = (screenWidth * 0.38f).coerceIn(110.dp, 140.dp)
-            val horizontalPadding = (screenWidth * 0.065f).coerceIn(20.dp, 26.dp)
-
-            Column(
+    CosmicGlobeBackground(modifier = modifier) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            containerColor = Color.Transparent
+        ) { innerPadding ->
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .widthIn(max = 500.dp)
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = horizontalPadding),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .padding(innerPadding)
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+                contentAlignment = Alignment.TopCenter
             ) {
-                Spacer(modifier = Modifier.height(screenHeight * 0.02f))
-
-                ShieldLogo(size = logoSize)
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                val brandText = buildAnnotatedString {
-                    withStyle(SpanStyle(color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Bold)) {
-                        append("ByMe")
-                    }
-                    withStyle(SpanStyle(color = AppColors.BrandGreen, fontSize = 32.sp, fontWeight = FontWeight.ExtraBold)) {
-                        append("VPN")
-                    }
-                }
-                Text(text = brandText)
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty.",
-                    color = AppColors.TextSecondary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Primary 1-Tap Google Sign-In
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White)
-                        .clickable(enabled = !isLoading) {
-                            isLoading = true
-                            authError = null
-                            scope.launch {
-                                val result = AccountRepository.loginWithGoogle(context)
-                                isLoading = false
-                                if (result.isSuccess) {
-                                    onSignInSuccess()
-                                } else {
-                                    val rawErr = result.exceptionOrNull()?.message
-                                    if (rawErr != "Sign-in cancelled") {
-                                        AccountRepository.createLocalProfile(context, "Google User")
-                                        onSignInSuccess()
-                                    }
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            GoogleLogoIcon(size = 20.dp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isRu) "Продолжить с Google" else "Continue with Google",
-                                color = Color(0xFF1A1A1A),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Divider
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
-                    Text(
-                        text = if (isRu) "ИЛИ ПО ПОЧТЕ" else "OR VIA EMAIL",
-                        color = AppColors.TextMuted,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 14.dp)
-                    )
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Email Input Field
-                SignInInputField(
-                    value = email,
-                    onValueChange = {
-                        email = it
-                        emailError = null
-                        authError = null
-                    },
-                    hintText = if (isRu) "Адрес эл. почты" else "Email address",
-                    leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.BrandGreen) },
-                    keyboardType = KeyboardType.Email,
-                    imeAction = ImeAction.Next,
-                    isError = emailError != null
-                )
-
-                if (emailError != null) {
-                    Text(
-                        text = emailError ?: "",
-                        color = AppColors.StatusError,
-                        fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Password Input Field
-                SignInInputField(
-                    value = password,
-                    onValueChange = {
-                        password = it
-                        passwordError = null
-                        authError = null
-                    },
-                    hintText = if (isRu) "Пароль" else "Password",
-                    leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.BrandGreen) },
-                    trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                            EyeIcon(visible = passwordVisible, color = AppColors.TextSecondary)
-                        }
-                    },
-                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                    keyboardType = KeyboardType.Password,
-                    imeAction = ImeAction.Done,
-                    onImeAction = { submitLogin() },
-                    isError = passwordError != null
-                )
-
-                if (passwordError != null) {
-                    Text(
-                        text = passwordError ?: "",
-                        color = AppColors.StatusError,
-                        fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
-                    )
-                }
-
-                if (authError != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = authError ?: "",
-                        color = AppColors.StatusError,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        textAlign = TextAlign.Center
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Sign In Button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.CardBgElevated)
-                        .border(1.2.dp, AppColors.BrandGreen, RoundedCornerShape(14.dp))
-                        .clickable(enabled = !isLoading) { submitLogin() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(22.dp))
-                    } else {
-                        Text(
-                            text = if (isRu) "Войти" else "Sign In",
-                            color = AppColors.BrandGreen,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Dedicated Telegram Bot Callout
                 Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF0C161C))
-                        .border(1.dp, AppColors.ElectricBlue.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                        .padding(14.dp),
+                        .fillMaxSize()
+                        .widthIn(max = 480.dp)
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = if (isRu) "Уже пользовались через Telegram-бота?" else "Already used via Telegram bot?",
-                        color = Color.White,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // 1. Shield Logo with ambient glowing halo
+                    ShieldLogo(
+                        size = 108.dp,
+                        isActive = true
                     )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 2. Title: ByMe (White) + VPN (Green)
+                    val brandText = buildAnnotatedString {
+                        withStyle(
+                            SpanStyle(
+                                color = Color.White,
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
+                            )
+                        ) {
+                            append("ByMe")
+                        }
+                        withStyle(
+                            SpanStyle(
+                                color = Color(0xFF00E676),
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.5.sp
+                            )
+                        ) {
+                            append("VPN")
+                        }
+                    }
+                    Text(
+                        text = brandText,
+                        textAlign = TextAlign.Center
+                    )
+
                     Spacer(modifier = Modifier.height(4.dp))
+
+                    // 3. Slogan: Скорость. Свобода. Простота.
                     Text(
-                        text = if (isRu) "Войдите в один клик через вашего бота" else "Log in with 1 tap via your bot",
-                        color = AppColors.TextSecondary,
-                        fontSize = 11.5.sp
+                        text = if (isRu) "Скорость. Свобода. Простота." else "Speed. Freedom. Simplicity.",
+                        color = Color(0xFF7A8B9E),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        textAlign = TextAlign.Center
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 4. Primary 1-Tap Google Sign-In Button
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
+                            .height(54.dp)
+                            .drawBehind {
+                                // Subtle soft white/cyan bottom glow shadow
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(Color(0x2500E5FF), Color.Transparent),
+                                        center = Offset(size.width / 2f, size.height + 4f),
+                                        radius = size.width * 0.45f
+                                    ),
+                                    radius = size.width * 0.45f,
+                                    center = Offset(size.width / 2f, size.height + 4f)
                                 )
-                            )
-                            .clickable {
-                                try {
-                                    val tgIntent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
-                                    )
-                                    context.startActivity(tgIntent)
-                                } catch (_: Exception) {
-                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Color.White)
+                            .clickable(enabled = !isGoogleLoading && !isEmailLoading) {
+                                isGoogleLoading = true
+                                authError = null
+                                scope.launch {
+                                    val result = AccountRepository.loginWithGoogle(context)
+                                    isGoogleLoading = false
+                                    if (result.isSuccess) {
+                                        onSignInSuccess()
+                                    } else {
+                                        val rawErr = result.exceptionOrNull()?.message
+                                        if (rawErr != "Sign-in cancelled") {
+                                            AccountRepository.createLocalProfile(context, "Google User")
+                                            onSignInSuccess()
+                                        }
+                                    }
                                 }
-                            },
+                            }
+                            .testTag("google_login_button"),
                         contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
-                                color = AppColors.DarkText,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold
+                        if (isGoogleLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF14191F),
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.5.dp
                             )
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                GoogleLogoIcon(size = 22.dp)
+                                Spacer(modifier = Modifier.width(14.dp))
+                                Text(
+                                    text = if (isRu) "Продолжить с Google" else "Continue with Google",
+                                    color = Color(0xFF14191F),
+                                    fontSize = 15.5.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                ChevronRightIcon(color = Color(0xFF14191F), size = 18.dp)
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                // Switch to Sign Up
-                val footerText = buildAnnotatedString {
-                    withStyle(SpanStyle(color = AppColors.TextSecondary, fontSize = 14.sp)) {
-                        append(if (isRu) "Нет аккаунта? " else "Don't have an account? ")
+                    // 5. Divider: или по почте
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(1.dp)
+                                .background(Color(0xFF1A2634))
+                        )
+                        Text(
+                            text = if (isRu) "или по почте" else "or via email",
+                            color = Color(0xFF5A6E82),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal,
+                            modifier = Modifier.padding(horizontal = 14.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(1.dp)
+                                .background(Color(0xFF1A2634))
+                        )
                     }
-                    withStyle(SpanStyle(color = AppColors.BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)) {
-                        append(if (isRu) "Зарегистрироваться" else "Sign Up")
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // 6. Email Input Field
+                    ExactInputField(
+                        value = email,
+                        onValueChange = {
+                            email = it
+                            emailError = null
+                            authError = null
+                        },
+                        hintText = if (isRu) "Адрес эл. почты" else "Email address",
+                        leadingIcon = { MailIcon(color = Color(0xFF758A9E), size = 20.dp) },
+                        keyboardType = KeyboardType.Email,
+                        imeAction = ImeAction.Next,
+                        isError = emailError != null,
+                        testTag = "email_input"
+                    )
+
+                    if (emailError != null) {
+                        Text(
+                            text = emailError ?: "",
+                            color = Color(0xFFFF5252),
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 6.dp, top = 4.dp)
+                        )
                     }
-                }
 
-                Box(
-                    modifier = Modifier
-                        .clickable(onClick = onSignUpClick)
-                        .padding(vertical = 8.dp)
-                ) {
-                    Text(text = footerText)
-                }
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    // 7. Password Input Field
+                    ExactInputField(
+                        value = password,
+                        onValueChange = {
+                            password = it
+                            passwordError = null
+                            authError = null
+                        },
+                        hintText = if (isRu) "Пароль" else "Password",
+                        leadingIcon = { LockIcon(color = Color(0xFF758A9E), size = 20.dp) },
+                        trailingIcon = {
+                            IconButton(
+                                onClick = { passwordVisible = !passwordVisible },
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                EyeIcon(visible = passwordVisible, color = Color(0xFF758A9E), size = 20.dp)
+                            }
+                        },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardType = KeyboardType.Password,
+                        imeAction = ImeAction.Done,
+                        onImeAction = { submitLogin() },
+                        isError = passwordError != null,
+                        testTag = "password_input"
+                    )
+
+                    if (passwordError != null) {
+                        Text(
+                            text = passwordError ?: "",
+                            color = Color(0xFFFF5252),
+                            fontSize = 12.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 6.dp, top = 4.dp)
+                        )
+                    }
+
+                    if (authError != null) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = authError ?: "",
+                            color = Color(0xFFFF5252),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // 8. Main "Войти" Button (Green Gradient with Chevron)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp)
+                            .drawBehind {
+                                // Vibrant neon green glow shadow underneath
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(Color(0x6000E676), Color.Transparent),
+                                        center = Offset(size.width / 2f, size.height + 4f),
+                                        radius = size.width * 0.45f
+                                    ),
+                                    radius = size.width * 0.45f,
+                                    center = Offset(size.width / 2f, size.height + 4f)
+                                )
+                            }
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color(0xFF00F59B),
+                                        Color(0xFF00E575),
+                                        Color(0xFF1DE9B6)
+                                    )
+                                )
+                            )
+                            .clickable(enabled = !isEmailLoading && !isGoogleLoading) { submitLogin() }
+                            .testTag("login_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isEmailLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF002213),
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.5.dp
+                            )
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 22.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text(
+                                    text = if (isRu) "Войти" else "Sign In",
+                                    color = Color(0xFF002213),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                ChevronRightIcon(color = Color(0xFF002213), size = 18.dp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    // 9. Dedicated Telegram-Bot Card
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .drawBehind {
+                                // Subtle radiant blue glow around card
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(Color(0x220088FF), Color.Transparent),
+                                        center = Offset(size.width / 2f, size.height / 2f),
+                                        radius = size.width * 0.52f
+                                    ),
+                                    radius = size.width * 0.52f,
+                                    center = Offset(size.width / 2f, size.height / 2f)
+                                )
+                            }
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(Color(0xFF07121C))
+                            .border(1.2.dp, Color(0xFF16324B), RoundedCornerShape(22.dp))
+                            .padding(16.dp)
+                    ) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Telegram circle badge
+                                Box(
+                                    modifier = Modifier
+                                        .size(46.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            Brush.verticalGradient(
+                                                listOf(Color(0xFF1E88E5), Color(0xFF1565C0))
+                                            )
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    PaperPlaneIcon(color = Color.White, size = 22.dp)
+                                }
+
+                                Spacer(modifier = Modifier.width(14.dp))
+
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isRu) "Уже пользовались через\nTelegram-бота?" else "Already used via\nTelegram bot?",
+                                        color = Color.White,
+                                        fontSize = 14.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        lineHeight = 19.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = if (isRu) "Войдите в один клик через вашего бота" else "Sign in with 1 tap via your bot",
+                                        color = Color(0xFF758A9E),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
+
+                            // Inner "Войти через Telegram" Button
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(
+                                                Color(0xFF00F59B),
+                                                Color(0xFF00E575)
+                                            )
+                                        )
+                                    )
+                                    .clickable {
+                                        openTelegram(context, "start=login")
+                                    }
+                                    .testTag("telegram_login_button"),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    PaperPlaneIcon(color = Color(0xFF002213), size = 18.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
+                                        color = Color(0xFF002213),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    ChevronRightIcon(color = Color(0xFF002213), size = 18.dp)
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // 10. Footer: "Нет аккаунта? Зарегистрироваться >"
+                    Row(
+                        modifier = Modifier
+                            .clickable(onClick = onSignUpClick)
+                            .padding(vertical = 12.dp)
+                            .testTag("signup_link"),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (isRu) "Нет аккаунта? " else "Don't have an account? ",
+                            color = Color(0xFF758A9E),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                        Text(
+                            text = if (isRu) "Зарегистрироваться" else "Sign Up",
+                            color = Color(0xFF00F59B),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        ChevronRightIcon(color = Color(0xFF00F59B), size = 14.dp)
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun SignInInputField(
+private fun ExactInputField(
     value: String,
     onValueChange: (String) -> Unit,
     hintText: String,
@@ -441,14 +601,15 @@ private fun SignInInputField(
     keyboardType: KeyboardType = KeyboardType.Text,
     imeAction: ImeAction = ImeAction.Default,
     onImeAction: () -> Unit = {},
-    isError: Boolean = false
+    isError: Boolean = false,
+    testTag: String = ""
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
     val borderColor = when {
-        isError -> AppColors.StatusError
-        isFocused -> AppColors.BrandGreen
-        else -> AppColors.CardBorder
+        isError -> Color(0xFFFF5252)
+        isFocused -> Color(0xFF00E676)
+        else -> Color(0xFF182836)
     }
 
     Box(
@@ -456,9 +617,10 @@ private fun SignInInputField(
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(AppColors.InputBg)
+            .background(Color(0xFF0C1620))
             .border(1.2.dp, borderColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 16.dp)
+            .testTag(testTag),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -472,8 +634,9 @@ private fun SignInInputField(
                 if (value.isEmpty()) {
                     Text(
                         text = hintText,
-                        color = AppColors.TextMuted,
-                        fontSize = 14.sp
+                        color = Color(0xFF5A6E82),
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.Normal
                     )
                 }
 
@@ -495,7 +658,7 @@ private fun SignInInputField(
                         onDone = { onImeAction() },
                         onNext = { onImeAction() }
                     ),
-                    cursorBrush = SolidColor(AppColors.BrandGreen),
+                    cursorBrush = SolidColor(Color(0xFF00E676)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .onFocusChanged { isFocused = it.isFocused }
@@ -506,5 +669,14 @@ private fun SignInInputField(
                 trailingIcon()
             }
         }
+    }
+}
+
+private fun openTelegram(context: Context, param: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNBot?$param"))
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        Toast.makeText(context, "Telegram не установлен", Toast.LENGTH_SHORT).show()
     }
 }

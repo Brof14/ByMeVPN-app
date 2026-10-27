@@ -116,6 +116,30 @@ object YooKassaPaymentHandler {
     }
 
     /**
+     * Start payment with dynamic plan parameters.
+     */
+    fun startPayment(
+        context: Context,
+        planCode: String,
+        planTitle: String,
+        amountRub: Int,
+        days: Int
+    ): Boolean {
+        val tariff = PlanTariff(
+            code = planCode,
+            name = planTitle,
+            period = "$days дней",
+            priceRub = amountRub,
+            pricePerMonthRub = amountRub,
+            discountPercent = 0,
+            isBestValue = false,
+            days = days
+        )
+        openCheckout(context, tariff)
+        return true
+    }
+
+    /**
      * Activates paid subscription after successful payment via YooKassa or webhook.
      */
     suspend fun confirmPayment(

@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -342,4 +343,58 @@ fun CountryFlagView(
         }
     }
 }
+
+/**
+ * Clean vector Chevron Right arrow matching modern UI buttons.
+ */
+@Composable
+fun ChevronRightIcon(
+    color: Color,
+    modifier: Modifier = Modifier,
+    size: Dp = 18.dp
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val strokeW = 2.dp.toPx()
+        val path = Path().apply {
+            moveTo(w * 0.35f, h * 0.22f)
+            lineTo(w * 0.65f, h * 0.50f)
+            lineTo(w * 0.35f, h * 0.78f)
+        }
+        drawPath(
+            path = path,
+            color = color,
+            style = Stroke(width = strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round)
+        )
+    }
+}
+
+/**
+ * Authentic Telegram Paper Plane icon for dark-on-green buttons.
+ */
+@Composable
+fun PaperPlaneIcon(
+    color: Color = Color(0xFF002213),
+    modifier: Modifier = Modifier,
+    size: Dp = 18.dp
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val path = Path().apply {
+            moveTo(w * 0.12f, h * 0.48f)
+            lineTo(w * 0.88f, h * 0.15f)
+            lineTo(w * 0.74f, h * 0.84f)
+            lineTo(w * 0.46f, h * 0.62f)
+            lineTo(w * 0.36f, h * 0.72f)
+            lineTo(w * 0.38f, h * 0.54f)
+            lineTo(w * 0.74f, h * 0.26f)
+            lineTo(w * 0.30f, h * 0.52f)
+            close()
+        }
+        drawPath(path = path, color = color, style = Fill)
+    }
+}
+
 

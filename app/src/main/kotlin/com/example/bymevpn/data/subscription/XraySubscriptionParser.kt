@@ -94,9 +94,25 @@ object XraySubscriptionParser {
         }
         val clean = trimmed.replace("\\s".toRegex(), "")
         return try {
-            val bytes = Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
-            val decoded = String(bytes, Charsets.UTF_8)
-            if (decoded.contains("vless://", ignoreCase = true) || decoded.contains("hysteria2://", ignoreCase = true)) decoded else trimmed
+            val bytes: ByteArray? = try {
+                java.util.Base64.getDecoder().decode(clean)
+            } catch (_: Throwable) {
+                try {
+                    java.util.Base64.getUrlDecoder().decode(clean)
+                } catch (_: Throwable) {
+                    try {
+                        Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
+                    } catch (_: Throwable) {
+                        null
+                    }
+                }
+            }
+            if (bytes != null) {
+                val decoded = String(bytes, Charsets.UTF_8)
+                if (decoded.contains("vless://", ignoreCase = true) || decoded.contains("hysteria2://", ignoreCase = true)) decoded else trimmed
+            } else {
+                trimmed
+            }
         } catch (e: Exception) {
             trimmed
         }

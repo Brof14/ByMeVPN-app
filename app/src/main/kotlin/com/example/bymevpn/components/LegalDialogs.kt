@@ -298,3 +298,8 @@ private fun openBrowserUrl(context: Context, url: String) {
         context.startActivity(intent)
     } catch (_: Exception) {}
 }
+
+@Composable
+fun LegalTermsDialog(onDismiss: () -> Unit) {
+    PrivacyPolicyDialog(isRussian = true, onDismiss = onDismiss)
+}

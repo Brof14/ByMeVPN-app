@@ -16,7 +16,9 @@ data class UserProfile(
     val name: String,
     val isGoogle: Boolean = false,
     val createdAt: String? = null
-)
+) {
+    val displayName: String get() = name
+}
 
 data class SubscriptionStatus(
     val status: String, // none | trial | active | expired | grace
@@ -34,6 +36,10 @@ data class SubscriptionStatus(
 ) {
     val isUsable: Boolean
         get() = status == "active" || status == "trial" || status == "grace"
+    val isActive: Boolean
+        get() = isUsable
+    val daysRemaining: Int
+        get() = (secondsRemaining / 86400L).toInt().coerceAtLeast(1)
 }
 
 data class PlanItem(
@@ -49,14 +55,16 @@ data class ServerNode(
     val nodeCode: String,
     val country: String,
     val countryCode: String,
-    val city: String,
-    val flag: String,
+    val city: String = "",
+    val flag: String = "🇩🇪",
     val pingMs: Int = 25,
     val loadPercent: Int = 30,
     val isPremium: Boolean = false,
     val countryEn: String = country,
     val cityEn: String = city
 ) {
+    val id: String get() = nodeCode
+    val name: String get() = if (city.isNotBlank()) "$country · $city" else country
     fun localizedCountry(isRu: Boolean): String = if (isRu) country else countryEn
     fun localizedCity(isRu: Boolean): String = if (isRu) city else cityEn
 }

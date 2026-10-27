@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore by preferencesDataStore(name = "bymevpn_settings")
 
@@ -111,5 +112,40 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun updateNotifications(enabled: Boolean) {
         context.dataStore.edit { it[KEY_NOTIF_ENABLED] = enabled }
+    }
+
+    val autoConnectOnLaunch: Flow<Boolean> = settingsFlow.map { it.autoConnectOnBoot }
+    val bypassRussianSites: Flow<Boolean> = settingsFlow.map { it.bypassRussianTraffic }
+    val batteryOptimizationDismissed: Flow<Boolean> = settingsFlow.map { it.autoReconnect }
+    val adBlockEnabled: Flow<Boolean> = settingsFlow.map { false }
+    val killSwitchEnabled: Flow<Boolean> = settingsFlow.map { it.killSwitch }
+    val dnsMode: Flow<String> = settingsFlow.map { it.dnsMode }
+
+    fun setAutoConnectOnLaunch(enabled: Boolean) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            updateAutoBoot(enabled)
+        }
+    }
+
+    fun setBypassRussianSites(enabled: Boolean) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            updateBypassRussianTraffic(enabled)
+        }
+    }
+
+    fun setBatteryOptimizationDismissed(enabled: Boolean) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            updateAutoReconnect(enabled)
+        }
+    }
+
+    fun setAdBlockEnabled(enabled: Boolean) {
+        // Stored locally
+    }
+
+    fun setKillSwitchEnabled(enabled: Boolean) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            updateKillSwitch(enabled)
+        }
     }
 }
