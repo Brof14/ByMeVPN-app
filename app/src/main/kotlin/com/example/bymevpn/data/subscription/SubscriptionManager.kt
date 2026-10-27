@@ -257,11 +257,11 @@ class SubscriptionManager private constructor(private val context: Context) {
     fun ensureDefaultServerConfigs() {
         val currentConfigs = mutableMapOf<String, com.example.bymevpn.data.api.VpnSessionConfig>()
         val defaultNodes = listOf(
-            Triple("nl_ams", "138.124.240.14", "www.cloudflare.com"),
-            Triple("de_fra", "138.124.240.14", "www.cloudflare.com"),
-            Triple("fi_hel", "138.124.240.14", "www.cloudflare.com"),
-            Triple("se_sto", "138.124.240.14", "www.cloudflare.com"),
-            Triple("us_nyc", "138.124.240.14", "www.cloudflare.com")
+            Triple("nl_ams", "2.27.120.247", "www.cloudflare.com"),
+            Triple("de_fra", "2.27.120.247", "www.cloudflare.com"),
+            Triple("fi_hel", "2.27.120.247", "www.cloudflare.com"),
+            Triple("se_sto", "2.27.120.247", "www.cloudflare.com"),
+            Triple("us_nyc", "2.27.120.247", "www.cloudflare.com")
         )
         defaultNodes.forEach { (code, ip, sni) ->
             if (storage.getServerConfig(code) == null) {
