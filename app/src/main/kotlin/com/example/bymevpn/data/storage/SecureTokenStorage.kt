@@ -224,6 +224,42 @@ class SecureTokenStorage private constructor(context: Context) {
         }
     }
 
+    fun saveServerConfig(nodeCode: String, cfg: com.example.bymevpn.data.api.VpnSessionConfig) {
+        val current = getServerConfigs().toMutableMap()
+        current[nodeCode] = cfg
+        saveServerConfigs(current)
+    }
+
+    fun getServerConfigs(): Map<String, com.example.bymevpn.data.api.VpnSessionConfig> {
+        val raw = prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: return emptyMap()
+        return try {
+            val root = JSONObject(raw)
+            val result = mutableMapOf<String, com.example.bymevpn.data.api.VpnSessionConfig>()
+            val keys = root.keys()
+            while (keys.hasNext()) {
+                val nodeCode = keys.next()
+                val obj = root.optJSONObject(nodeCode) ?: continue
+                result[nodeCode] = com.example.bymevpn.data.api.VpnSessionConfig(
+                    protocol = obj.optString("protocol", "vless"),
+                    server = obj.optString("server", ""),
+                    port = obj.optInt("port", 443),
+                    uuid = obj.optString("uuid", ""),
+                    encryption = obj.optString("encryption", "none"),
+                    flow = obj.optString("flow", "xtls-rprx-vision"),
+                    security = obj.optString("security", "reality"),
+                    serverName = obj.optString("serverName", ""),
+                    publicKey = obj.optString("publicKey", ""),
+                    shortId = obj.optString("shortId", ""),
+                    fingerprint = obj.optString("fingerprint", "chrome"),
+                    network = obj.optString("network", "tcp")
+                )
+            }
+            result
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
     fun getFavoriteServers(): Set<String> {
         return prefs.getStringSet("favorite_servers", emptySet()) ?: emptySet()
     }
