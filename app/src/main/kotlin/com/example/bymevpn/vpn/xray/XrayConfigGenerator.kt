@@ -112,6 +112,12 @@ object XrayConfigGenerator {
         // 3. Outbounds (Primary VLESS+Reality proxy outbound, direct fallback, block outbound)
         val outboundsArray = JSONArray()
 
+        val serverAddress = if (config.server.equals("bymevpn.duckdns.org", ignoreCase = true) || config.server.isBlank()) {
+            "2.27.120.247"
+        } else {
+            config.server
+        }
+
         // Main proxy outbound
         val proxyOutbound = JSONObject().apply {
             put("tag", "proxy")
@@ -120,7 +126,7 @@ object XrayConfigGenerator {
             if (proto == "hysteria2" || proto == "hy2") {
                 put("protocol", "hysteria2")
                 val serverObj = JSONObject().apply {
-                    put("address", config.server)
+                    put("address", serverAddress)
                     put("port", config.port)
                     put("password", config.uuid)
                 }
@@ -171,7 +177,7 @@ object XrayConfigGenerator {
 
                 val vnextArray = JSONArray().apply {
                     put(JSONObject().apply {
-                        put("address", config.server)
+                        put("address", serverAddress)
                         put("port", config.port)
                         put("users", usersArray)
                     })
@@ -191,7 +197,7 @@ object XrayConfigGenerator {
                         val realitySettings = JSONObject().apply {
                             put("show", false)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                            put("serverName", config.serverName)
+                            put("serverName", config.serverName.ifEmpty { "www.cloudflare.com" })
                             put("publicKey", config.publicKey)
                             put("shortId", config.shortId)
                             put("spiderX", "")
@@ -230,9 +236,9 @@ object XrayConfigGenerator {
 
         root.put("outbounds", outboundsArray)
 
-        // 4. Routing
+        // 4. Bulletproof, dead-simple routing matching Happ / v2rayNG standards
         val rulesArray = JSONArray().apply {
-            // Route private IPs direct to bypass local LAN traffic (pure CIDR, zero dependency on external geoip.dat)
+            // Route private LAN IPs direct
             put(JSONObject().apply {
                 put("type", "field")
                 put("ip", JSONArray().apply {
@@ -246,39 +252,7 @@ object XrayConfigGenerator {
                 put("outboundTag", "direct")
             })
 
-            // Bypass Russian services, banks, gov sites directly without geosite.dat EOF risk
-            if (bypassRussianTraffic) {
-                put(JSONObject().apply {
-                    put("type", "field")
-                    put("domain", JSONArray().apply {
-                        put("domain:ru")
-                        put("domain:su")
-                        put("domain:xn--p1ai")
-                        put("domain:gosuslugi.ru")
-                        put("domain:mos.ru")
-                        put("domain:sberbank.ru")
-                        put("domain:sber.ru")
-                        put("domain:tbank.ru")
-                        put("domain:tinkoff.ru")
-                        put("domain:vtb.ru")
-                        put("domain:alfabank.ru")
-                        put("domain:raiffeisen.ru")
-                        put("domain:yandex.ru")
-                        put("domain:ya.ru")
-                        put("domain:vk.com")
-                        put("domain:mail.ru")
-                        put("domain:ozon.ru")
-                        put("domain:wildberries.ru")
-                        put("domain:avito.ru")
-                        put("domain:kinopoisk.ru")
-                        put("domain:dzen.ru")
-                        put("domain:rutube.ru")
-                    })
-                    put("outboundTag", "direct")
-                })
-            }
-
-            // Default rule: all proxyable traffic routes to proxy
+            // All internet traffic unconditionally routes to proxy
             put(JSONObject().apply {
                 put("type", "field")
                 put("network", "tcp,udp")
@@ -287,7 +261,7 @@ object XrayConfigGenerator {
         }
 
         root.put("routing", JSONObject().apply {
-            put("domainStrategy", "IPIfNonMatch")
+            put("domainStrategy", "AsIs")
             put("rules", rulesArray)
         })
 
