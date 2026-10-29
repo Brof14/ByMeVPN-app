@@ -71,7 +71,6 @@ object XrayConfigGenerator {
                         put("26.26.26.1/24")
                         put("fdfe:dcba:9876::1/126")
                     })
-                    put("autoOutboundsInterface", true)
                 })
                 put("sniffing", JSONObject().apply {
                     put("enabled", true)
