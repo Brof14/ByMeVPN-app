@@ -201,10 +201,9 @@ class ByMeVpnService : VpnService() {
                 .setMtu(1500)
                 .addAddress("26.26.26.1", 24)
                 .addRoute("0.0.0.0", 0)
+                .setBlocking(false)
 
-            // DNS: Point first to TUN virtual gateway 26.26.26.2 so Xray intercepts all port 53 DNS,
-            // with standard fast public resolvers as upstream fallbacks.
-            builder.addDnsServer("26.26.26.2")
+            // DNS: Direct queries to real public DNS servers; TUN captures UDP:53 and Xray intercepts via dns-out
             when (settings.dnsMode) {
                 "adguard" -> {
                     builder.addDnsServer("94.140.14.14")
@@ -217,6 +216,7 @@ class ByMeVpnService : VpnService() {
                 else -> {
                     builder.addDnsServer("1.1.1.1")
                     builder.addDnsServer("8.8.8.8")
+                    builder.addDnsServer("77.88.8.8")
                 }
             }
 

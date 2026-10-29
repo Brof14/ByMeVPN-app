@@ -40,9 +40,9 @@ class XrayConfigGeneratorTest {
         assertEquals("socks-in", socksInbound.getString("tag"))
         assertEquals(10808, socksInbound.getInt("port"))
 
-        // Check outbounds
+        // Check outbounds (proxy, direct, dns-out, block)
         val outbounds = json.getJSONArray("outbounds")
-        assertEquals(3, outbounds.length())
+        assertEquals(4, outbounds.length())
 
         val proxy = outbounds.getJSONObject(0)
         assertEquals("vless", proxy.getString("protocol"))

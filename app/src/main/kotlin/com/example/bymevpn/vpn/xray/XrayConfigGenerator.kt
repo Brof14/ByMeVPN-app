@@ -65,6 +65,7 @@ object XrayConfigGenerator {
                 put("settings", JSONObject().apply {
                     put("name", "xray0")
                     put("mtu", 1500)
+                    put("MTU", 1500)
                     put("userLevel", 8)
                     put("gateway", JSONArray().apply {
                         put("26.26.26.2/24")
@@ -82,7 +83,7 @@ object XrayConfigGenerator {
 
             // SOCKS5 inbound
             put(JSONObject().apply {
-                put("tag", "socks")
+                put("tag", "socks-in")
                 put("port", SOCKS_LOCAL_PORT)
                 put("listen", "127.0.0.1")
                 put("protocol", "socks")
@@ -241,9 +242,10 @@ object XrayConfigGenerator {
 
         // 6. Routing Rules
         val rulesArray = JSONArray().apply {
-            // Rule 1: Intercept all DNS traffic (port 53) unconditionally to dns-out
+            // Rule 1: Intercept DNS traffic (port 53) from TUN inbound exclusively to dns-out (prevents internal DNS loop)
             put(JSONObject().apply {
                 put("type", "field")
+                put("inboundTag", JSONArray().apply { put("tun") })
                 put("port", "53")
                 put("network", "udp,tcp")
                 put("outboundTag", "dns-out")

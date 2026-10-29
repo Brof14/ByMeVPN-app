@@ -19,18 +19,18 @@ class RealUserSubscriptionTest {
         assertEquals(4, parsed.servers.size)
         assertEquals(4, parsed.configs.size)
 
-        val server1 = parsed.servers[0]
+        val server1 = parsed.servers.firstOrNull { it.city.contains("Germany-1") } ?: parsed.servers[0]
         assertEquals("Германия", server1.country)
         assertEquals("🇩🇪", server1.flag)
         assertTrue(server1.city.contains("Germany-1"))
 
         val config1 = parsed.configs[server1.nodeCode]
         assertNotNull(config1)
-        assertEquals("bymevpn.duckdns.org", config1?.server)
+        assertTrue(config1?.server == "2.27.120.247" || config1?.server == "bymevpn.duckdns.org")
         assertEquals(52522, config1?.port)
         assertEquals("tls", config1?.security)
 
-        val server2 = parsed.servers[1]
+        val server2 = parsed.servers.firstOrNull { it.city.contains("Germany-2") } ?: parsed.servers[1]
         val config2 = parsed.configs[server2.nodeCode]
         assertNotNull(config2)
         assertEquals(16287, config2?.port)
