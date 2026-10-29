@@ -47,28 +47,28 @@ jobs:
     - name: Prepare Release Artifacts
       run: |
         mkdir -p dist
-        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.5.apk
+        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.6.apk
         cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN.apk
-        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.5-debug.apk
-        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.5.aab
+        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.6-debug.apk
+        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.6.aab
 
     - name: Upload Google Play Release Bundle (.aab)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-googleplay-bundle
-        path: dist/ByMeVPN-v1.0.5.aab
+        path: dist/ByMeVPN-v1.0.6.aab
 
     - name: Upload Release APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-release-apk
-        path: dist/ByMeVPN-v1.0.5.apk
+        path: dist/ByMeVPN-v1.0.6.apk
 
     - name: Upload Debug APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-debug-apk
-        path: dist/ByMeVPN-v1.0.5-debug.apk
+        path: dist/ByMeVPN-v1.0.6-debug.apk
 
     - name: Upload Keystore Backup
       uses: actions/upload-artifact@v4
@@ -79,30 +79,33 @@ jobs:
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.5
-        name: "ByMeVPN v1.0.5 (In-App Payments, Real Ping & Auto-Updates)"
+        tag_name: v1.0.6
+        name: "ByMeVPN v1.0.6 (Full Internet Routing & DNS Tunnel Fix)"
         draft: false
         prerelease: false
         generate_release_notes: false
         body: |
-          ### ByMeVPN v1.0.5 — Оплата внутри приложения, реальный пинг и автообновление
+          ### ByMeVPN v1.0.6 — Полная маршрутизация интернета и DNS туннелирование
 
-          #### Что нового и улучшено:
-          1. **Оплата прямо в приложении без перехода в Telegram**: встроена поддержка безопасной оплаты банковскими картами (МИР, Visa, Mastercard), СБП (Система быстрых платежей в 1 клик через приложение банка), SberPay, T-Pay, а также криптовалютой (USDT/TON/BTC).
-          2. **Реальный TCP-пинг каждого узла**: в окне выбора серверов отображается реальный пинг в миллисекундах с цветными индикаторами (зеленый / желтый / коралловый).
-          3. **Умный автовыбор**: режим «Автоматически» выбирает сервер с наименьшей реальной задержкой.
-          4. **Встроенное автообновление APK**: при появлении свежего релиза приложение ненавязчиво предлагает обновиться в 1 клик.
-          5. **Идеальная авторизация**: понятные сообщения об ошибках без системных кодов, защищенная сессия и моментальное сохранение.
-          6. **100% динамические серверы из 3x-ui**: названия, IP и протоколы берутся из панели без правки кода.
+          #### Что исправлено и улучшено:
+          1. **Исправлена проблема «Входит в сеть, но интернет не грузит»**: 
+             - Добавлен выделенный `dns-out` outbound обработчик в Xray-core и перехват DNS-запросов (port 53) с TUN-интерфейса в быстрый DoH (DNS-over-HTTPS via Cloudflare & Google).
+             - Исключено зависание UDP DNS пакетов при работе через VLESS XTLS-Vision.
+          2. **Устранена коллизия IP адресов TUN интерфейса**: 
+             - Виртуальный IP перенесен на независимый пул `26.26.26.1/24`, исключая конфликты с локальными роутерами `10.0.0.0/8` и `192.168.0.0/16`.
+             - Добавлен IPv6 шлюз (`fdfe:dcba:9876::1/126`) для предотвращения подвисания dual-stack мобильных сетей.
+          3. **Оплата прямо в приложении без перехода в Telegram**: встроена поддержка банковских карт (МИР, Visa, Mastercard), СБП в 1 клик, а также криптовалюты.
+          4. **Реальный TCP-пинг каждого узла**: серверы выводят реальную задержку в миллисекундах с цветными индикаторами.
+          5. **Встроенное автообновление APK**: приложение автоматически проверяет наличие новых версий и предлагает обновиться.
 
           #### Прямые ссылки для скачивания (нажмите для загрузки):
-          - 📥 **[Скачать ByMeVPN-v1.0.5.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.5/ByMeVPN-v1.0.5.apk)**
-          - 📥 **[Скачать ByMeVPN-v1.0.5-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.5/ByMeVPN-v1.0.5-debug.apk)**
-          - 📥 **[Скачать ByMeVPN.apk (Прямая постоянная ссылка)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.5/ByMeVPN.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.6.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.6/ByMeVPN-v1.0.6.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.6-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.6/ByMeVPN-v1.0.6-debug.apk)**
+          - 📥 **[Скачать ByMeVPN.apk (Прямая постоянная ссылка)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.6/ByMeVPN.apk)**
         files: |
-          dist/ByMeVPN-v1.0.5.apk
+          dist/ByMeVPN-v1.0.6.apk
           dist/ByMeVPN.apk
-          dist/ByMeVPN-v1.0.5-debug.apk
-          dist/ByMeVPN-v1.0.5.aab
+          dist/ByMeVPN-v1.0.6-debug.apk
+          dist/ByMeVPN-v1.0.6.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

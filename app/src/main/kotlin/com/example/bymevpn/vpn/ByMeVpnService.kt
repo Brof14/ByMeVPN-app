@@ -197,8 +197,15 @@ class ByMeVpnService : VpnService() {
             val builder = Builder()
                 .setSession("ByMeVPN ($proto)")
                 .setMtu(1500)
-                .addAddress("10.233.233.2", 30)
+                .addAddress("26.26.26.1", 24)
                 .addRoute("0.0.0.0", 0)
+
+            try {
+                builder.addAddress("fdfe:dcba:9876::1", 126)
+                builder.addRoute("::", 0)
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to add IPv6 address/route to TUN: ${e.message}")
+            }
 
             // DNS Mode: AdGuard (Ad-blocking) / Google / Cloudflare
             when (settings.dnsMode) {
@@ -212,7 +219,7 @@ class ByMeVpnService : VpnService() {
                 }
                 else -> {
                     builder.addDnsServer("1.1.1.1")
-                    builder.addDnsServer("1.0.0.1")
+                    builder.addDnsServer("8.8.8.8")
                 }
             }
 

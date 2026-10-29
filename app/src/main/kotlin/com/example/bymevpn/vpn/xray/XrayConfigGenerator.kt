@@ -6,7 +6,7 @@ import org.json.JSONObject
 
 /**
  * Generates standard production-grade Xray-core client JSON configurations
- * for VLESS + XTLS-Vision + Reality.
+ * for VLESS + XTLS-Vision + Reality and Hysteria 2.
  */
 object XrayConfigGenerator {
 
@@ -15,32 +15,31 @@ object XrayConfigGenerator {
 
     /**
      * Generates a complete, valid Xray JSON client config object from VpnSessionConfig.
-     * When bypassRussianTraffic is true, all RU domains (.ru, .рф, .su, Russian banks and gov services)
-     * and RU IPs (geoip:ru) route direct without going through the VPN tunnel.
      */
-    fun generateJson(config: VpnSessionConfig, bypassRussianTraffic: Boolean = true): JSONObject {
+    fun generateJson(config: VpnSessionConfig, bypassRussianTraffic: Boolean = false): JSONObject {
         val root = JSONObject()
 
         // 1. Log configuration
-        val logObj = JSONObject().apply {
+        root.put("log", JSONObject().apply {
             put("loglevel", "warning")
-        }
-        root.put("log", logObj)
+        })
 
-        // DNS configuration (Fast, resilient public DNS servers)
-        val dnsObj = JSONObject().apply {
+        // 2. DNS configuration (Fast DoH with fallback, UseIPv4 prevents AAAA hangs)
+        root.put("dns", JSONObject().apply {
             put("servers", JSONArray().apply {
+                put("https://1.1.1.1/dns-query")
+                put("https://8.8.8.8/dns-query")
                 put("1.1.1.1")
                 put("8.8.8.8")
             })
-        }
-        root.put("dns", dnsObj)
+            put("queryStrategy", "UseIPv4")
+        })
 
-        // 2. Stats & Policy (for real-time uplink/downlink traffic telemetry)
+        // 3. Stats & Policy
         root.put("stats", JSONObject())
         root.put("policy", JSONObject().apply {
             put("levels", JSONObject().apply {
-                put("0", JSONObject().apply {
+                put("8", JSONObject().apply {
                     put("handshake", 4)
                     put("connIdle", 300)
                     put("uplinkOnly", 1)
@@ -57,16 +56,17 @@ object XrayConfigGenerator {
             })
         })
 
-        // 3. Inbounds: TUN (virtual network interface) + Local SOCKS5 & HTTP
+        // 4. Inbounds: Layer 3 Native TUN + Local SOCKS5 & HTTP
         val inboundsArray = JSONArray().apply {
             // TUN inbound - captures Android VPN traffic routed through the TUN fd
             put(JSONObject().apply {
                 put("tag", "tun")
+                put("port", 0)
                 put("protocol", "tun")
                 put("settings", JSONObject().apply {
-                    put("name", "tun0")
-                    put("MTU", 1500)
-                    put("userLevel", 0)
+                    put("name", "xray0")
+                    put("mtu", 1500)
+                    put("userLevel", 8)
                 })
                 put("sniffing", JSONObject().apply {
                     put("enabled", true)
@@ -80,14 +80,14 @@ object XrayConfigGenerator {
 
             // SOCKS5 inbound
             put(JSONObject().apply {
-                put("tag", "socks-in")
+                put("tag", "socks")
                 put("port", SOCKS_LOCAL_PORT)
                 put("listen", "127.0.0.1")
                 put("protocol", "socks")
                 put("settings", JSONObject().apply {
                     put("auth", "noauth")
                     put("udp", true)
-                    put("userLevel", 0)
+                    put("userLevel", 8)
                 })
                 put("sniffing", JSONObject().apply {
                     put("enabled", true)
@@ -101,17 +101,19 @@ object XrayConfigGenerator {
 
             // HTTP inbound
             put(JSONObject().apply {
-                put("tag", "http-in")
+                put("tag", "http")
                 put("port", HTTP_LOCAL_PORT)
                 put("listen", "127.0.0.1")
                 put("protocol", "http")
+                put("settings", JSONObject().apply {
+                    put("userLevel", 8)
+                })
             })
         }
         root.put("inbounds", inboundsArray)
 
-        // 3. Outbounds (Primary VLESS+Reality proxy outbound, direct fallback, block outbound)
+        // 5. Outbounds (Primary VLESS+Reality / Hysteria 2 proxy outbound, direct, dns-out, block)
         val outboundsArray = JSONArray()
-
         val serverAddress = config.server.ifBlank { "2.27.120.247" }
 
         // Main proxy outbound
@@ -126,9 +128,8 @@ object XrayConfigGenerator {
                     put("port", config.port)
                     put("password", config.uuid)
                 }
-                val serversArr = JSONArray().apply { put(serverObj) }
                 put("settings", JSONObject().apply {
-                    put("servers", serversArr)
+                    put("servers", JSONArray().apply { put(serverObj) })
                 })
 
                 val streamSettings = JSONObject().apply {
@@ -137,20 +138,17 @@ object XrayConfigGenerator {
                     val tlsSettings = JSONObject().apply {
                         put("serverName", config.serverName)
                         put("fingerprint", config.fingerprint.ifEmpty { "firefox" })
-                        val alpn = JSONArray().apply { put("h3") }
-                        put("alpn", alpn)
+                        put("alpn", JSONArray().apply { put("h3") })
                     }
                     put("tlsSettings", tlsSettings)
 
-                    // Obfs if configured
                     if (config.encryption.isNotBlank()) {
-                        val hysteriaSettings = JSONObject().apply {
+                        put("hysteria2Settings", JSONObject().apply {
                             put("obfs", JSONObject().apply {
                                 put("type", config.encryption)
                                 put("password", config.flow)
                             })
-                        }
-                        put("hysteria2Settings", hysteriaSettings)
+                        })
                     }
                 }
                 put("streamSettings", streamSettings)
@@ -159,7 +157,6 @@ object XrayConfigGenerator {
                 // Default: VLESS
                 put("protocol", "vless")
 
-                // Settings: vnext destination
                 val usersArray = JSONArray().apply {
                     put(JSONObject().apply {
                         put("id", config.uuid)
@@ -182,7 +179,6 @@ object XrayConfigGenerator {
                     put("vnext", vnextArray)
                 })
 
-                // StreamSettings: TLS / Reality
                 val streamSettings = JSONObject().apply {
                     put("network", config.network.ifEmpty { "tcp" })
                     val sec = config.security.lowercase()
@@ -202,10 +198,10 @@ object XrayConfigGenerator {
                         val tlsSettings = JSONObject().apply {
                             put("serverName", config.serverName)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                            val alpnArray = JSONArray()
-                            alpnArray.put("h2")
-                            alpnArray.put("http/1.1")
-                            put("alpn", alpnArray)
+                            put("alpn", JSONArray().apply {
+                                put("h2")
+                                put("http/1.1")
+                            })
                         }
                         put("tlsSettings", tlsSettings)
                     }
@@ -222,6 +218,12 @@ object XrayConfigGenerator {
             put("protocol", "freedom")
         })
 
+        // Dedicated DNS Outbound - internal Xray DNS handler
+        outboundsArray.put(JSONObject().apply {
+            put("tag", "dns-out")
+            put("protocol", "dns")
+        })
+
         // Block outbound
         outboundsArray.put(JSONObject().apply {
             put("tag", "block")
@@ -230,9 +232,20 @@ object XrayConfigGenerator {
 
         root.put("outbounds", outboundsArray)
 
-        // 4. Bulletproof, dead-simple routing matching Happ / v2rayNG standards
+        // 6. Routing Rules
         val rulesArray = JSONArray().apply {
-            // Route private LAN IPs direct
+            // Rule 1: Intercept all DNS traffic (port 53) from tun and local socks to dns-out
+            put(JSONObject().apply {
+                put("type", "field")
+                put("inboundTag", JSONArray().apply {
+                    put("tun")
+                    put("socks")
+                })
+                put("port", "53")
+                put("outboundTag", "dns-out")
+            })
+
+            // Rule 2: Route private LAN IPs direct
             put(JSONObject().apply {
                 put("type", "field")
                 put("ip", JSONArray().apply {
@@ -246,7 +259,7 @@ object XrayConfigGenerator {
                 put("outboundTag", "direct")
             })
 
-            // All internet traffic unconditionally routes to proxy
+            // Rule 3: All remaining internet traffic unconditionally routes to proxy
             put(JSONObject().apply {
                 put("type", "field")
                 put("network", "tcp,udp")
@@ -265,7 +278,7 @@ object XrayConfigGenerator {
     /**
      * Converts to formatted JSON string.
      */
-    fun generateString(config: VpnSessionConfig, bypassRussianTraffic: Boolean = true, indentSpaces: Int = 2): String {
+    fun generateString(config: VpnSessionConfig, bypassRussianTraffic: Boolean = false, indentSpaces: Int = 2): String {
         return generateJson(config, bypassRussianTraffic).toString(indentSpaces)
     }
 }
