@@ -156,20 +156,24 @@ object XraySubscriptionParser {
         val nodeCode = "node_${index}_hy2_${host.replace(".", "_")}_$port"
         val (country, countryCode, flag) = detectLocation(remark)
         val protoBadge = "Hysteria 2"
-        val cleanRemark = if (remark.isNotBlank() && !remark.startsWith("Server", true)) remark else "$country #${index + 1}"
-        val dispName = "$cleanRemark • $protoBadge"
+        val cleanRemark = if (remark.isNotBlank()) remark.trim() else "$country #${index + 1}"
+        val dispName = if (cleanRemark.contains(protoBadge, ignoreCase = true) || cleanRemark.contains("hysteria", ignoreCase = true) || cleanRemark.contains("hy2", ignoreCase = true)) {
+            cleanRemark
+        } else {
+            "$cleanRemark • $protoBadge"
+        }
 
         val serverNode = ServerNode(
             nodeCode = nodeCode,
             country = country,
             countryCode = countryCode,
-            city = "Узел ${index + 1}",
+            city = cleanRemark,
             flag = flag,
             pingMs = -1,
             loadPercent = 0,
             isPremium = false,
             countryEn = country,
-            cityEn = "Node ${index + 1}",
+            cityEn = cleanRemark,
             protocol = protoBadge,
             remark = cleanRemark,
             displayName = dispName
@@ -238,20 +242,24 @@ object XraySubscriptionParser {
         val (country, countryCode, flag) = detectLocation(remark)
         val secLower = security.lowercase()
         val protoBadge = if (secLower == "reality") "VLESS Reality" else if (secLower == "tls") "VLESS TLS" else "VLESS"
-        val cleanRemark = if (remark.isNotBlank() && !remark.startsWith("Server", true)) remark else "$country #${index + 1}"
-        val dispName = "$cleanRemark • $protoBadge"
+        val cleanRemark = if (remark.isNotBlank()) remark.trim() else "$country #${index + 1}"
+        val dispName = if (cleanRemark.contains(protoBadge, ignoreCase = true) || cleanRemark.contains("reality", ignoreCase = true) || cleanRemark.contains("vless", ignoreCase = true)) {
+            cleanRemark
+        } else {
+            "$cleanRemark • $protoBadge"
+        }
 
         val serverNode = ServerNode(
             nodeCode = nodeCode,
             country = country,
             countryCode = countryCode,
-            city = "Узел ${index + 1}",
+            city = cleanRemark,
             flag = flag,
             pingMs = -1, // -1 means not measured yet
             loadPercent = 0,
             isPremium = false,
             countryEn = country,
-            cityEn = "Node ${index + 1}",
+            cityEn = cleanRemark,
             protocol = protoBadge,
             remark = cleanRemark,
             displayName = dispName
@@ -276,26 +284,55 @@ object XraySubscriptionParser {
     }
 
     private fun detectLocation(remark: String): Triple<String, String, String> {
+        val flagList = listOf(
+            "🇩🇪" to Pair("Германия", "DE"),
+            "🇳🇱" to Pair("Нидерланды", "NL"),
+            "🇺🇸" to Pair("США", "US"),
+            "🇫🇮" to Pair("Финляндия", "FI"),
+            "🇸🇪" to Pair("Швеция", "SE"),
+            "🇬🇧" to Pair("Великобритания", "GB"),
+            "🇫🇷" to Pair("Франция", "FR"),
+            "🇹🇷" to Pair("Турция", "TR"),
+            "🇵🇱" to Pair("Польша", "PL"),
+            "🇷🇺" to Pair("Россия", "RU"),
+            "🇨🇦" to Pair("Канада", "CA"),
+            "🇯🇵" to Pair("Япония", "JP"),
+            "🇸🇬" to Pair("Сингапур", "SG"),
+            "🇨🇭" to Pair("Швейцария", "CH"),
+            "🇦🇹" to Pair("Австрия", "AT"),
+            "🇪🇸" to Pair("Испания", "ES"),
+            "🇮🇹" to Pair("Италия", "IT")
+        )
+        for ((f, info) in flagList) {
+            if (remark.contains(f)) {
+                return Triple(info.first, info.second, f)
+            }
+        }
+
         val lower = remark.lowercase()
         return when {
-            lower.contains("герман") || lower.contains("germany") || lower.contains("de") || remark.contains("🇩🇪") ->
+            lower.contains("герман") || lower.contains("germany") || lower.contains("de") ->
                 Triple("Германия", "DE", "🇩🇪")
-            lower.contains("нидерланд") || lower.contains("netherlands") || lower.contains("nl") || remark.contains("🇳🇱") ->
+            lower.contains("нидерланд") || lower.contains("netherlands") || lower.contains("nl") || lower.contains("amsterdam") ->
                 Triple("Нидерланды", "NL", "🇳🇱")
-            lower.contains("финлянд") || lower.contains("finland") || lower.contains("fi") || remark.contains("🇫🇮") ->
+            lower.contains("финлянд") || lower.contains("finland") || lower.contains("fi") || lower.contains("helsinki") ->
                 Triple("Финляндия", "FI", "🇫🇮")
-            lower.contains("сша") || lower.contains("usa") || lower.contains("us") || remark.contains("🇺🇸") ->
-                Triple("США", "US", "🇺🇸")
-            lower.contains("турци") || lower.contains("turkey") || lower.contains("tr") || remark.contains("🇹🇷") ->
-                Triple("Турция", "TR", "🇹🇷")
-            lower.contains("швеци") || lower.contains("sweden") || lower.contains("se") || remark.contains("🇸🇪") ->
+            lower.contains("швеци") || lower.contains("sweden") || lower.contains("se") || lower.contains("stockholm") ->
                 Triple("Швеция", "SE", "🇸🇪")
-            lower.contains("польш") || lower.contains("poland") || lower.contains("pl") || remark.contains("🇵🇱") ->
+            lower.contains("сша") || lower.contains("usa") || lower.contains("us") || lower.contains("york") || lower.contains("miami") ->
+                Triple("США", "US", "🇺🇸")
+            lower.contains("турци") || lower.contains("turkey") || lower.contains("tr") || lower.contains("istanbul") ->
+                Triple("Турция", "TR", "🇹🇷")
+            lower.contains("британи") || lower.contains("uk") || lower.contains("gb") || lower.contains("london") ->
+                Triple("Великобритания", "GB", "🇬🇧")
+            lower.contains("франци") || lower.contains("france") || lower.contains("fr") || lower.contains("paris") ->
+                Triple("Франция", "FR", "🇫🇷")
+            lower.contains("польш") || lower.contains("poland") || lower.contains("pl") || lower.contains("warsaw") ->
                 Triple("Польша", "PL", "🇵🇱")
-            lower.contains("росси") || lower.contains("russia") || lower.contains("ru") || remark.contains("🇷🇺") ->
+            lower.contains("росси") || lower.contains("russia") || lower.contains("ru") || lower.contains("moscow") ->
                 Triple("Россия", "RU", "🇷🇺")
             else ->
-                Triple("Европа", "EU", "🌐")
+                Triple("Сервер", "EU", "🌐")
         }
     }
 }

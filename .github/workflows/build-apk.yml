@@ -47,28 +47,28 @@ jobs:
     - name: Prepare Release Artifacts
       run: |
         mkdir -p dist
-        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.3.apk
+        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.4.apk
         cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN.apk
-        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.3-debug.apk
-        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.3.aab
+        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.4-debug.apk
+        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.4.aab
 
     - name: Upload Google Play Release Bundle (.aab)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-googleplay-bundle
-        path: dist/ByMeVPN-v1.0.3.aab
+        path: dist/ByMeVPN-v1.0.4.aab
 
     - name: Upload Release APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-release-apk
-        path: dist/ByMeVPN-v1.0.3.apk
+        path: dist/ByMeVPN-v1.0.4.apk
 
     - name: Upload Debug APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-debug-apk
-        path: dist/ByMeVPN-v1.0.3-debug.apk
+        path: dist/ByMeVPN-v1.0.4-debug.apk
 
     - name: Upload Keystore Backup
       uses: actions/upload-artifact@v4
@@ -79,28 +79,29 @@ jobs:
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.3
-        name: "ByMeVPN v1.0.3 (Fixed Xray Init & Happ Badges)"
+        tag_name: v1.0.4
+        name: "ByMeVPN v1.0.4 (Dynamic 3x-ui Remark & Zero-Crash Xray Core)"
         draft: false
         prerelease: false
         generate_release_notes: false
         body: |
-          ### ByMeVPN v1.0.3 — Исправлена инициализация Xray и добавлены бейджи протоколов
+          ### ByMeVPN v1.0.4 — Полностью динамические серверы из 3x-ui и исправление всех ошибок Xray
 
-          #### Что исправлено:
-          1. **Исправлен крах инициализации Xray `BaseKey must be 32 bytes`**: передача пустого ключа в `Libv2ray.initCoreEnv`, что предотвращает ошибочное включение XUDP шифрования с невалидным ключом.
-          2. **Исправлен крах конфигурации `The feature allowInsecure has been removed`**: удален устаревший параметр `allowInsecure`, не поддерживаемый современными версиями Xray-core.
-          3. **Серверы и протоколы как в Happ**: каждый сервер теперь имеет уникальный номер, название узла и визуальный бейдж протокола (`VLESS Reality`, `Hysteria 2`).
-          4. **Прямое соединение без DNS-петель**: используется чистая маршрутизация `AsIs`.
+          #### Что нового и исправлено:
+          1. **Исправлен крах `xray.xudp.basekey: invalid value (BaseKey must be 32 bytes)`**: устранен конфликт с ключом XUDP, core инициализируется чисто и надежно.
+          2. **Исправлен крах конфигурации `The feature allowInsecure has been removed`**: убран устаревший параметр `allowInsecure`, не поддерживаемый новыми версиями Xray-core.
+          3. **100% динамические серверы из «Примечание» (Remark) 3x-ui**: названия серверов теперь берутся напрямую из панели 3x-ui (Remark / Примечание) без необходимости вносить правки в код приложения. Любые новые серверы и VPS сразу появляются в приложении.
+          4. **Бейджи протоколов и флаги как в Happ**: визуальные бейджи (`VLESS Reality`, `Hysteria 2`, `VLESS TLS`) с автоопределением флагов стран.
+          5. **Поддержка Hysteria 2 и TLS**: убрано требование наличия Reality public_key для протоколов без Reality.
 
           #### Прямые ссылки для скачивания (нажмите для загрузки):
-          - 📥 **[Скачать ByMeVPN-v1.0.3.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.3/ByMeVPN-v1.0.3.apk)**
-          - 📥 **[Скачать ByMeVPN-v1.0.3-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.3/ByMeVPN-v1.0.3-debug.apk)**
-          - 📥 **[Скачать ByMeVPN.apk (Прямая ссылка)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.3/ByMeVPN.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.4.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.4/ByMeVPN-v1.0.4.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.4-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.4/ByMeVPN-v1.0.4-debug.apk)**
+          - 📥 **[Скачать ByMeVPN.apk (Прямая постоянная ссылка)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.4/ByMeVPN.apk)**
         files: |
-          dist/ByMeVPN-v1.0.3.apk
+          dist/ByMeVPN-v1.0.4.apk
           dist/ByMeVPN.apk
-          dist/ByMeVPN-v1.0.3-debug.apk
-          dist/ByMeVPN-v1.0.3.aab
+          dist/ByMeVPN-v1.0.4-debug.apk
+          dist/ByMeVPN-v1.0.4.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

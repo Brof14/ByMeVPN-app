@@ -112,11 +112,7 @@ object XrayConfigGenerator {
         // 3. Outbounds (Primary VLESS+Reality proxy outbound, direct fallback, block outbound)
         val outboundsArray = JSONArray()
 
-        val serverAddress = if (config.server.equals("bymevpn.duckdns.org", ignoreCase = true) || config.server.isBlank()) {
-            "2.27.120.247"
-        } else {
-            config.server
-        }
+        val serverAddress = config.server.ifBlank { "2.27.120.247" }
 
         // Main proxy outbound
         val proxyOutbound = JSONObject().apply {

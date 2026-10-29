@@ -268,8 +268,11 @@ class ByMeApiClient(private val context: Context) {
         }
         val json = request("POST", "/vpn/session", body, requiresAuth = true)
         val config = ApiJsonParsers.parseVpnSessionConfig(json)
-        if (config.server.isBlank() || config.uuid.isBlank() || config.publicKey.isBlank()) {
-            throw ApiError("INVALID_CONFIG", "Server returned incomplete VPN session configuration")
+        if (config.server.isBlank() || config.uuid.isBlank()) {
+            throw ApiError("INVALID_CONFIG", "Server returned incomplete VPN session configuration: server or uuid missing")
+        }
+        if (config.security.equals("reality", ignoreCase = true) && config.publicKey.isBlank()) {
+            throw ApiError("INVALID_CONFIG", "Server returned incomplete VPN session configuration: missing public key for Reality")
         }
         return config
     }
