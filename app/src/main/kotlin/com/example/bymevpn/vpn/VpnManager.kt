@@ -174,9 +174,13 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun setServers(servers: List<ServerNode>) {
-        _availableServers.value = servers
-        val preferred = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
-        if (_currentServer.value == null || !servers.any { it.nodeCode == _currentServer.value?.nodeCode }) {
+        val sorted = servers.sortedWith(
+            compareBy<ServerNode> { if (it.protocol.contains("reality", ignoreCase = true)) 0 else 1 }
+                .thenBy { it.pingMs }
+        )
+        _availableServers.value = sorted
+        val preferred = sorted.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: sorted.firstOrNull()
+        if (_currentServer.value == null || !sorted.any { it.nodeCode == _currentServer.value?.nodeCode }) {
             _currentServer.value = preferred
         }
         scope.launch {

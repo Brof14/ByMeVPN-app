@@ -24,13 +24,12 @@ object XrayConfigGenerator {
             put("loglevel", "warning")
         })
 
-        // 2. DNS configuration (Fast DoH with fallback, UseIPv4 prevents AAAA hangs)
+        // 2. DNS configuration (Fast UDP DNS routed via proxy, UseIPv4 prevents AAAA hangs)
         root.put("dns", JSONObject().apply {
             put("servers", JSONArray().apply {
-                put("https://1.1.1.1/dns-query")
-                put("https://8.8.8.8/dns-query")
                 put("1.1.1.1")
                 put("8.8.8.8")
+                put("77.88.8.8")
             })
             put("queryStrategy", "UseIPv4")
         })
@@ -68,8 +67,7 @@ object XrayConfigGenerator {
                     put("mtu", 1500)
                     put("userLevel", 8)
                     put("gateway", JSONArray().apply {
-                        put("26.26.26.1/24")
-                        put("fdfe:dcba:9876::1/126")
+                        put("26.26.26.2/24")
                     })
                 })
                 put("sniffing", JSONObject().apply {
@@ -188,18 +186,24 @@ object XrayConfigGenerator {
                     put("security", sec)
 
                     if (sec == "reality") {
+                        val sni = if (config.serverName.isBlank() || config.serverName.contains("duckdns.org", ignoreCase = true)) {
+                            "www.cloudflare.com"
+                        } else {
+                            config.serverName
+                        }
                         val realitySettings = JSONObject().apply {
                             put("show", false)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                            put("serverName", config.serverName.ifEmpty { "www.cloudflare.com" })
+                            put("serverName", sni)
                             put("publicKey", config.publicKey)
                             put("shortId", config.shortId)
                             put("spiderX", "")
                         }
                         put("realitySettings", realitySettings)
                     } else if (sec == "tls") {
+                        val tlsSni = config.serverName.ifEmpty { "bymevpn.duckdns.org" }
                         val tlsSettings = JSONObject().apply {
-                            put("serverName", config.serverName)
+                            put("serverName", tlsSni)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
                             put("alpn", JSONArray().apply {
                                 put("h2")
@@ -237,18 +241,15 @@ object XrayConfigGenerator {
 
         // 6. Routing Rules
         val rulesArray = JSONArray().apply {
-            // Rule 1: Intercept all DNS traffic (port 53) from tun and local socks to dns-out
+            // Rule 1: Intercept all DNS traffic (port 53) unconditionally to dns-out
             put(JSONObject().apply {
                 put("type", "field")
-                put("inboundTag", JSONArray().apply {
-                    put("tun")
-                    put("socks")
-                })
                 put("port", "53")
+                put("network", "udp,tcp")
                 put("outboundTag", "dns-out")
             })
 
-            // Rule 2: Route private LAN IPs direct
+            // Rule 2: Route private LAN IPs and server IP direct to prevent routing loops
             put(JSONObject().apply {
                 put("type", "field")
                 put("ip", JSONArray().apply {
@@ -258,6 +259,9 @@ object XrayConfigGenerator {
                     put("127.0.0.0/8")
                     put("fc00::/7")
                     put("fe80::/10")
+                    if (serverAddress.isNotBlank()) {
+                        put("$serverAddress/32")
+                    }
                 })
                 put("outboundTag", "direct")
             })
@@ -271,7 +275,7 @@ object XrayConfigGenerator {
         }
 
         root.put("routing", JSONObject().apply {
-            put("domainStrategy", "AsIs")
+            put("domainStrategy", "IPIfNonMatch")
             put("rules", rulesArray)
         })
 

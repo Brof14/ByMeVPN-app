@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.IpPrefix
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -24,6 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.net.InetAddress
 
 /**
  * Standard Android VpnService for ByMeVPN.
@@ -200,14 +202,9 @@ class ByMeVpnService : VpnService() {
                 .addAddress("26.26.26.1", 24)
                 .addRoute("0.0.0.0", 0)
 
-            try {
-                builder.addAddress("fdfe:dcba:9876::1", 126)
-                builder.addRoute("::", 0)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to add IPv6 address/route to TUN: ${e.message}")
-            }
-
-            // DNS Mode: AdGuard (Ad-blocking) / Google / Cloudflare
+            // DNS: Point first to TUN virtual gateway 26.26.26.2 so Xray intercepts all port 53 DNS,
+            // with standard fast public resolvers as upstream fallbacks.
+            builder.addDnsServer("26.26.26.2")
             when (settings.dnsMode) {
                 "adguard" -> {
                     builder.addDnsServer("94.140.14.14")
@@ -223,9 +220,16 @@ class ByMeVpnService : VpnService() {
                 }
             }
 
-            // Real Kill Switch
-            if (settings.killSwitch) {
-                builder.setBlocking(true)
+            // Exclude remote VPN server IP from tunnel route to strictly prevent routing loops
+            val serverHost = pendingSessionConfig?.server?.ifBlank { "2.27.120.247" } ?: "2.27.120.247"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                try {
+                    val serverIp = InetAddress.getByName(serverHost)
+                    builder.excludeRoute(IpPrefix(serverIp, 32))
+                    Log.i(TAG, "Excluded server IP from VPN route: $serverIp")
+                } catch (e: Exception) {
+                    Log.w(TAG, "excludeRoute failed: ${e.message}")
+                }
             }
 
             // Apply Split-tunneling if enabled in AppSettings
@@ -241,7 +245,7 @@ class ByMeVpnService : VpnService() {
                 }
             }
 
-            // Exclude self from VPN tunnel to prevent network loops
+            // Exclude self package from VPN tunnel to prevent network loops
             try {
                 builder.addDisallowedApplication(packageName)
             } catch (e: Exception) {

@@ -47,28 +47,28 @@ jobs:
     - name: Prepare Release Artifacts
       run: |
         mkdir -p dist
-        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.8.apk
+        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.9.apk
         cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN.apk
-        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.8-debug.apk
-        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.8.aab
+        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.9-debug.apk
+        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.9.aab
 
     - name: Upload Google Play Release Bundle (.aab)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-googleplay-bundle
-        path: dist/ByMeVPN-v1.0.8.aab
+        path: dist/ByMeVPN-v1.0.9.aab
 
     - name: Upload Release APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-release-apk
-        path: dist/ByMeVPN-v1.0.8.apk
+        path: dist/ByMeVPN-v1.0.9.apk
 
     - name: Upload Debug APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-debug-apk
-        path: dist/ByMeVPN-v1.0.8-debug.apk
+        path: dist/ByMeVPN-v1.0.9-debug.apk
 
     - name: Upload Keystore Backup
       uses: actions/upload-artifact@v4
@@ -79,27 +79,29 @@ jobs:
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.8
-        name: "ByMeVPN v1.0.8 (Fix TunConfig unmarshal error)"
+        tag_name: v1.0.9
+        name: "ByMeVPN v1.0.9 (Fix Traffic Routing & DNS Resolution)"
         draft: false
         prerelease: false
         generate_release_notes: false
         body: |
-          ### ByMeVPN v1.0.8 — Устранение ошибки структуры TunConfig
+          ### ByMeVPN v1.0.9 — Полное исправление маршрутизации трафика и DNS
 
           #### Что исправлено:
-          1. **Исправлена ошибка `cannot unmarshal bool into Go struct field TunConfig.autoOutboundsInterface`**: удален некорректный параметр типа bool, мешавший загрузке инбаунда tun.
-          2. **Корректный TUN шлюз**: привязка шлюзов `gateway` (`26.26.26.1/24`, `fdfe:dcba:9876::1/126`) через строгий массив строк.
-          3. **Приоритет VLESS Reality**: Германия-2 (порт 443) на первом месте.
+          1. **Исправлен конфликт адресации TUN-интерфейса**: клиент Android назначен `26.26.26.1/24`, виртуальный шлюз Xray TUN настроен как `26.26.26.2/24` — устранён коллизионный сброс пакетов ядром gVisor.
+          2. **Устранено зависание Android I/O потоков**: удален вызов `builder.setBlocking(true)`, блокировавший асинхронный epoll/netpoller движка Xray (libv2ray).
+          3. **Исключение серверного IP из VPN-маршрута (`excludeRoute`)**: серверный IP `2.27.120.247/32` исключён из маршрутизации через Android 13+ `excludeRoute` и в правилах Xray `direct`, предотвращая зацикливание сетевых сокетов (routing loops).
+          4. **Устранение зависания DNS и IPv6**: удалён неработающий IPv6-маршрут (`::/0`), приводивший к зависанию браузеров по Happy Eyeballs; DNS переведён на быстрый прямой UDP-резолвинг (`1.1.1.1`, `8.8.8.8`, `77.88.8.8`) через VLESS туннель без зависаний DoH.
+          5. **Автоматический выбор VLESS Reality**: Германия-2 (Reality) выбирается по умолчанию и выносится на первое место.
 
           #### Прямые ссылки для скачивания:
-          - 📥 **[Скачать ByMeVPN-v1.0.8.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.8/ByMeVPN-v1.0.8.apk)**
-          - 📥 **[Скачать ByMeVPN-v1.0.8-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.8/ByMeVPN-v1.0.8-debug.apk)**
-          - 📥 **[Скачать ByMeVPN.apk (Прямая ссылка на последний релиз)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.8/ByMeVPN.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.9.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.9/ByMeVPN-v1.0.9.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.9-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.9/ByMeVPN-v1.0.9-debug.apk)**
+          - 📥 **[Скачать ByMeVPN.apk (Прямая ссылка на последний релиз)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.9/ByMeVPN.apk)**
         files: |
-          dist/ByMeVPN-v1.0.8.apk
+          dist/ByMeVPN-v1.0.9.apk
           dist/ByMeVPN.apk
-          dist/ByMeVPN-v1.0.8-debug.apk
-          dist/ByMeVPN-v1.0.8.aab
+          dist/ByMeVPN-v1.0.9-debug.apk
+          dist/ByMeVPN-v1.0.9.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
