@@ -76,8 +76,8 @@ object XrayConfigGenerator {
                     put("destOverride", JSONArray().apply {
                         put("http")
                         put("tls")
-                        put("quic")
                     })
+                    put("routeOnly", true)
                 })
             })
 
@@ -97,8 +97,8 @@ object XrayConfigGenerator {
                     put("destOverride", JSONArray().apply {
                         put("http")
                         put("tls")
-                        put("quic")
                     })
+                    put("routeOnly", true)
                 })
             })
 
@@ -251,7 +251,15 @@ object XrayConfigGenerator {
                 put("outboundTag", "dns-out")
             })
 
-            // Rule 2: Route private LAN IPs and server IP direct to prevent routing loops
+            // Rule 2: Block UDP 443 (QUIC) so browsers instantly fall back cleanly to HTTP/2 over TLS (prevents QUIC protocol stall)
+            put(JSONObject().apply {
+                put("type", "field")
+                put("port", "443")
+                put("network", "udp")
+                put("outboundTag", "block")
+            })
+
+            // Rule 3: Route private LAN IPs and server IP direct to prevent routing loops
             put(JSONObject().apply {
                 put("type", "field")
                 put("ip", JSONArray().apply {
@@ -268,7 +276,7 @@ object XrayConfigGenerator {
                 put("outboundTag", "direct")
             })
 
-            // Rule 3: All remaining internet traffic unconditionally routes to proxy
+            // Rule 4: All remaining internet traffic unconditionally routes to proxy
             put(JSONObject().apply {
                 put("type", "field")
                 put("network", "tcp,udp")

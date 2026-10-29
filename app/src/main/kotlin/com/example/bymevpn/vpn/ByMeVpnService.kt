@@ -256,7 +256,14 @@ class ByMeVpnService : VpnService() {
             val fd = builder.establish()
             if (fd != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 try {
-                    setUnderlyingNetworks(null)
+                    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                    val activeNet = cm?.activeNetwork
+                    if (activeNet != null) {
+                        setUnderlyingNetworks(arrayOf(activeNet))
+                        Log.i(TAG, "Set underlying physical network: $activeNet")
+                    } else {
+                        setUnderlyingNetworks(null)
+                    }
                 } catch (e: Exception) {
                     Log.w(TAG, "Failed to set underlying networks: ${e.message}")
                 }
