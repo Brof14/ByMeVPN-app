@@ -58,6 +58,8 @@ import com.example.bymevpn.components.ServerSelectionSheet
 import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.update.AppUpdateManager
+import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import com.example.bymevpn.vpn.VpnConnectionState
@@ -92,6 +94,12 @@ fun HomeScreen(
     var showServerSheet by remember { mutableStateOf(false) }
     var isAutoServerSelected by remember { mutableStateOf(true) }
     var showFaqDialog by remember { mutableStateOf(false) }
+    val updateInfo by AppUpdateManager.updateInfo.collectAsState()
+
+    LaunchedEffect(Unit) {
+        AppUpdateManager.checkForUpdates()
+        YooKassaPaymentHandler.checkAndCompletePendingPayment(context)
+    }
 
     // VPN Permission Launcher
     val vpnPrepareLauncher = rememberLauncherForActivityResult(
@@ -140,6 +148,44 @@ fun HomeScreen(
                 onHelpClick = { showFaqDialog = true },
                 onMoreClick = { /* More actions menu */ }
             )
+
+            if (updateInfo != null) {
+                Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF163128))
+                            .border(1.dp, Color(0xFF3CDFAC), RoundedCornerShape(12.dp))
+                            .clickable {
+                                AppUpdateManager.openUpdateDownload(context, updateInfo!!.downloadUrl)
+                            }
+                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Доступно обновление v${updateInfo!!.latestVersion}",
+                                color = Color(0xFF3CDFAC),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Нажмите, чтобы скачать и обновить приложение",
+                                color = Color(0xFFA1C7BD),
+                                fontSize = 10.5.sp
+                            )
+                        }
+                        Text(
+                            text = "Обновить >",
+                            color = Color(0xFF3CDFAC),
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             // Dynamic Center Content based on State:
             // State 1: 03_home_no_plan

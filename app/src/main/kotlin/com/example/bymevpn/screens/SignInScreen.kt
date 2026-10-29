@@ -142,7 +142,8 @@ fun SignInScreen(
                 if (result.isSuccess) {
                     onSignInSuccess()
                 } else {
-                    authError = result.exceptionOrNull()?.message ?: (if (isRu) "Ошибка авторизации" else "Sign in failed")
+                    val raw = result.exceptionOrNull()?.message ?: (if (isRu) "Неверный логин или пароль" else "Invalid email or password")
+                    authError = raw.replace(Regex("^\\[[A-Za-z0-9_]+\\]\\s*"), "")
                 }
             }
         }

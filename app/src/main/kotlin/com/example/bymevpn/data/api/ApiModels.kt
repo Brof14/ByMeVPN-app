@@ -20,6 +20,18 @@ data class TelegramCheckResult(
     val auth: AuthResponse? = null
 )
 
+data class PaymentCreateResponse(
+    val paymentUrl: String,
+    val provider: String,
+    val invoiceId: String? = null
+)
+
+data class PaymentCheckResult(
+    val status: String,
+    val isActive: Boolean,
+    val subscription: SubscriptionStatus? = null
+)
+
 data class UserProfile(
     val id: String,
     val email: String,

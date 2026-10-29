@@ -134,11 +134,48 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
+    suspend fun refreshAllPings(): Map<String, Int> = withContext(Dispatchers.IO) {
+        val servers = _availableServers.value
+        if (servers.isEmpty()) return@withContext emptyMap()
+
+        val storage = SecureTokenStorage.getInstance(context)
+        val targets = servers.mapNotNull { node ->
+            val cfg = storage.getServerConfig(node.nodeCode)
+            if (cfg != null && cfg.server.isNotBlank()) {
+                val host = if (cfg.server.equals("bymevpn.duckdns.org", true)) "2.27.120.247" else cfg.server
+                node.nodeCode to Pair(host, cfg.port)
+            } else null
+        }
+
+        if (targets.isEmpty()) return@withContext emptyMap()
+        val pings = com.example.bymevpn.data.PingTester.measureAllConcurrent(targets, timeoutMs = 1500)
+        if (pings.isNotEmpty()) {
+            withContext(Dispatchers.Main) {
+                val updated = servers.map { node ->
+                    val p = pings[node.nodeCode]
+                    if (p != null && p > 0) node.copy(pingMs = p) else node
+                }
+                _availableServers.value = updated
+                val cur = _currentServer.value
+                if (cur != null) {
+                    val curPing = pings[cur.nodeCode]
+                    if (curPing != null && curPing > 0) {
+                        _currentServer.value = cur.copy(pingMs = curPing)
+                    }
+                }
+            }
+        }
+        pings
+    }
+
     fun setServers(servers: List<ServerNode>) {
         _availableServers.value = servers
         val preferred = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
         if (_currentServer.value == null || !servers.any { it.nodeCode == _currentServer.value?.nodeCode }) {
             _currentServer.value = preferred
+        }
+        scope.launch {
+            refreshAllPings()
         }
     }
 

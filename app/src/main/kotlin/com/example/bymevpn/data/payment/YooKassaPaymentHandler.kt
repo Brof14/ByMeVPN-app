@@ -10,6 +10,9 @@ import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.vpn.VpnManager
+import com.example.bymevpn.data.api.ByMeApiClient
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 data class PlanTariff(
     val code: String,
@@ -93,7 +96,22 @@ object YooKassaPaymentHandler {
 
         // YooKassa hosted payment URL or Bot fallback
         val returnDeepLink = Uri.encode("bymevpn://payment/success?plan=${tariff.code}&days=${tariff.days}")
-        val paymentUrl = "https://t.me/ByMeVPNBot?start=pay_${tariff.code}"
+        val paymentUrl = try {
+            val api = ByMeApiClient(context)
+            val res = kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+                api.createPayment(
+                    planCode = tariff.code,
+                    amountRub = tariff.priceRub,
+                    days = tariff.days,
+                    devices = 2,
+                    provider = "yookassa"
+                )
+            }
+            res.paymentUrl.ifBlank { "https://t.me/ByMeVPNBot?start=pay_${tariff.code}" }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to create in-app payment: ${e.message}")
+            "https://t.me/ByMeVPNBot?start=pay_${tariff.code}"
+        }
 
         try {
             val customTabsIntent = CustomTabsIntent.Builder()
@@ -123,6 +141,8 @@ object YooKassaPaymentHandler {
         planCode: String,
         planTitle: String,
         amountRub: Int,
+        devices: Int = 2,
+        provider: String = "yookassa",
         days: Int
     ): Boolean {
         val tariff = PlanTariff(

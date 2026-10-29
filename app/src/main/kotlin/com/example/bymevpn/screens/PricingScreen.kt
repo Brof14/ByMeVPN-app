@@ -70,6 +70,7 @@ fun PricingScreen(
 
     var selectedDeviceCount by remember { mutableIntStateOf(2) } // 2, 5, 10
     var selectedPlan by remember { mutableStateOf(PlanDuration.Month15) }
+    var selectedProvider by remember { mutableStateOf("yookassa") }
 
     // Price calculation aligned with bot constants.py:
     // 2 devices: 89, 316, 552, 885
@@ -341,6 +342,61 @@ fun PricingScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
+                Text(
+                    text = "СПОСОБ ОПЛАТЫ",
+                    color = AppColors.TextKicker,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF132023))
+                        .border(1.dp, Color(0xFF263A3C), RoundedCornerShape(14.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (selectedProvider == "yookassa") Color(0xFF43DDB1) else Color.Transparent)
+                            .clickable { selectedProvider = "yookassa" }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "💳 Карта / СБП",
+                            color = if (selectedProvider == "yookassa") Color(0xFF10241E) else Color(0xFF829C9A),
+                            fontSize = 12.sp,
+                            fontWeight = if (selectedProvider == "yookassa") FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (selectedProvider == "crypto") Color(0xFF43DDB1) else Color.Transparent)
+                            .clickable { selectedProvider = "crypto" }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "💎 Криптовалюта",
+                            color = if (selectedProvider == "crypto") Color(0xFF10241E) else Color(0xFF829C9A),
+                            fontSize = 12.sp,
+                            fontWeight = if (selectedProvider == "crypto") FontWeight.Bold else FontWeight.Medium
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
                 // Transparent Price Row
                 Row(
                     modifier = Modifier
@@ -381,7 +437,9 @@ fun PricingScreen(
                                 planCode = "plan_${selectedPlan.name.lowercase()}_${selectedDeviceCount}dev",
                                 planTitle = "${selectedPlan.title} ($selectedDeviceCount устройств)",
                                 amountRub = currentPrice,
-                                days = selectedPlan.totalDays
+                                days = selectedPlan.totalDays,
+                                devices = selectedDeviceCount,
+                                provider = selectedProvider
                             )
                             if (!success) {
                                 Toast.makeText(context, "Не удалось открыть форму оплаты. Попробуйте снова.", Toast.LENGTH_LONG).show()

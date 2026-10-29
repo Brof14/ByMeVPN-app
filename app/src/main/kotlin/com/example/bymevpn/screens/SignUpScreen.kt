@@ -134,7 +134,8 @@ fun SignUpScreen(
                 if (result.isSuccess) {
                     onSignUpSuccess()
                 } else {
-                    authError = result.exceptionOrNull()?.message ?: (if (isRu) "Ошибка регистрации" else "Registration failed")
+                    val raw = result.exceptionOrNull()?.message ?: (if (isRu) "Ошибка регистрации" else "Registration failed")
+                    authError = raw.replace(Regex("^\\[[A-Za-z0-9_]+\\]\\s*"), "")
                 }
             }
         }

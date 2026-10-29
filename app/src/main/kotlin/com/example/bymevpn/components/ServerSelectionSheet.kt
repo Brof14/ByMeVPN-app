@@ -46,6 +46,10 @@ fun ServerSelectionSheet(
     modifier: Modifier = Modifier
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        com.example.bymevpn.vpn.VpnManager.getInstance(context).refreshAllPings()
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
@@ -262,10 +266,23 @@ fun ServerSelectionSheet(
                                     )
                                 }
 
+                                val pingColor = when {
+                                    server.pingMs <= 0 -> Color(0xFF89A6A0)
+                                    server.pingMs < 60 -> Color(0xFF3CDFAC)
+                                    server.pingMs < 120 -> Color(0xFFFFD54F)
+                                    else -> Color(0xFFFF8A65)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(pingColor)
+                                )
                                 Text(
                                     text = if (server.pingMs > 0) "${server.pingMs} ms" else "Быстрый",
-                                    color = Color(0xFF89A6A0),
-                                    fontSize = 11.sp
+                                    color = pingColor,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }

@@ -300,6 +300,45 @@ class ByMeApiClient(private val context: Context) {
     }
 
     // -------------------------------------------------------------
+    // IN-APP PAYMENTS (YooKassa Cards/SBP & CryptoBot)
+    // -------------------------------------------------------------
+
+    suspend fun createPayment(
+        planCode: String,
+        amountRub: Int,
+        days: Int,
+        devices: Int = 2,
+        provider: String = "yookassa"
+    ): PaymentCreateResponse {
+        val body = JSONObject().apply {
+            put("plan_code", planCode)
+            put("amount_rub", amountRub)
+            put("days", days)
+            put("devices", devices)
+            put("provider", provider)
+        }
+        val json = request("POST", "/payment/create", body, requiresAuth = true)
+        return PaymentCreateResponse(
+            paymentUrl = json.optString("payment_url"),
+            provider = json.optString("provider", provider),
+            invoiceId = json.optString("invoice_id").ifEmpty { null }
+        )
+    }
+
+    suspend fun checkPayment(): PaymentCheckResult {
+        val json = request("GET", "/payment/check", null, requiresAuth = true)
+        val status = json.optString("status", "none")
+        val isActive = json.optBoolean("is_active", false)
+        val subObj = json.optJSONObject("subscription")
+        val sub = subObj?.let { ApiJsonParsers.parseSubscriptionStatus(it) }
+        return PaymentCheckResult(
+            status = status,
+            isActive = isActive,
+            subscription = sub
+        )
+    }
+
+    // -------------------------------------------------------------
     // INTERNAL HTTP ENGINE WITH 401 TOKEN REFRESH
     // -------------------------------------------------------------
 
