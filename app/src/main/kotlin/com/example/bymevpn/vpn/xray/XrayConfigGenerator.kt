@@ -67,6 +67,11 @@ object XrayConfigGenerator {
                     put("name", "xray0")
                     put("mtu", 1500)
                     put("userLevel", 8)
+                    put("gateway", JSONArray().apply {
+                        put("26.26.26.1/24")
+                        put("fdfe:dcba:9876::1/126")
+                    })
+                    put("autoOutboundsInterface", true)
                 })
                 put("sniffing", JSONObject().apply {
                     put("enabled", true)
@@ -133,7 +138,6 @@ object XrayConfigGenerator {
                 })
 
                 val streamSettings = JSONObject().apply {
-                    put("network", "udp")
                     put("security", "tls")
                     val tlsSettings = JSONObject().apply {
                         put("serverName", config.serverName)

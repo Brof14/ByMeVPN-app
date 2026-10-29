@@ -24,7 +24,7 @@ data class AppUpdateInfo(
 object AppUpdateManager {
     private const val TAG = "AppUpdateManager"
     private const val GITHUB_REPO = "Brof14/ByMeVPN-app"
-    private const val CURRENT_VERSION = "1.0.6"
+    private const val CURRENT_VERSION = "1.0.7"
 
     private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     val updateInfo: StateFlow<AppUpdateInfo?> = _updateInfo.asStateFlow()

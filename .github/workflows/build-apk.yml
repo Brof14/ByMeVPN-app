@@ -47,28 +47,28 @@ jobs:
     - name: Prepare Release Artifacts
       run: |
         mkdir -p dist
-        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.6.apk
+        cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN-v1.0.7.apk
         cp app/build/outputs/apk/release/app-release.apk dist/ByMeVPN.apk
-        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.6-debug.apk
-        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.6.aab
+        cp app/build/outputs/apk/debug/app-debug.apk dist/ByMeVPN-v1.0.7-debug.apk
+        cp app/build/outputs/bundle/release/app-release.aab dist/ByMeVPN-v1.0.7.aab
 
     - name: Upload Google Play Release Bundle (.aab)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-googleplay-bundle
-        path: dist/ByMeVPN-v1.0.6.aab
+        path: dist/ByMeVPN-v1.0.7.aab
 
     - name: Upload Release APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-release-apk
-        path: dist/ByMeVPN-v1.0.6.apk
+        path: dist/ByMeVPN-v1.0.7.apk
 
     - name: Upload Debug APK (.apk)
       uses: actions/upload-artifact@v4
       with:
         name: ByMeVPN-debug-apk
-        path: dist/ByMeVPN-v1.0.6-debug.apk
+        path: dist/ByMeVPN-v1.0.7-debug.apk
 
     - name: Upload Keystore Backup
       uses: actions/upload-artifact@v4
@@ -79,33 +79,28 @@ jobs:
     - name: Create or Update GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v1.0.6
-        name: "ByMeVPN v1.0.6 (Full Internet Routing & DNS Tunnel Fix)"
+        tag_name: v1.0.7
+        name: "ByMeVPN v1.0.7 (TUN Gateway, Hysteria2 Fix & Reality Prioritization)"
         draft: false
         prerelease: false
         generate_release_notes: false
         body: |
-          ### ByMeVPN v1.0.6 — Полная маршрутизация интернета и DNS туннелирование
+          ### ByMeVPN v1.0.7 — Исправление маршрутизации шлюза TUN и протокола Hysteria 2
 
-          #### Что исправлено и улучшено:
-          1. **Исправлена проблема «Входит в сеть, но интернет не грузит»**: 
-             - Добавлен выделенный `dns-out` outbound обработчик в Xray-core и перехват DNS-запросов (port 53) с TUN-интерфейса в быстрый DoH (DNS-over-HTTPS via Cloudflare & Google).
-             - Исключено зависание UDP DNS пакетов при работе через VLESS XTLS-Vision.
-          2. **Устранена коллизия IP адресов TUN интерфейса**: 
-             - Виртуальный IP перенесен на независимый пул `26.26.26.1/24`, исключая конфликты с локальными роутерами `10.0.0.0/8` и `192.168.0.0/16`.
-             - Добавлен IPv6 шлюз (`fdfe:dcba:9876::1/126`) для предотвращения подвисания dual-stack мобильных сетей.
-          3. **Оплата прямо в приложении без перехода в Telegram**: встроена поддержка банковских карт (МИР, Visa, Mastercard), СБП в 1 клик, а также криптовалюты.
-          4. **Реальный TCP-пинг каждого узла**: серверы выводят реальную задержку в миллисекундах с цветными индикаторами.
-          5. **Встроенное автообновление APK**: приложение автоматически проверяет наличие новых версий и предлагает обновиться.
+          #### Что исправлено:
+          1. **Исправлен сетевой шлюз TUN в Xray-core**: добавлен параметр `gateway` (`26.26.26.1/24` и `fdfe:dcba:9876::1/126`) и `autoOutboundsInterface: true` в настройки виртуального адаптера Xray, благодаря чему стек gVisor корректно маршрутизирует пакеты приложений в туннель и обратно.
+          2. **Исправлен протокол Hysteria 2**: убран недопустимый параметр `network: udp` из `streamSettings`, из-за которого возникала ошибка `unknown transport protocol: udp`.
+          3. **Приоритет VLESS Reality**: список серверов и интеллектуальный автовыбор теперь ставят в топ узел `VLESS Reality` (порт 443), обеспечивая наивысшую стабильность и обход блокировок.
+          4. **Оплата в приложении и реальный пинг**: сохранены все функции оплаты (карты/СБП/крипта) и измерение реальной задержки.
 
-          #### Прямые ссылки для скачивания (нажмите для загрузки):
-          - 📥 **[Скачать ByMeVPN-v1.0.6.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.6/ByMeVPN-v1.0.6.apk)**
-          - 📥 **[Скачать ByMeVPN-v1.0.6-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.6/ByMeVPN-v1.0.6-debug.apk)**
-          - 📥 **[Скачать ByMeVPN.apk (Прямая постоянная ссылка)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.6/ByMeVPN.apk)**
+          #### Прямые ссылки для скачивания:
+          - 📥 **[Скачать ByMeVPN-v1.0.7.apk (Основная релизная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.7/ByMeVPN-v1.0.7.apk)**
+          - 📥 **[Скачать ByMeVPN-v1.0.7-debug.apk (Отладочная версия)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.7/ByMeVPN-v1.0.7-debug.apk)**
+          - 📥 **[Скачать ByMeVPN.apk (Прямая ссылка на последний релиз)](https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.7/ByMeVPN.apk)**
         files: |
-          dist/ByMeVPN-v1.0.6.apk
+          dist/ByMeVPN-v1.0.7.apk
           dist/ByMeVPN.apk
-          dist/ByMeVPN-v1.0.6-debug.apk
-          dist/ByMeVPN-v1.0.6.aab
+          dist/ByMeVPN-v1.0.7-debug.apk
+          dist/ByMeVPN-v1.0.7.aab
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

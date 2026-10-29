@@ -75,8 +75,14 @@ object XraySubscriptionParser {
             }
         }
 
+        // Prioritize VLESS Reality servers first (most stable & censorship-resistant on port 443)
+        val sortedServers = serverList.sortedWith(
+            compareBy<ServerNode> { if (it.protocol.contains("reality", ignoreCase = true)) 0 else 1 }
+                .thenBy { it.pingMs }
+        )
+
         return ParsedSubscription(
-            servers = serverList,
+            servers = sortedServers,
             configs = configMap,
             uploadBytes = upload,
             downloadBytes = download,

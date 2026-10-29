@@ -122,11 +122,16 @@ class VpnManager private constructor(private val context: Context) {
         }
 
         val bestNode = if (pings.isNotEmpty()) {
-            val minEntry = pings.minByOrNull { it.value }
-            servers.find { it.nodeCode == minEntry?.key }
+            val realityPinged = servers.filter { it.protocol.contains("reality", ignoreCase = true) && (pings[it.nodeCode] ?: 9999) > 0 }
+            if (realityPinged.isNotEmpty()) {
+                realityPinged.minByOrNull { pings[it.nodeCode] ?: 9999 }
+            } else {
+                val minEntry = pings.minByOrNull { it.value }
+                servers.find { it.nodeCode == minEntry?.key }
+            }
         } else null
 
-        val winner = bestNode ?: servers.firstOrNull()
+        val winner = bestNode ?: servers.firstOrNull { it.protocol.contains("reality", ignoreCase = true) } ?: servers.firstOrNull()
         winner?.also {
             withContext(Dispatchers.Main) {
                 selectServer(it)
