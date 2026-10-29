@@ -72,10 +72,18 @@ data class ServerNode(
     val loadPercent: Int = 30,
     val isPremium: Boolean = false,
     val countryEn: String = country,
-    val cityEn: String = city
+    val cityEn: String = city,
+    val protocol: String = "VLESS Reality",
+    val remark: String = "",
+    val displayName: String = ""
 ) {
     val id: String get() = nodeCode
-    val name: String get() = if (city.isNotBlank()) "$country · $city" else country
+    val name: String get() {
+        if (displayName.isNotBlank()) return displayName
+        if (remark.isNotBlank()) return "$remark • $protocol"
+        val cityPart = if (city.isNotBlank()) " $city" else ""
+        return "$country$cityPart • $protocol"
+    }
     fun localizedCountry(isRu: Boolean): String = if (isRu) country else countryEn
     fun localizedCity(isRu: Boolean): String = if (isRu) city else cityEn
 }
@@ -210,6 +218,16 @@ object ApiJsonParsers {
                 else -> "Europe"
             }
             val load = obj.optInt("load_pct", obj.optInt("load_percent", 15))
+            val proto = obj.optString("protocol").ifBlank {
+                val cfg = obj.optJSONObject("config")
+                val p = cfg?.optString("protocol", "vless") ?: "vless"
+                val sec = cfg?.optString("security", "reality") ?: "reality"
+                if (p.equals("hysteria2", true) || p.equals("hy2", true)) "Hysteria 2"
+                else if (sec.equals("reality", true)) "VLESS Reality"
+                else "VLESS"
+            }
+            val remarkStr = obj.optString("remark", "")
+            val displayNameStr = obj.optString("display_name", "")
 
             list.add(
                 ServerNode(
@@ -222,7 +240,10 @@ object ApiJsonParsers {
                     loadPercent = if (load == 0) 18 else load,
                     isPremium = obj.optBoolean("is_premium", false),
                     countryEn = countryEn,
-                    cityEn = cityEn
+                    cityEn = cityEn,
+                    protocol = proto,
+                    remark = remarkStr,
+                    displayName = displayNameStr
                 )
             )
         }

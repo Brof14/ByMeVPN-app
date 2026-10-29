@@ -155,18 +155,24 @@ object XraySubscriptionParser {
         val obfsPassword = queryParams["obfs-password"] ?: ""
         val nodeCode = "node_${index}_hy2_${host.replace(".", "_")}_$port"
         val (country, countryCode, flag) = detectLocation(remark)
+        val protoBadge = "Hysteria 2"
+        val cleanRemark = if (remark.isNotBlank() && !remark.startsWith("Server", true)) remark else "$country #${index + 1}"
+        val dispName = "$cleanRemark • $protoBadge"
 
         val serverNode = ServerNode(
             nodeCode = nodeCode,
             country = country,
             countryCode = countryCode,
-            city = remark,
+            city = "Узел ${index + 1}",
             flag = flag,
             pingMs = -1,
             loadPercent = 0,
             isPremium = false,
             countryEn = country,
-            cityEn = remark
+            cityEn = "Node ${index + 1}",
+            protocol = protoBadge,
+            remark = cleanRemark,
+            displayName = dispName
         )
 
         val config = VpnSessionConfig(
@@ -230,18 +236,25 @@ object XraySubscriptionParser {
 
         val nodeCode = "node_${index}_${host.replace(".", "_")}_$port"
         val (country, countryCode, flag) = detectLocation(remark)
+        val secLower = security.lowercase()
+        val protoBadge = if (secLower == "reality") "VLESS Reality" else if (secLower == "tls") "VLESS TLS" else "VLESS"
+        val cleanRemark = if (remark.isNotBlank() && !remark.startsWith("Server", true)) remark else "$country #${index + 1}"
+        val dispName = "$cleanRemark • $protoBadge"
 
         val serverNode = ServerNode(
             nodeCode = nodeCode,
             country = country,
             countryCode = countryCode,
-            city = remark,
+            city = "Узел ${index + 1}",
             flag = flag,
             pingMs = -1, // -1 means not measured yet
             loadPercent = 0,
             isPremium = false,
             countryEn = country,
-            cityEn = remark
+            cityEn = "Node ${index + 1}",
+            protocol = protoBadge,
+            remark = cleanRemark,
+            displayName = dispName
         )
 
         val config = VpnSessionConfig(

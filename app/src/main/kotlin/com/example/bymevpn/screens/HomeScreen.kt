@@ -560,19 +560,51 @@ private fun HomeDisconnectedContent(
                             size = 24.dp
                         )
                         Text(
-                            text = currentServer?.name ?: "Германия",
+                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: "Германия • VLESS Reality",
                             color = AppColors.TextPrimary,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Выбрано автоматически",
-                        color = Color(0xFF81999B),
-                        fontSize = 11.sp,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
-                    )
+                    ) {
+                        val proto = currentServer?.protocol ?: "VLESS Reality"
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
+                                    else Color(0x2B4DAFFF)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
+                                    else Color(0x594DAFFF),
+                                    RoundedCornerShape(5.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = proto,
+                                color = if (proto.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                        else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
+                                        else Color(0xFF78C6FF),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "Выбрано автоматически",
+                            color = Color(0xFF81999B),
+                            fontSize = 11.sp
+                        )
+                    }
                 }
 
                 Box(
@@ -776,19 +808,52 @@ private fun HomeConnectedContent(
                             size = 24.dp
                         )
                         Text(
-                            text = currentServer?.name ?: "Германия",
+                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: "Германия • VLESS Reality",
                             color = AppColors.TextPrimary,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Сервер 1 · Подключено",
-                        color = Color(0xFF81999B),
-                        fontSize = 11.sp,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
-                    )
+                    ) {
+                        val proto = currentServer?.protocol ?: "VLESS Reality"
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
+                                    else Color(0x2B4DAFFF)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
+                                    else Color(0x594DAFFF),
+                                    RoundedCornerShape(5.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = proto,
+                                color = if (proto.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                        else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
+                                        else Color(0xFF78C6FF),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "Подключено",
+                            color = Color(0xFF3CDFAC),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
 
                 Box(
@@ -988,19 +1053,51 @@ private fun HomeConnectionErrorContent(
                             size = 24.dp
                         )
                         Text(
-                            text = currentServer?.name ?: "Германия",
+                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: "Германия • VLESS Reality",
                             color = AppColors.TextPrimary,
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Автоматический выбор",
-                        color = Color(0xFF81999B),
-                        fontSize = 11.sp,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
-                    )
+                    ) {
+                        val proto = currentServer?.protocol ?: "VLESS Reality"
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
+                                    else Color(0x2B4DAFFF)
+                                )
+                                .border(
+                                    1.dp,
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
+                                    else Color(0x594DAFFF),
+                                    RoundedCornerShape(5.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = proto,
+                                color = if (proto.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                        else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
+                                        else Color(0xFF78C6FF),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Text(
+                            text = "Выбрано автоматически",
+                            color = Color(0xFF81999B),
+                            fontSize = 11.sp
+                        )
+                    }
                 }
 
                 Box(

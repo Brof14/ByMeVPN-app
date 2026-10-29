@@ -141,7 +141,6 @@ object XrayConfigGenerator {
                     val tlsSettings = JSONObject().apply {
                         put("serverName", config.serverName)
                         put("fingerprint", config.fingerprint.ifEmpty { "firefox" })
-                        put("allowInsecure", true)
                         val alpn = JSONArray().apply { put("h3") }
                         put("alpn", alpn)
                     }
@@ -207,7 +206,6 @@ object XrayConfigGenerator {
                         val tlsSettings = JSONObject().apply {
                             put("serverName", config.serverName)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                            put("allowInsecure", true)
                             val alpnArray = JSONArray()
                             alpnArray.put("h2")
                             alpnArray.put("http/1.1")

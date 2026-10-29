@@ -68,7 +68,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                 Seq.setContext(context.applicationContext)
                 val assetDir = context.getDir("assets", Context.MODE_PRIVATE)
                 copyAssetsToStorage(context, assetDir)
-                Libv2ray.initCoreEnv(assetDir.absolutePath, "ByMeVPN_DeviceId")
+                Libv2ray.initCoreEnv(assetDir.absolutePath, "")
                 val version = Libv2ray.checkVersionX()
                 Log.i(TAG, "Xray core environment initialized. Version: $version")
             } catch (e: Throwable) {

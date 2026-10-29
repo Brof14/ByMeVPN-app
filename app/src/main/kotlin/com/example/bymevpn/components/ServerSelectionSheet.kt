@@ -184,12 +184,11 @@ fun ServerSelectionSheet(
             val displayServers = if (servers.isNotEmpty()) {
                 servers
             } else {
-                // Default server entries matching mockup 06_servers
                 listOf(
-                    ServerNode(nodeCode = "de-1", country = "Германия", countryCode = "DE", city = "1", flag = "🇩🇪", pingMs = 38),
-                    ServerNode(nodeCode = "de-2", country = "Германия", countryCode = "DE", city = "2", flag = "🇩🇪", pingMs = 45),
-                    ServerNode(nodeCode = "de-3", country = "Германия", countryCode = "DE", city = "3", flag = "🇩🇪", pingMs = 52),
-                    ServerNode(nodeCode = "de-4", country = "Германия", countryCode = "DE", city = "4", flag = "🇩🇪", pingMs = 58)
+                    ServerNode(nodeCode = "de-1", country = "Германия", countryCode = "DE", city = "Узел 1", flag = "🇩🇪", pingMs = 28, protocol = "VLESS Reality", displayName = "Германия #1 • VLESS Reality"),
+                    ServerNode(nodeCode = "de-2", country = "Германия", countryCode = "DE", city = "Узел 2", flag = "🇩🇪", pingMs = 35, protocol = "VLESS Reality", displayName = "Германия #2 • VLESS Reality"),
+                    ServerNode(nodeCode = "de-3", country = "Германия", countryCode = "DE", city = "Узел 3", flag = "🇩🇪", pingMs = 42, protocol = "Hysteria 2", displayName = "Германия #3 • Hysteria 2"),
+                    ServerNode(nodeCode = "nl-1", country = "Нидерланды", countryCode = "NL", city = "Узел 4", flag = "🇳🇱", pingMs = 32, protocol = "VLESS Reality", displayName = "Нидерланды #1 • VLESS Reality")
                 )
             }
 
@@ -199,16 +198,11 @@ fun ServerSelectionSheet(
             ) {
                 items(displayServers) { server ->
                     val isSelected = !isAutoSelected && selectedServer?.id == server.id
-                    val serverSub = when {
-                        server.name.contains("1") -> "Основной сервер"
-                        server.name.contains("2") -> "Резервный сервер"
-                        else -> "Дополнительный сервер"
-                    }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(73.dp)
+                            .height(76.dp)
                             .clip(RoundedCornerShape(18.dp))
                             .background(Color(0xFF101D1F))
                             .border(
@@ -231,17 +225,49 @@ fun ServerSelectionSheet(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = server.name,
+                                text = if (server.displayName.isNotBlank()) server.displayName else server.name,
                                 color = AppColors.TextPrimary,
-                                fontSize = 13.sp,
+                                fontSize = 13.5.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(modifier = Modifier.height(5.dp))
-                            Text(
-                                text = serverSub,
-                                color = Color(0xFF89A6A0),
-                                fontSize = 11.sp
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(
+                                            if (server.protocol.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                            else if (server.protocol.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
+                                            else Color(0x2B4DAFFF)
+                                        )
+                                        .border(
+                                            1.dp,
+                                            if (server.protocol.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                            else if (server.protocol.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
+                                            else Color(0x594DAFFF),
+                                            RoundedCornerShape(5.dp)
+                                        )
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = server.protocol,
+                                        color = if (server.protocol.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                                else if (server.protocol.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
+                                                else Color(0xFF78C6FF),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Text(
+                                    text = if (server.pingMs > 0) "${server.pingMs} ms" else "Быстрый",
+                                    color = Color(0xFF89A6A0),
+                                    fontSize = 11.sp
+                                )
+                            }
                         }
 
                         Box(
