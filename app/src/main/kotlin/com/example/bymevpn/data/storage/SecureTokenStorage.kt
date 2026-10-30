@@ -22,6 +22,7 @@ import java.util.UUID
  * - Stable Install ID for anti-fraud
  */
 class SecureTokenStorage private constructor(context: Context) {
+    data class PendingPayment(val planCode: String, val days: Int, val invoiceId: String, val provider: String)
 
     companion object {
         @Volatile
@@ -376,30 +377,54 @@ class SecureTokenStorage private constructor(context: Context) {
         saveRegisteredDevices(current)
     }
 
-    fun savePendingPayment(planCode: String, days: Int) {
+    fun savePendingPayment(planCode: String, days: Int, invoiceId: String, provider: String) {
         prefs.edit()
             .putString("pending_payment_plan", planCode)
             .putInt("pending_payment_days", days)
+            .putString("pending_payment_invoice", invoiceId)
+            .putString("pending_payment_provider", provider)
+            .remove("payment_request_id")
             .putLong("pending_payment_time", System.currentTimeMillis())
             .apply()
     }
 
-    fun getPendingPayment(): Pair<String, Int>? {
+    fun getOrCreatePaymentRequestId(planCode: String, provider: String): String {
+        val existing = prefs.getString("payment_request_id", null)
+        val existingPlan = prefs.getString("payment_request_plan", null)
+        val existingProvider = prefs.getString("payment_request_provider", null)
+        if (!existing.isNullOrBlank() && existingPlan == planCode && existingProvider == provider) return existing
+        val created = UUID.randomUUID().toString()
+        prefs.edit()
+            .putString("payment_request_id", created)
+            .putString("payment_request_plan", planCode)
+            .putString("payment_request_provider", provider)
+            .apply()
+        return created
+    }
+
+    fun getPendingPayment(): PendingPayment? {
         val plan = prefs.getString("pending_payment_plan", null) ?: return null
         val days = prefs.getInt("pending_payment_days", 30)
+        val invoiceId = prefs.getString("pending_payment_invoice", null) ?: return null
+        val provider = prefs.getString("pending_payment_provider", null) ?: return null
         val time = prefs.getLong("pending_payment_time", 0L)
         // Valid within 24 hours
         if (System.currentTimeMillis() - time > 24 * 3600 * 1000) {
             clearPendingPayment()
             return null
         }
-        return Pair(plan, days)
+        return PendingPayment(plan, days, invoiceId, provider)
     }
 
     fun clearPendingPayment() {
         prefs.edit()
             .remove("pending_payment_plan")
             .remove("pending_payment_days")
+            .remove("pending_payment_invoice")
+            .remove("pending_payment_provider")
+            .remove("payment_request_id")
+            .remove("payment_request_plan")
+            .remove("payment_request_provider")
             .remove("pending_payment_time")
             .apply()
     }

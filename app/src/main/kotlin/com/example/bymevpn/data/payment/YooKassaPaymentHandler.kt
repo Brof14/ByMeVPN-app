@@ -91,13 +91,14 @@ object YooKassaPaymentHandler {
     fun openCheckout(
         context: Context,
         tariff: PlanTariff,
+        provider: String = "yookassa",
         onCheckoutLaunched: () -> Unit = {}
     ) {
         val storage = SecureTokenStorage.getInstance(context)
 
         CoroutineScope(Dispatchers.Main).launch {
         // YooKassa hosted payment URL or Bot fallback
-        val paymentUrl = try {
+        val createResult = try {
             val api = ByMeApiClient(context)
             val res = withContext(Dispatchers.IO) {
                 api.createPayment(
@@ -105,10 +106,14 @@ object YooKassaPaymentHandler {
                     amountRub = tariff.priceRub,
                     days = tariff.days,
                     devices = 2,
-                    provider = "yookassa"
+                    provider = provider,
+                    requestId = storage.getOrCreatePaymentRequestId(tariff.code, provider)
                 )
             }
-            res.paymentUrl.ifBlank { throw IllegalStateException("Payment URL is unavailable") }
+            if (res.paymentUrl.isBlank() || res.invoiceId.isNullOrBlank()) {
+                throw IllegalStateException("Payment reference is unavailable")
+            }
+            res
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create in-app payment")
             Toast.makeText(context, "Оплата временно недоступна. Попробуйте позже.", Toast.LENGTH_LONG).show()
@@ -119,7 +124,8 @@ object YooKassaPaymentHandler {
             Toast.makeText(context, "Не удалось открыть безопасную страницу оплаты.", Toast.LENGTH_LONG).show()
             return@launch
         }
-        storage.savePendingPayment(tariff.code, tariff.days)
+        val paymentUrl = createResult.paymentUrl
+        storage.savePendingPayment(tariff.code, tariff.days, createResult.invoiceId!!, createResult.provider)
 
         try {
             val customTabsIntent = CustomTabsIntent.Builder()
@@ -164,7 +170,7 @@ object YooKassaPaymentHandler {
             isBestValue = false,
             days = days
         )
-        openCheckout(context, tariff)
+        openCheckout(context, tariff, provider)
         return true
     }
 
@@ -177,7 +183,9 @@ object YooKassaPaymentHandler {
         days: Int
     ): Result<SubscriptionStatus> {
         val payment = try {
-            ByMeApiClient(context).checkPayment()
+            val pending = SecureTokenStorage.getInstance(context).getPendingPayment()
+                ?: return Result.failure(IllegalStateException("Payment reference is unavailable"))
+            ByMeApiClient(context).checkPayment(pending.invoiceId, pending.provider)
         } catch (e: Exception) {
             return Result.failure(e)
         }
@@ -199,8 +207,7 @@ object YooKassaPaymentHandler {
     suspend fun checkAndCompletePendingPayment(context: Context): Boolean {
         val storage = SecureTokenStorage.getInstance(context)
         val pending = storage.getPendingPayment() ?: return false
-        val (planCode, days) = pending
-        val result = confirmPayment(context, planCode, days)
+        val result = confirmPayment(context, pending.planCode, pending.days)
         return result.isSuccess
     }
 

@@ -52,7 +52,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.PaywallSheet
 import com.example.bymevpn.components.ShieldLogo
@@ -84,7 +83,6 @@ fun WelcomeScreen(
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
 
-    var isGoogleLoading by remember { mutableStateOf(false) }
     var isTelegramLoading by remember { mutableStateOf(false) }
     var telegramStatusText by remember { mutableStateOf<String?>(null) }
     var authError by remember { mutableStateOf<String?>(null) }
@@ -179,61 +177,13 @@ fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (isRu) "Выберите удобный способ входа в приложение" else "Choose your preferred sign-in method",
+                    text = if (isRu) "Войдите через Telegram или электронную почту" else "Sign in with Telegram or email",
                     color = AppColors.TextSecondary,
                     fontSize = 12.5.sp,
                     textAlign = TextAlign.Center
                 )
 
                 Spacer(modifier = Modifier.height(18.dp))
-
-                // PRIMARY 1-TAP ACTION: Google Sign-In
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White)
-                        .clickable(enabled = !isGoogleLoading) {
-                            isGoogleLoading = true
-                            authError = null
-                            scope.launch {
-                                val result = AccountRepository.loginWithGoogle(context)
-                                isGoogleLoading = false
-                                if (result.isSuccess) {
-                                    val canConnect = SubscriptionManager.getInstance(context).canConnect()
-                                    if (canConnect) {
-                                        onLoginSuccess()
-                                    } else {
-                                        showPaywall = true
-                                    }
-                                } else {
-                                    val rawErr = result.exceptionOrNull()?.message
-                                    if (rawErr != "Sign-in cancelled") {
-                                        authError = if (isRu) "Не удалось подтвердить вход через Google. Попробуйте позже." else "Could not verify Google sign-in. Please try again later."
-                                    }
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isGoogleLoading) {
-                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            GoogleLogoIcon(size = 20.dp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isRu) "Продолжить с Google" else "Continue with Google",
-                                color = Color(0xFF1A1A1A),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
 
                 // SECONDARY ACTION: Email Sign In
                 Box(
