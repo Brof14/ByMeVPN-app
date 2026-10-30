@@ -1,42 +1,49 @@
-# ByMeVPN для Android
+# ByMeVPN for Android
 
-Приложение ByMeVPN помогает подключаться к серверам из подписки и управлять VPN на Android. Основное приложение в этом репозитории написано на Kotlin и Jetpack Compose; сетевое ядро — Xray через `libv2ray.aar`.
+An Android client for managing ByMeVPN subscriptions and VPN connections. The app is written in Kotlin with Jetpack Compose and integrates Xray through the `libv2ray.aar` runtime.
 
-> **Состояние версии 1.0.0:** подготовка и тестирование. Сборки здесь не следует считать готовыми к массовому распространению или Google Play до выполнения [плана запуска](docs/VPS_IMPLEMENTATION_PROMPT.md). В частности, серверная авторизация, платёжные сценарии и выпускная подпись требуют дополнительной настройки и проверки.
+> **Status:** In active development and testing. This repository is not a production-ready consumer release. Authentication, payments, release signing, and full network lifecycle validation still need completion.
 
-## Что уже работает и проверялось
+## Current capabilities
 
-- Импорт совместимой подписки и подключение через Android VpnService.
-- VLESS Reality, VLESS TLS, Hysteria 2 и VLESS XHTTP: краткая проверка HTTPS и внешнего IPv4 на тестовом Android-устройстве.
-- Отображение результата последнего подключения и отдельное обозначение TCP-проверки: измерение TCP не подтверждает работоспособность VPN; Hysteria использует UDP и таким способом не проверяется.
-- Выбор языка приветственного экрана по языку системы; остальные экраны ещё требуют полной локализации.
+- Import a compatible subscription and connect through Android `VpnService`.
+- Tested connection flows for VLESS Reality, VLESS TLS, Hysteria 2, and VLESS XHTTP on a test device.
+- Display connection-check results while distinguishing a TCP reachability check from proof that VPN traffic is routed through the tunnel.
+- Select the welcome-screen language from the device language.
 
-Поддержка конкретного сервера зависит от его настроек, доступности и сети пользователя. Перед публичным выпуском необходимо провести более длительные тесты DNS, IPv6, смены сети, восстановления после обрыва и фоновой работы.
+Support depends on server configuration, availability, and the user's network. Longer tests are still needed for DNS, IPv6, network changes, reconnects, and background operation.
 
-## Сборка
+## Build
 
-Требуются JDK 17, Android SDK 35 и Gradle 8.9. Из корня репозитория:
+Requirements: JDK 17, Android SDK 35, and Gradle 8.9.
 
-```shell
+```sh
 gradle :app:testDebugUnitTest :app:assembleDebug
 ```
 
-Тестовая сборка рядом с установленным приложением: `gradle :app:assembleDebug -PsideBySideDebug=true`. Она использует отдельный application ID и отдельные данные. Обычный debug APK подписывается локальным отладочным ключом; он не подходит для публикации. Release-сборке нужны собственный защищённый ключ и переменные `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Не храните ключи и пароли в репозитории или артефактах CI. Без настроенного ключа выпускной APK/AAB не подписывается.
+For a side-by-side debug build:
 
-[GitHub Actions](https://github.com/Brof14/ByMeVPN-app/actions) запускает unit-тесты и собирает debug-артефакт. Публикация релиза намеренно не запускается автоматически: её можно настроить после проверки подписи и готовности сервера.
+```sh
+gradle :app:assembleDebug -PsideBySideDebug=true
+```
 
-## Аккаунт, оплата и партнёрская программа
+The side-by-side build uses a separate application ID and app data. Debug builds use a local debug signing key and are not suitable for release distribution.
 
-Приложение не должно выдавать локальную имитацию входа, платежа или привязки карты за подтверждённые данные. Подключённый сейчас API использует HTTP, поэтому клиент блокирует отправку ему учётных данных; необходим защищённый HTTPS и проверка серверной авторизации. Google Sign-In требует проверки подписи и параметров ID-токена на сервере. Оплата и автопродление требуют подтверждения ЮKassa и защищённых серверных обработчиков. Для Google Play способ оплаты цифровой подписки следует отдельно согласовать с действующими правилами Play и применимыми программами.
+GitHub Actions runs unit tests and creates a debug artifact. Release publishing is intentionally not automatic; a protected signing key and a verified release process are required.
 
-В боте действуют бонусы за приглашения: 15 дней за регистрацию и 30 дней за первую подходящую платную подписку приглашённого. Клиентские ссылки, статистика и начисления должны поступать с сервера; экран приложения с этими данными ещё не подключён.
+## Known release blockers
 
-Нашли ошибку или придумали улучшение? Сообщите команде поддержки: за подтверждённые ошибки и принятые предложения добавим дни к подписке. Не публикуйте ключи VPN, ссылки подписки, платёжные данные или личную информацию в открытых issue.
+- The configured API currently uses HTTP. The client blocks sending credentials over that connection; verified HTTPS and server-side authentication are required.
+- Google Sign-In token verification must happen on the server.
+- Payment and subscription renewal flows need verified server-side handlers and a policy-compliant Play distribution plan.
+- Referral data shown by the bot is not yet connected to an app-side server API.
 
-## Безопасность
+Do not present local UI state as proof of an authenticated account, completed payment, or active entitlement.
 
-В старой истории репозитория присутствовали тестовые данные, содержащие VPN-конфигурацию. Текущий тест использует синтетические значения; прежние значения следует считать раскрытыми и заменить на сервере. Не переписывайте историю без отдельной проверки последствий для пользователей и интеграций.
+## Security
 
-## Для разработчика сервера
+Do not commit passwords, signing keys, subscription links, or VPN credentials. Historical commits contained test VPN configuration; treat any real values previously committed as exposed and rotate them at the server. This warning is retained because changing current files does not remove values from Git history.
 
-[Промпт и техническое задание для ИИ с доступом к VPS](docs/VPS_IMPLEMENTATION_PROMPT.md). Основные задачи: HTTPS, безопасная Google- и Telegram-авторизация, реальная обработка платежей и сохранённых методов, реферальный API и проверка развёртывания без вывода секретов.
+## Server implementation notes
+
+See [`docs/VPS_IMPLEMENTATION_PROMPT.md`](docs/VPS_IMPLEMENTATION_PROMPT.md) for the current server-side implementation brief. See [GitHub Actions](https://github.com/Brof14/ByMeVPN-app/actions) for build workflows.
