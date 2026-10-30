@@ -7,9 +7,10 @@ import org.json.JSONObject
  */
 object ApiConfig {
     /**
-     * Backend API base URL. Active VPS API on port 8080.
+     * Backend API base URL. Use the public TLS endpoint; credentials and bearer
+     * tokens must never be sent over the bot's internal cleartext port.
      */
-    const val BASE_URL = "http://2.27.120.247:8080/api/v1"
+    const val BASE_URL = "https://bymevpn.duckdns.org/api/v1"
 
     /**
      * Google Web Client ID for Android Credential Manager OAuth.
