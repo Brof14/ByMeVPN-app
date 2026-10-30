@@ -210,9 +210,7 @@ fun WelcomeScreen(
                                 } else {
                                     val rawErr = result.exceptionOrNull()?.message
                                     if (rawErr != "Sign-in cancelled") {
-                                        // If backend auth had error, still create local profile so user can proceed
-                                        AccountRepository.createLocalProfile(context, "Google User")
-                                        showPaywall = true
+                                        authError = if (isRu) "Не удалось подтвердить вход через Google. Попробуйте позже." else "Could not verify Google sign-in. Please try again later."
                                     }
                                 }
                             }

@@ -78,8 +78,9 @@ class MainActivity : ComponentActivity() {
             val planCode = data.getQueryParameter("plan") ?: "1m"
             val days = data.getQueryParameter("days")?.toIntOrNull() ?: 30
             CoroutineScope(Dispatchers.Main).launch {
-                com.example.bymevpn.data.payment.YooKassaPaymentHandler.confirmPayment(applicationContext, planCode, days)
-                Toast.makeText(applicationContext, "Оплата через ЮKassa прошла успешно! Подписка активирована.", Toast.LENGTH_LONG).show()
+                val result = com.example.bymevpn.data.payment.YooKassaPaymentHandler.confirmPayment(applicationContext, planCode, days)
+                val message = if (result.isSuccess) "Оплата подтверждена, подписка активирована" else "Оплата ещё не подтверждена сервером"
+                Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
             }
             return
         }

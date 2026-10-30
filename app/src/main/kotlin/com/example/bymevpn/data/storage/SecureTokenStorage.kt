@@ -9,6 +9,7 @@ import androidx.security.crypto.MasterKey
 import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.api.UserProfile
+import com.example.bymevpn.data.api.ServerNode
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -40,6 +41,7 @@ class SecureTokenStorage private constructor(context: Context) {
         private const val KEY_INSTALL_ID = "app_install_id"
         private const val KEY_SUBSCRIPTION_URL = "custom_subscription_url"
         private const val KEY_CUSTOM_CONFIGS = "custom_server_configs_json"
+        private const val KEY_SERVER_NODES = "custom_server_nodes_json"
     }
 
     private val prefs: SharedPreferences = try {
@@ -55,8 +57,7 @@ class SecureTokenStorage private constructor(context: Context) {
             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
         )
     } catch (e: Exception) {
-        // Fallback to standard private preferences if Keystore has device issues
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        throw IllegalStateException("Secure storage is unavailable", e)
     }
 
     fun saveTokens(accessToken: String, refreshToken: String) {
@@ -134,7 +135,8 @@ class SecureTokenStorage private constructor(context: Context) {
                 planName = obj.optString("plan_name").ifEmpty { null },
                 expiresAt = obj.optString("expires_at").ifEmpty { null },
                 secondsRemaining = obj.optLong("seconds_remaining", 0L),
-                autoRenew = obj.optBoolean("auto_renew", false),
+                // Older versions cached an invented value; only trust a fresh server response.
+                autoRenew = null,
                 trialAvailable = obj.optBoolean("trial_available", false),
                 maxDevices = obj.optInt("max_devices", 5),
                 activeDevices = obj.optInt("active_devices", 1),
@@ -194,11 +196,41 @@ class SecureTokenStorage private constructor(context: Context) {
                 put("shortId", cfg.shortId)
                 put("fingerprint", cfg.fingerprint)
                 put("network", cfg.network)
+                put("transportPath", cfg.transportPath)
+                put("transportHost", cfg.transportHost)
+                put("transportMode", cfg.transportMode)
             }
             root.put(nodeCode, obj)
         }
         prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
     }
+
+    fun saveServerNodes(nodes: List<ServerNode>) {
+        val array = JSONArray()
+        nodes.forEach { node ->
+            array.put(JSONObject().apply {
+                put("nodeCode", node.nodeCode)
+                put("country", node.country)
+                put("countryCode", node.countryCode)
+                put("city", node.city)
+                put("flag", node.flag)
+                put("protocol", node.protocol)
+                put("displayName", node.displayName)
+            })
+        }
+        prefs.edit().putString(KEY_SERVER_NODES, array.toString()).apply()
+    }
+
+    fun getServerNodes(): List<ServerNode> = try {
+        val array = JSONArray(prefs.getString(KEY_SERVER_NODES, "[]"))
+        (0 until array.length()).map { index ->
+            val obj = array.getJSONObject(index)
+            ServerNode(nodeCode = obj.getString("nodeCode"), country = obj.optString("country", ""),
+                countryCode = obj.optString("countryCode", ""), city = obj.optString("city", ""),
+                flag = obj.optString("flag", ""), pingMs = -1, loadPercent = 0,
+                protocol = obj.optString("protocol", "VLESS"), displayName = obj.optString("displayName", ""))
+        }
+    } catch (_: Exception) { emptyList() }
 
     fun getServerConfig(nodeCode: String): com.example.bymevpn.data.api.VpnSessionConfig? {
         val raw = prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: return null
@@ -217,7 +249,10 @@ class SecureTokenStorage private constructor(context: Context) {
                 publicKey = obj.optString("publicKey", ""),
                 shortId = obj.optString("shortId", ""),
                 fingerprint = obj.optString("fingerprint", "chrome"),
-                network = obj.optString("network", "tcp")
+                network = obj.optString("network", "tcp"),
+                transportPath = obj.optString("transportPath", ""),
+                transportHost = obj.optString("transportHost", ""),
+                transportMode = obj.optString("transportMode", "")
             )
         } catch (e: Exception) {
             null
@@ -251,7 +286,10 @@ class SecureTokenStorage private constructor(context: Context) {
                     publicKey = obj.optString("publicKey", ""),
                     shortId = obj.optString("shortId", ""),
                     fingerprint = obj.optString("fingerprint", "chrome"),
-                    network = obj.optString("network", "tcp")
+                    network = obj.optString("network", "tcp"),
+                    transportPath = obj.optString("transportPath", ""),
+                    transportHost = obj.optString("transportHost", ""),
+                    transportMode = obj.optString("transportMode", "")
                 )
             }
             result

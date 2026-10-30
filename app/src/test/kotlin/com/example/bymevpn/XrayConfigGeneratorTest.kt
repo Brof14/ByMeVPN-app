@@ -9,6 +9,35 @@ import org.junit.Test
 class XrayConfigGeneratorTest {
 
     @Test
+    fun hysteriaUsesXrayOutboundAndTransportFormat() {
+        val config = VpnSessionConfig(protocol = "hysteria2", server = "example.org", port = 443, uuid = "secret", encryption = "salamander", flow = "mask", serverName = "example.org", publicKey = "")
+        val proxy = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("hysteria", proxy.getString("protocol"))
+        assertEquals(2, proxy.getJSONObject("settings").getInt("version"))
+        val stream = proxy.getJSONObject("streamSettings")
+        assertEquals("hysteria", stream.getString("network"))
+        assertEquals("secret", stream.getJSONObject("hysteriaSettings").getString("auth"))
+        assertEquals("mask", stream.getJSONObject("finalmask").getJSONArray("udp").getJSONObject(0).getJSONObject("settings").getString("password"))
+    }
+
+    @Test
+    fun preservesRealitySniFromSubscription() {
+        val config = VpnSessionConfig(server = "example.org", port = 443, uuid = "test", security = "reality", serverName = "bymevpn.duckdns.org", publicKey = "test")
+        val reality = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds")
+            .getJSONObject(0).getJSONObject("streamSettings").getJSONObject("realitySettings")
+        assertEquals("bymevpn.duckdns.org", reality.getString("serverName"))
+    }
+
+    @Test
+    fun russianBypassRulesFollowSetting() {
+        val config = VpnSessionConfig(server = "example.org", port = 443, uuid = "test", serverName = "example.org", publicKey = "test")
+        val enabled = XrayConfigGenerator.generateJson(config, bypassRussianTraffic = true).getJSONObject("routing").getJSONArray("rules").toString()
+        val disabled = XrayConfigGenerator.generateJson(config, bypassRussianTraffic = false).getJSONObject("routing").getJSONArray("rules").toString()
+        org.junit.Assert.assertTrue(enabled.contains("geosite:category-ru") && enabled.contains("geoip:ru"))
+        org.junit.Assert.assertFalse(disabled.contains("geosite:category-ru") || disabled.contains("geoip:ru"))
+    }
+
+    @Test
     fun testGenerateJson_structure() {
         val config = VpnSessionConfig(
             protocol = "vless",

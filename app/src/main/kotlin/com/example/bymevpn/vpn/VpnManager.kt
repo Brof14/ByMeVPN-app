@@ -112,7 +112,7 @@ class VpnManager private constructor(private val context: Context) {
         val storage = SecureTokenStorage.getInstance(context)
         val targets = servers.mapNotNull { node ->
             val cfg = storage.getServerConfig(node.nodeCode)
-            if (cfg != null) node.nodeCode to Pair(cfg.server, cfg.port) else null
+            if (cfg != null && !cfg.protocol.equals("hysteria2", true) && !cfg.protocol.equals("hy2", true)) node.nodeCode to Pair(cfg.server, cfg.port) else null
         }
 
         val pings = if (targets.isNotEmpty()) {
@@ -121,12 +121,13 @@ class VpnManager private constructor(private val context: Context) {
             emptyMap()
         }
 
-        val bestNode = if (pings.isNotEmpty()) {
-            val realityPinged = servers.filter { it.protocol.contains("reality", ignoreCase = true) && (pings[it.nodeCode] ?: 9999) > 0 }
+        val successfulPings = pings.filterValues { it > 0 }
+        val bestNode = if (successfulPings.isNotEmpty()) {
+            val realityPinged = servers.filter { it.protocol.contains("reality", ignoreCase = true) && successfulPings.containsKey(it.nodeCode) }
             if (realityPinged.isNotEmpty()) {
                 realityPinged.minByOrNull { pings[it.nodeCode] ?: 9999 }
             } else {
-                val minEntry = pings.minByOrNull { it.value }
+                val minEntry = successfulPings.minByOrNull { it.value }
                 servers.find { it.nodeCode == minEntry?.key }
             }
         } else null
@@ -146,9 +147,8 @@ class VpnManager private constructor(private val context: Context) {
         val storage = SecureTokenStorage.getInstance(context)
         val targets = servers.mapNotNull { node ->
             val cfg = storage.getServerConfig(node.nodeCode)
-            if (cfg != null && cfg.server.isNotBlank()) {
-                val host = if (cfg.server.equals("bymevpn.duckdns.org", true)) "2.27.120.247" else cfg.server
-                node.nodeCode to Pair(host, cfg.port)
+            if (cfg != null && cfg.server.isNotBlank() && !cfg.protocol.equals("hysteria2", true) && !cfg.protocol.equals("hy2", true)) {
+                node.nodeCode to Pair(cfg.server, cfg.port)
             } else null
         }
 
@@ -158,14 +158,14 @@ class VpnManager private constructor(private val context: Context) {
             withContext(Dispatchers.Main) {
                 val updated = servers.map { node ->
                     val p = pings[node.nodeCode]
-                    if (p != null && p > 0) node.copy(pingMs = p) else node
+                    if (p != null) node.copy(pingMs = if (p > 0) p else -2) else node
                 }
                 _availableServers.value = updated
                 val cur = _currentServer.value
                 if (cur != null) {
                     val curPing = pings[cur.nodeCode]
-                    if (curPing != null && curPing > 0) {
-                        _currentServer.value = cur.copy(pingMs = curPing)
+                    if (curPing != null) {
+                        _currentServer.value = cur.copy(pingMs = if (curPing > 0) curPing else -2)
                     }
                 }
             }
@@ -214,19 +214,24 @@ class VpnManager private constructor(private val context: Context) {
             // 3. Fallback to existing valid cached configs in local storage
             val cachedConfigs = storage.getServerConfigs()
             if (cachedConfigs.isNotEmpty()) {
+                val savedNodes = storage.getServerNodes().associateBy { it.nodeCode }
                 val localNodes = cachedConfigs.map { (code, cfg) ->
+                    savedNodes[code] ?: run {
+                    val protocol = if (cfg.protocol.equals("hysteria2", true)) "Hysteria 2"
+                        else if (cfg.security.equals("reality", true)) "VLESS Reality" else "VLESS ${cfg.security.uppercase()}"
                     ServerNode(
                         nodeCode = code,
-                        country = "Нидерланды",
-                        countryCode = "nl",
-                        city = "ByMeVPN",
-                        flag = "🇳🇱",
-                        pingMs = 25,
-                        loadPercent = 20,
+                        country = "Сервер",
+                        countryCode = "",
+                        city = "",
+                        flag = "🌐",
+                        pingMs = -1,
+                        loadPercent = 0,
                         isPremium = false,
-                        countryEn = "Netherlands",
-                        cityEn = "ByMeVPN"
+                        protocol = protocol,
+                        displayName = "Сервер • $protocol"
                     )
+                    }
                 }
                 setServers(localNodes)
                 return@withContext Result.success(localNodes)
@@ -282,8 +287,7 @@ class VpnManager private constructor(private val context: Context) {
                 // 2. Ensure server is selected
                 var targetServer = _currentServer.value
                 if (targetServer == null) {
-                    val servers = apiClient.getServers()
-                    _availableServers.value = servers
+                    val servers = loadServers().getOrThrow()
                     targetServer = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
                         ?: throw IllegalStateException(
                             if (com.example.bymevpn.data.LocaleManager.isRussian(context))
@@ -341,7 +345,9 @@ class VpnManager private constructor(private val context: Context) {
     fun onTunnelConnected(server: ServerNode?) {
         scope.launch(Dispatchers.Main) {
             if (server != null) {
-                _currentServer.value = server
+                val checked = server.copy(connectionCheck = 1)
+                _currentServer.value = checked
+                _availableServers.value = _availableServers.value.map { if (it.nodeCode == server.nodeCode) it.copy(connectionCheck = 1) else it }
             }
             _state.value = VpnConnectionState.CONNECTED
             _errorMessage.value = null
@@ -354,6 +360,10 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelFailed(error: String) {
         scope.launch(Dispatchers.Main) {
+            _currentServer.value?.let { failed ->
+                _currentServer.value = failed.copy(connectionCheck = -1)
+                _availableServers.value = _availableServers.value.map { if (it.nodeCode == failed.nodeCode) it.copy(connectionCheck = -1) else it }
+            }
             _state.value = VpnConnectionState.ERROR
             _errorMessage.value = error
             stopTimer()
@@ -398,7 +408,6 @@ class VpnManager private constructor(private val context: Context) {
             _state.value = VpnConnectionState.DISCONNECTING
             try {
                 ByMeVpnService.stop(context)
-                engine.disconnect()
                 apiClient.deleteVpnSession()
             } catch (e: Exception) {
                 Log.w(TAG, "Disconnect cleanup warning: ${e.message}")

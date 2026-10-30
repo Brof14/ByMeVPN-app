@@ -22,6 +22,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.net.InetSocketAddress
+import java.net.Socket
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -104,7 +108,8 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
     suspend fun startTunnel(
         config: VpnSessionConfig,
         tunFd: Int,
-        bypassRussianTraffic: Boolean = true
+        bypassRussianTraffic: Boolean = true,
+        dnsMode: String = "cloudflare"
     ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             _state.value = VpnConnectionState.CONNECTING
@@ -119,7 +124,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
 
             initCoreEnv()
 
-            val xrayConfigJson = XrayConfigGenerator.generateString(config, bypassRussianTraffic = bypassRussianTraffic)
+            val xrayConfigJson = XrayConfigGenerator.generateString(config, bypassRussianTraffic = bypassRussianTraffic, dnsMode = dnsMode)
             Log.d(TAG, "Starting Xray-core for ${config.server}:${config.port} (tunFd=$tunFd)")
 
             // Stop any currently running instance first
@@ -137,7 +142,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                 }
 
                 override fun onEmitStatus(status: Long, msg: String?): Long {
-                    Log.d(TAG, "CoreCallback status: $status, $msg")
+                    Log.d(TAG, "CoreCallback status: $status")
                     return 0
                 }
             }
@@ -163,6 +168,15 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                 throw IllegalStateException("Xray core loop failed to start (isRunning=false)")
             }
 
+            // A running core only means that the local listeners started. Verify a real
+            // HTTPS request through its SOCKS inbound before reporting a VPN connection.
+            if (!probeProxy()) {
+                val message = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                    "Не удалось проверить соединение через VPN. Попробуйте другой сервер."
+                else "Could not verify the VPN connection. Try another server."
+                throw IllegalStateException(message)
+            }
+
             Log.i(TAG, "Xray-core started successfully. isRunning: ${controller.isRunning}")
             _state.value = VpnConnectionState.CONNECTED
             startStatsCollector()
@@ -173,6 +187,51 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             stopCoreInternal()
             Result.failure(e)
         }
+    }
+
+    private fun probeProxy(): Boolean {
+        val host = "www.cloudflare.com"
+        return try {
+            Socket().use { socket ->
+                socket.connect(InetSocketAddress("127.0.0.1", XrayConfigGenerator.SOCKS_LOCAL_PORT), 4000)
+                socket.soTimeout = 6000
+                val input = socket.getInputStream()
+                val output = socket.getOutputStream()
+                output.write(byteArrayOf(5, 1, 0))
+                output.flush()
+                check(input.read() == 5 && input.read() == 0)
+                val hostBytes = host.toByteArray(Charsets.US_ASCII)
+                output.write(byteArrayOf(5, 1, 0, 3, hostBytes.size.toByte()))
+                output.write(hostBytes)
+                output.write(byteArrayOf(1, 0xbb.toByte()))
+                output.flush()
+                val reply = ByteArray(4)
+                java.io.DataInputStream(input).readFully(reply)
+                check(reply[0] == 5.toByte() && reply[1] == 0.toByte())
+                val addressLength = when (reply[3].toInt()) {
+                    1 -> 4
+                    3 -> input.read().also { check(it >= 0) }
+                    4 -> 16
+                    else -> error("Invalid SOCKS response")
+                }
+                java.io.DataInputStream(input).readFully(ByteArray(addressLength + 2))
+                val factory = SSLSocketFactory.getDefault() as SSLSocketFactory
+                (factory.createSocket(socket, host, 443, true) as SSLSocket).use { tls ->
+                    tls.soTimeout = 6000
+                    tls.sslParameters = tls.sslParameters.apply { endpointIdentificationAlgorithm = "HTTPS" }
+                    tls.startHandshake()
+                    tls.outputStream.write("HEAD / HTTP/1.1\r\nHost: $host\r\nConnection: close\r\n\r\n".toByteArray(Charsets.US_ASCII))
+                    tls.outputStream.flush()
+                    tls.inputStream.bufferedReader(Charsets.US_ASCII).readLine()?.startsWith("HTTP/") == true
+                }
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    suspend fun checkConnectivity(): Boolean = withContext(Dispatchers.IO) {
+        isRunning && probeProxy()
     }
 
     override suspend fun disconnect(): Unit = withContext(Dispatchers.IO) {

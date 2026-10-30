@@ -71,7 +71,7 @@ fun SettingsScreen(
             ByMeTopBar(
                 title = "Настройки",
                 onBackClick = onBackClick,
-                onMoreClick = { /* More actions */ }
+                onMoreClick = null
             )
 
             Column(
@@ -112,7 +112,7 @@ fun SettingsScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = "Подключаться автоматически",
-                        subtitle = "При запуске приложения",
+                        subtitle = "После включения телефона",
                         icon = { PowerIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
@@ -134,6 +134,7 @@ fun SettingsScreen(
                                 onCheckedChange = { checked ->
                                     localBypassRu = checked
                                     settingsRepo.setBypassRussianSites(checked)
+                                    Toast.makeText(context, "Изменение применится при следующем подключении", Toast.LENGTH_SHORT).show()
                                 }
                             )
                         },
@@ -153,31 +154,16 @@ fun SettingsScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = "Защита в фоне",
-                        subtitle = "Не отключать VPN при сворачивании",
+                        subtitle = "Настраивается в параметрах батареи Android",
                         icon = { ShieldSecurityIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {
-                            ByMeToggle(
-                                checked = localBgProtection,
-                                onCheckedChange = { checked ->
-                                    localBgProtection = checked
-                                    settingsRepo.setBatteryOptimizationDismissed(checked)
-                                }
-                            )
-                        }
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
                     )
                     ByMeSettingRow(
                         title = "Блокировка рекламы",
-                        subtitle = "Убирать часть баннеров и трекеров",
+                        subtitle = "Пока недоступно",
                         icon = { SparkleStarIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {
-                            ByMeToggle(
-                                checked = localAdBlock,
-                                onCheckedChange = { checked ->
-                                    localAdBlock = checked
-                                    settingsRepo.setAdBlockEnabled(checked)
-                                }
-                            )
-                        },
+                        trailing = {},
                         showBottomDivider = false
                     )
                 }
@@ -201,12 +187,9 @@ fun SettingsScreen(
                     )
                     ByMeSettingRow(
                         title = "Язык",
-                        subtitle = "Русский",
+                        subtitle = "Приветствие — как в системе",
                         icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = {
-                            Toast.makeText(context, "Выбран Русский язык", Toast.LENGTH_SHORT).show()
-                        },
+                        trailing = {},
                         showBottomDivider = false
                     )
                 }

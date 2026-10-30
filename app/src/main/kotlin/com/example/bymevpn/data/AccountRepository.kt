@@ -92,6 +92,9 @@ object AccountRepository {
     }
 
     suspend fun loginWithGoogle(context: Context): Result<UserProfile> {
+        if (!com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
+            return Result.failure(ApiError("GOOGLE_AUTH_UNAVAILABLE", "Google sign-in is temporarily unavailable"))
+        }
         _isLoading.value = true
         return try {
             val helper = GoogleAuthHelper(context)
@@ -162,48 +165,21 @@ object AccountRepository {
         try {
             val api = ByMeApiClient(context)
             val devices = api.getDevices()
-            if (devices.isNotEmpty()) {
-                _userDevices.value = devices
-                storage.saveRegisteredDevices(devices)
-                return
-            }
+            _userDevices.value = devices
+            storage.saveRegisteredDevices(devices)
+            return
         } catch (e: Exception) {
             Log.w(TAG, "Failed to refresh devices from API: ${e.message}")
         }
 
-        val saved = storage.getRegisteredDevices()
-        if (saved.isNotEmpty()) {
-            _userDevices.value = saved
-        } else {
-            val currentModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim().ifBlank { "Android Phone" }
-            val thisDevice = DeviceItem(
-                id = storage.getInstallId(context),
-                deviceModel = currentModel,
-                platform = "Android",
-                lastActive = "Активно сейчас",
-                isCurrent = true
-            )
-            val initial = listOf(
-                thisDevice,
-                DeviceItem(
-                    id = "device_pc_win",
-                    deviceModel = "Windows PC (Домашний)",
-                    platform = "Windows",
-                    lastActive = "2 часа назад",
-                    isCurrent = false
-                )
-            )
-            storage.saveRegisteredDevices(initial)
-            _userDevices.value = initial
-        }
+        // Do not display old locally fabricated devices as a current server response.
+        _userDevices.value = emptyList()
     }
 
     suspend fun removeDevice(context: Context, deviceId: String): Result<Unit> {
         return try {
-            try {
-                val api = ByMeApiClient(context)
-                api.deleteDevice(deviceId)
-            } catch (_: Exception) {}
+            val api = ByMeApiClient(context)
+            api.deleteDevice(deviceId)
             val storage = SecureTokenStorage.getInstance(context)
             storage.removeRegisteredDevice(deviceId)
             _userDevices.value = storage.getRegisteredDevices()
@@ -246,7 +222,7 @@ object AccountRepository {
         val storage = SecureTokenStorage.getInstance(context)
         val profile = UserProfile(
             id = storage.getInstallId(context),
-            email = "user@bymevpn.app",
+            email = "",
             name = name,
             isGoogle = false,
             createdAt = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())

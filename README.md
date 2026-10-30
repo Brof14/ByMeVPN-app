@@ -1,146 +1,42 @@
-# ByMeVPN - Premium Mobile App UI/UX Design
+# ByMeVPN для Android
 
-## Overview
+Приложение ByMeVPN помогает подключаться к серверам из подписки и управлять VPN на Android. Основное приложение в этом репозитории написано на Kotlin и Jetpack Compose; сетевое ядро — Xray через `libv2ray.aar`.
 
-This README is old, don't read it!
+> **Состояние версии 1.0.0:** подготовка и тестирование. Сборки здесь не следует считать готовыми к массовому распространению или Google Play до выполнения [плана запуска](docs/VPS_IMPLEMENTATION_PROMPT.md). В частности, серверная авторизация, платёжные сценарии и выпускная подпись требуют дополнительной настройки и проверки.
 
-ByMeVPN is a premium mobile application featuring a high-tech VPN service with a sophisticated dark mode interface. The app showcases modern UI/UX design principles with glassmorphism effects, 3D graphics, and smooth animations.
+## Что уже работает и проверялось
 
-## Design Features
+- Импорт совместимой подписки и подключение через Android VpnService.
+- VLESS Reality, VLESS TLS, Hysteria 2 и VLESS XHTTP: краткая проверка HTTPS и внешнего IPv4 на тестовом Android-устройстве.
+- Отображение результата последнего подключения и отдельное обозначение TCP-проверки: измерение TCP не подтверждает работоспособность VPN; Hysteria использует UDP и таким способом не проверяется.
+- Выбор языка приветственного экрана по языку системы; остальные экраны ещё требуют полной локализации.
 
-### 🎨 Premium Visual Design
-- **Dark Mode Theme**: Deep navy blue background with subtle gradient
-- **Neon Accents**: Cyan and emerald green geometric abstract glows
-- **Glassmorphism**: Realistic glassmorphic textures on UI elements
-- **Metallic Gradients**: Rich metallic gradients on the shield logo
+Поддержка конкретного сервера зависит от его настроек, доступности и сети пользователя. Перед публичным выпуском необходимо провести более длительные тесты DNS, IPv6, смены сети, восстановления после обрыва и фоновой работы.
 
-### 🛡️ Shield Logo
-- **3D Futuristic Design**: Sharp edges with metallic gradients
-- **Infinity Symbol**: Integrated infinity loop with glowing effects
-- **Premium Animation**: Smooth entrance animations with elastic curves
+## Сборка
 
-### 🎭 Typography
-- **Custom Tech Font**: Bold, modern geometric sans-serif typeface
-- **Dual Color Branding**: "ByMe" in solid white, "VPN" in neon emerald
-- **Premium Effects**: Subtle glow effects on brand text
+Требуются JDK 17, Android SDK 35 и Gradle 8.9. Из корня репозитория:
 
-### 🎯 User Interface
-- **Clean Layout**: Minimalist design with premium spacing
-- **Interactive Buttons**: Rounded rectangular buttons with hover effects
-- **Smooth Animations**: Entrance animations for all UI elements
-
-## Technical Implementation
-
-### Built With
-- **Flutter**: Cross-platform mobile app development
-- **CustomPaint**: Advanced graphics rendering
-- **Animation Controllers**: Smooth UI animations
-- **Gradient Effects**: Advanced color gradients and shaders
-
-### Key Components
-
-#### 1. Shield Logo Widget (`widgets/shield_logo.dart`)
-- Custom-painted shield with metallic gradients
-- Infinity symbol with glow effects
-- 3D depth with multiple layers
-
-#### 2. Gradient Background (`widgets/gradient_background.dart`)
-- Multi-layer gradient background
-- Abstract geometric glow overlay
-- Subtle visual depth
-
-#### 3. Gradient Button (`widgets/gradient_button.dart`)
-- Stateful button with hover effects
-- Premium shadow effects
-- Smooth transitions
-
-#### 4. Theme System (`theme/app_theme.dart`)
-- Comprehensive color palette
-- Gradient definitions
-- Typography styles with effects
-
-### Design System
-
-#### Colors
-- **Background**: Deep navy blue gradient (0xFF0A0E1F → 0xFF141B3F)
-- **Brand Green**: Premium emerald green (0xFF4BF091)
-- **Brand Blue**: Electric blue (0xFF1A7FFF)
-- **Accent Colors**: Cyan glow (0xFF00FFFF), metallic silver (0xFFC0C0C0)
-
-#### Typography
-- **Brand**: 42pt, w900, with glow effects
-- **Slogan**: 16pt, w600, with shadow effects
-- **Buttons**: 17pt, w800, with depth shadows
-
-#### Animations
-- **Elastic**: Logo entrance animation
-- **Bounce**: Brand text animation
-- **EaseOut**: Slogan and button animations
-- **Staggered**: Sequential element appearances
-
-## Premium Features
-
-### Glassmorphism Effects
-- Transparent overlays with blur effects
-- Soft light blend modes
-- Depth perception through layering
-
-### 3D Shield Design
-- Multiple rendering layers
-- Metallic gradient shaders
-- Glow effects with blur filters
-- Glassmorphism overlay
-
-### Interactive Elements
-- Hover effects on buttons
-- Press animations
-- Smooth state transitions
-- Visual feedback
-
-## Getting Started
-
-### Prerequisites
-- Flutter SDK 3.0.0+
-- Android Studio or VS Code
-- Basic knowledge of Flutter
-
-### Installation
-```bash
-git clone <repository-url>
-cd bymevpn
-flutter pub get
-flutter run
+```shell
+gradle :app:testDebugUnitTest :app:assembleDebug
 ```
 
-### Running the App
-```bash
-flutter run
-```
+Тестовая сборка рядом с установленным приложением: `gradle :app:assembleDebug -PsideBySideDebug=true`. Она использует отдельный application ID и отдельные данные. Обычный debug APK подписывается локальным отладочным ключом; он не подходит для публикации. Release-сборке нужны собственный защищённый ключ и переменные `KEYSTORE_PATH`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD`. Не храните ключи и пароли в репозитории или артефактах CI. Без настроенного ключа выпускной APK/AAB не подписывается.
 
-### Building for Production
-```bash
-flutter build apk --release
-flutter build appbundle --release
-```
+[GitHub Actions](https://github.com/Brof14/ByMeVPN-app/actions) запускает unit-тесты и собирает debug-артефакт. Публикация релиза намеренно не запускается автоматически: её можно настроить после проверки подписи и готовности сервера.
 
-## Design Philosophy
+## Аккаунт, оплата и партнёрская программа
 
-The ByMeVPN app embodies premium mobile design principles:
+Приложение не должно выдавать локальную имитацию входа, платежа или привязки карты за подтверждённые данные. Подключённый сейчас API использует HTTP, поэтому клиент блокирует отправку ему учётных данных; необходим защищённый HTTPS и проверка серверной авторизации. Google Sign-In требует проверки подписи и параметров ID-токена на сервере. Оплата и автопродление требуют подтверждения ЮKassa и защищённых серверных обработчиков. Для Google Play способ оплаты цифровой подписки следует отдельно согласовать с действующими правилами Play и применимыми программами.
 
-1. **Minimalism with Purpose**: Every element serves a function while maintaining aesthetic appeal
-2. **Visual Hierarchy**: Clear organization with appropriate spacing and typography
-3. **Smooth Interactions**: Thoughtful animations and transitions enhance user experience
-4. **Brand Consistency**: Cohesive color scheme and typography throughout the interface
-5. **Accessibility**: High contrast ratios and readable fonts ensure accessibility
+В боте действуют бонусы за приглашения: 15 дней за регистрацию и 30 дней за первую подходящую платную подписку приглашённого. Клиентские ссылки, статистика и начисления должны поступать с сервера; экран приложения с этими данными ещё не подключён.
 
-## Future Enhancements
+Нашли ошибку или придумали улучшение? Сообщите команде поддержки: за подтверждённые ошибки и принятые предложения добавим дни к подписке. Не публикуйте ключи VPN, ссылки подписки, платёжные данные или личную информацию в открытых issue.
 
-- Onboarding animations
-- Theme switching functionality
-- Enhanced micro-interactions
-- Accessibility improvements
-- Performance optimizations
+## Безопасность
 
-## License
+В старой истории репозитория присутствовали тестовые данные, содержащие VPN-конфигурацию. Текущий тест использует синтетические значения; прежние значения следует считать раскрытыми и заменить на сервере. Не переписывайте историю без отдельной проверки последствий для пользователей и интеграций.
 
-This project is licensed under the MIT License.
+## Для разработчика сервера
+
+[Промпт и техническое задание для ИИ с доступом к VPS](docs/VPS_IMPLEMENTATION_PROMPT.md). Основные задачи: HTTPS, безопасная Google- и Telegram-авторизация, реальная обработка платежей и сохранённых методов, реферальный API и проверка развёртывания без вывода секретов.

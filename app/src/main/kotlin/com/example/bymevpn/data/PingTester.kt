@@ -43,6 +43,6 @@ object PingTester {
                 val ping = measureRealPing(endpoint.first, endpoint.second, timeoutMs)
                 nodeCode to ping
             }
-        }.awaitAll().filter { it.second > 0 }.toMap()
+        }.awaitAll().toMap()
     }
 }

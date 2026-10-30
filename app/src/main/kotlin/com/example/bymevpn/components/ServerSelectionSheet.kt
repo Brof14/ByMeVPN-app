@@ -148,7 +148,7 @@ fun ServerSelectionSheet(
                     )
                     Spacer(modifier = Modifier.height(5.dp))
                     Text(
-                        text = "Выберем лучшее доступное соединение",
+                        text = "Выберем по проверке TCP; VPN проверяется при подключении",
                         color = Color(0xFF89A6A0),
                         fontSize = 11.sp
                     )
@@ -185,15 +185,9 @@ fun ServerSelectionSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             // Server rows
-            val displayServers = if (servers.isNotEmpty()) {
-                servers
-            } else {
-                listOf(
-                    ServerNode(nodeCode = "de-1", country = "Германия", countryCode = "DE", city = "Узел 1", flag = "🇩🇪", pingMs = 28, protocol = "VLESS Reality", displayName = "Германия #1 • VLESS Reality"),
-                    ServerNode(nodeCode = "de-2", country = "Германия", countryCode = "DE", city = "Узел 2", flag = "🇩🇪", pingMs = 35, protocol = "VLESS Reality", displayName = "Германия #2 • VLESS Reality"),
-                    ServerNode(nodeCode = "de-3", country = "Германия", countryCode = "DE", city = "Узел 3", flag = "🇩🇪", pingMs = 42, protocol = "Hysteria 2", displayName = "Германия #3 • Hysteria 2"),
-                    ServerNode(nodeCode = "nl-1", country = "Нидерланды", countryCode = "NL", city = "Узел 4", flag = "🇳🇱", pingMs = 32, protocol = "VLESS Reality", displayName = "Нидерланды #1 • VLESS Reality")
-                )
+            val displayServers = servers
+            if (displayServers.isEmpty()) {
+                Text("Серверы пока недоступны. Обновите подписку и повторите попытку.", color = Color(0xFF889EA0), fontSize = 12.sp)
             }
 
             LazyColumn(
@@ -279,7 +273,13 @@ fun ServerSelectionSheet(
                                         .background(pingColor)
                                 )
                                 Text(
-                                    text = if (server.pingMs > 0) "${server.pingMs} ms" else "Быстрый",
+                                    text = when {
+                                        server.connectionCheck < 0 -> "Последнее подключение не удалось"
+                                        server.connectionCheck > 0 -> "Последнее подключение удалось"
+                                        server.pingMs == -2 -> "Нет ответа TCP"
+                                        server.pingMs > 0 -> "TCP ${server.pingMs} мс · VPN не проверен"
+                                        else -> "Подключение не проверено"
+                                    },
                                     color = pingColor,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Medium

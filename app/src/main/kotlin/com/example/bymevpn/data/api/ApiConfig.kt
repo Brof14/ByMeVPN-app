@@ -16,6 +16,8 @@ object ApiConfig {
      * Web Client ID from Google Cloud Console project gen-lang-client-0358610581.
      */
     const val GOOGLE_SERVER_CLIENT_ID = "78634768186-c5faqurbenf7a003st3oiap79h8qajjv.apps.googleusercontent.com"
+    // Enable only after the deployed backend verifies Google ID-token signatures and claims.
+    const val GOOGLE_AUTH_SERVER_VERIFIED = false
 
     /**
      * Server public key in PEM format for ES256 JWT offline entitlement verification.

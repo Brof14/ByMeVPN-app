@@ -12,6 +12,8 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.vpn.VpnManager
 import com.example.bymevpn.data.api.ByMeApiClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 data class PlanTariff(
@@ -92,13 +94,12 @@ object YooKassaPaymentHandler {
         onCheckoutLaunched: () -> Unit = {}
     ) {
         val storage = SecureTokenStorage.getInstance(context)
-        storage.savePendingPayment(tariff.code, tariff.days)
 
+        CoroutineScope(Dispatchers.Main).launch {
         // YooKassa hosted payment URL or Bot fallback
-        val returnDeepLink = Uri.encode("bymevpn://payment/success?plan=${tariff.code}&days=${tariff.days}")
         val paymentUrl = try {
             val api = ByMeApiClient(context)
-            val res = kotlinx.coroutines.runBlocking(Dispatchers.IO) {
+            val res = withContext(Dispatchers.IO) {
                 api.createPayment(
                     planCode = tariff.code,
                     amountRub = tariff.priceRub,
@@ -107,11 +108,18 @@ object YooKassaPaymentHandler {
                     provider = "yookassa"
                 )
             }
-            res.paymentUrl.ifBlank { "https://t.me/ByMeVPNBot?start=pay_${tariff.code}" }
+            res.paymentUrl.ifBlank { throw IllegalStateException("Payment URL is unavailable") }
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to create in-app payment: ${e.message}")
-            "https://t.me/ByMeVPNBot?start=pay_${tariff.code}"
+            Log.e(TAG, "Failed to create in-app payment")
+            Toast.makeText(context, "Оплата временно недоступна. Попробуйте позже.", Toast.LENGTH_LONG).show()
+            return@launch
         }
+
+        if (!Uri.parse(paymentUrl).scheme.equals("https", ignoreCase = true)) {
+            Toast.makeText(context, "Не удалось открыть безопасную страницу оплаты.", Toast.LENGTH_LONG).show()
+            return@launch
+        }
+        storage.savePendingPayment(tariff.code, tariff.days)
 
         try {
             val customTabsIntent = CustomTabsIntent.Builder()
@@ -130,6 +138,7 @@ object YooKassaPaymentHandler {
             } catch (ex: Exception) {
                 Toast.makeText(context, "Не удалось открыть страницу оплаты", Toast.LENGTH_SHORT).show()
             }
+        }
         }
     }
 
@@ -167,8 +176,15 @@ object YooKassaPaymentHandler {
         planCode: String,
         days: Int
     ): Result<SubscriptionStatus> {
-        val subManager = SubscriptionManager.getInstance(context)
-        val result = subManager.activatePaidSubscription(planCode, days)
+        val payment = try {
+            ByMeApiClient(context).checkPayment()
+        } catch (e: Exception) {
+            return Result.failure(e)
+        }
+        if (!payment.isActive || payment.status.lowercase() !in setOf("succeeded", "paid", "completed")) {
+            return Result.failure(IllegalStateException("Payment has not been confirmed by the server"))
+        }
+        val result = SubscriptionManager.getInstance(context).refreshStatus()
         if (result.isSuccess) {
             val storage = SecureTokenStorage.getInstance(context)
             storage.clearPendingPayment()

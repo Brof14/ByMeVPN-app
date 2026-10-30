@@ -22,6 +22,9 @@ migrate_working_dir/
 .env
 .antigravity/
 .vscode/
+/.gradle/
+/.kotlin/
+/app/build/
 
 
 # Flutter/Dart/Pub related

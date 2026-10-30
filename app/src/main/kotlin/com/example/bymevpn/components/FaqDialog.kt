@@ -59,22 +59,22 @@ val FAQ_ITEMS = listOf(
     FaqItem(
         questionRu = "Будут ли работать Госуслуги, банки и доставка?",
         questionEn = "Will local banks and gov services work?",
-        answerRu = "Да, абсолютно! В ByMeVPN по умолчанию включена умная функция «Обход российских сайтов». Банковские приложения (Сбер, Т-Банк, ВТБ), Госуслуги, маркетплейсы и российские сервисы работают напрямую на максимальной скорости вашего провайдера без сбоев.",
-        answerEn = "Yes! ByMeVPN automatically bypasses Russian services and local banks so they work directly at full provider speed without any interruptions.",
+        answerRu = "В настройках можно включить обход российских сайтов. Маршрут определяется базой доменов и IP; отдельные сервисы могут работать иначе.",
+        answerEn = "You can enable bypass for Russian sites in settings. Routing uses a domain and IP database; individual services may behave differently.",
         icon = "🏦"
     ),
     FaqItem(
         questionRu = "Как оформить или продлить подписку?",
         questionEn = "How do I subscribe or renew?",
-        answerRu = "Перейдите во вкладку «Аккаунт». Для новых пользователей доступен бесплатный пробный период на 3 дня без ввода карты. Также вы можете выбрать удобный тариф (1, 3 месяца или 1 год) с моментальной активацией.",
-        answerEn = "Go to the 'Account' tab. New users can activate a 3-day free trial without entering card details. You can also pick a 1-month, 3-month, or 1-year plan with instant activation.",
+        answerRu = "Откройте раздел «Аккаунт» и выберите тариф. Подписка активируется после подтверждения оплаты сервером.",
+        answerEn = "Open Account and choose a plan. The subscription activates after the server confirms payment.",
         icon = "💎"
     ),
     FaqItem(
         questionRu = "Безопасен ли ByMeVPN и сохраняются ли логи?",
         questionEn = "Is ByMeVPN secure and are logs kept?",
-        answerRu = "ByMeVPN обеспечивает сквозное шифрование и строгую политику нулевых логов (No-Logs). Мы никогда не сохраняем историю посещений, DNS-запросы и IP-адреса пользователей. Ваш интернет-трафик полностью защищён.",
-        answerEn = "ByMeVPN enforces a strict zero-logging policy. We never record your browsing history, DNS queries, or IP addresses. Your traffic remains strictly private.",
+        answerRu = "Приложение использует шифрованное соединение с VPN-сервером. Данные о правилах хранения на сервере должны быть описаны в политике конфиденциальности сервиса.",
+        answerEn = "The app uses an encrypted connection to the VPN server. Server-side data handling should be described in the service privacy policy.",
         icon = "🛡️"
     )
 )

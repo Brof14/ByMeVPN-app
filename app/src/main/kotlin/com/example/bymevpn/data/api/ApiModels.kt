@@ -48,7 +48,7 @@ data class SubscriptionStatus(
     val planName: String? = null,
     val expiresAt: String? = null,
     val secondsRemaining: Long = 0L,
-    val autoRenew: Boolean = false,
+    val autoRenew: Boolean? = null,
     val trialAvailable: Boolean = false,
     val maxDevices: Int = 5,
     val activeDevices: Int = 1,
@@ -87,7 +87,8 @@ data class ServerNode(
     val cityEn: String = city,
     val protocol: String = "VLESS Reality",
     val remark: String = "",
-    val displayName: String = ""
+    val displayName: String = "",
+    val connectionCheck: Int = 0
 ) {
     val id: String get() = nodeCode
     val name: String get() {
@@ -113,7 +114,10 @@ data class VpnSessionConfig(
     val shortId: String = "",
     val fingerprint: String = "chrome",
     val network: String = "tcp",
-    val expiresAt: String? = null
+    val expiresAt: String? = null,
+    val transportPath: String = "",
+    val transportHost: String = "",
+    val transportMode: String = ""
 )
 
 data class DeviceItem(
@@ -162,7 +166,7 @@ object ApiJsonParsers {
             planName = optNullableString("plan_name"),
             expiresAt = optNullableString("expires_at"),
             secondsRemaining = target.optLong("seconds_remaining", 0L),
-            autoRenew = target.optBoolean("auto_renew", false),
+            autoRenew = if (target.has("auto_renew") && !target.isNull("auto_renew")) target.optBoolean("auto_renew") else null,
             trialAvailable = target.optBoolean("trial_available", false),
             maxDevices = target.optInt("max_devices", 5),
             activeDevices = target.optInt("active_devices", 1),
@@ -276,6 +280,9 @@ object ApiJsonParsers {
             shortId = json.optString("short_id", ""),
             fingerprint = json.optString("fingerprint", "chrome"),
             network = json.optString("network", "tcp"),
+            transportPath = json.optString("path", ""),
+            transportHost = json.optString("host", ""),
+            transportMode = json.optString("mode", ""),
             expiresAt = json.optString("expires_at").ifEmpty { null }
         )
     }

@@ -26,28 +26,29 @@ android {
                 keyPassword = "android"
             }
         }
-        create("release") {
-            val keystoreFile = file("bymevpn-upload.jks")
-            if (keystoreFile.exists()) {
-                storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "bymevpn2026"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "bymevpn"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "bymevpn2026"
-            } else {
-                initWith(getByName("debug"))
+        if (System.getenv("KEYSTORE_PATH") != null && System.getenv("KEYSTORE_PASSWORD") != null &&
+            System.getenv("KEY_ALIAS") != null && System.getenv("KEY_PASSWORD") != null) {
+            create("release") {
+                storeFile = file(System.getenv("KEYSTORE_PATH"))
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
             }
         }
     }
 
     buildTypes {
         debug {
+            if (providers.gradleProperty("sideBySideDebug").orNull == "true") {
+                applicationIdSuffix = ".debug"
+            }
             signingConfigs.findByName("debugConfig")?.let {
                 signingConfig = it
             }
         }
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.findByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

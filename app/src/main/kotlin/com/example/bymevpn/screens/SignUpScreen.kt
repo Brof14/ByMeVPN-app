@@ -214,8 +214,7 @@ fun SignUpScreen(
                                 } else {
                                     val rawErr = result.exceptionOrNull()?.message
                                     if (rawErr != "Sign-in cancelled") {
-                                        AccountRepository.createLocalProfile(context, "Google User")
-                                        onSignUpSuccess()
+                                        authError = if (isRu) "Не удалось подтвердить вход через Google. Попробуйте позже." else "Could not verify Google sign-in. Please try again later."
                                     }
                                 }
                             }

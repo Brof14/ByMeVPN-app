@@ -146,7 +146,7 @@ fun HomeScreen(
             ByMeTopBar(
                 title = null,
                 onHelpClick = { showFaqDialog = true },
-                onMoreClick = { /* More actions menu */ }
+                onMoreClick = null
             )
 
             if (updateInfo != null) {

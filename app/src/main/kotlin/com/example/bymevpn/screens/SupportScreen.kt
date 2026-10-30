@@ -70,7 +70,7 @@ fun SupportScreen(
             ByMeTopBar(
                 title = "Помощь",
                 onBackClick = onBackClick,
-                onMoreClick = { /* More */ }
+                onMoreClick = null
             )
 
             Column(
@@ -110,7 +110,7 @@ fun SupportScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Обычно большинство вопросов решаются за пару минут.",
+                        text = "Нашли ошибку или придумали улучшение? Напишите нам: за подтверждённые ошибки и принятые предложения добавим дни к подписке.",
                         color = Color(0xFF92AAA4),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp,

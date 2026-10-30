@@ -88,7 +88,7 @@ fun AccountScreen(
             ByMeTopBar(
                 title = "Аккаунт",
                 onBackClick = onBackClick,
-                onMoreClick = { /* More actions */ }
+                onMoreClick = null
             )
 
             Column(
@@ -125,7 +125,7 @@ fun AccountScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = currentUser?.email ?: "Профиль ByMeVPN",
+                            text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: "Локальная подписка",
                             color = Color(0xFF8CA5A2),
                             fontSize = 11.5.sp
                         )
@@ -292,21 +292,21 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isActive) "Мои устройства" else "Устройства",
-                        subtitle = if (isActive) "$activeDevicesCount из $maxDevices подключено" else "Доступны после активации",
+                        subtitle = if (devices.isNotEmpty()) "$activeDevicesCount из $maxDevices" else "Нет подтверждённого списка устройств",
                         icon = { DevicesMultiIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToDevices
                     )
                     ByMeSettingRow(
                         title = "Автопродление",
-                        subtitle = if (isActive) "Включено" else "Нет активной подписки",
+                        subtitle = when (subscription?.autoRenew) { true -> "Включено"; false -> "Отключено"; null -> "Нет подтверждённых данных" },
                         icon = { RefreshIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                if (isActive) {
+                                if (subscription?.autoRenew == true) {
                                     Text(
                                         text = "Включено",
                                         color = Color(0xFF40D5AD),

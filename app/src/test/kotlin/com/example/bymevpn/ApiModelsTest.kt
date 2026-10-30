@@ -12,6 +12,13 @@ import org.junit.Test
 class ApiModelsTest {
 
     @Test
+    fun unknownRenewalIsNotReportedAsEnabledOrDisabled() {
+        assertNull(ApiJsonParsers.parseSubscriptionStatus(JSONObject("{\"status\":\"active\"}")).autoRenew)
+        assertEquals(false, ApiJsonParsers.parseSubscriptionStatus(JSONObject("{\"status\":\"active\",\"auto_renew\":false}")).autoRenew)
+        assertEquals(true, ApiJsonParsers.parseSubscriptionStatus(JSONObject("{\"status\":\"active\",\"auto_renew\":true}")).autoRenew)
+    }
+
+    @Test
     fun testParseVpnSessionConfig_vlessReality() {
         val jsonString = """
             {

@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.net.IpPrefix
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -23,9 +22,13 @@ import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.net.InetAddress
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Standard Android VpnService for ByMeVPN.
@@ -44,6 +47,7 @@ class ByMeVpnService : VpnService() {
 
         const val NOTIFICATION_ID = 2024
         const val CHANNEL_ID = "bymevpn_active_tunnel"
+        private val lifecycleMutex = Mutex()
 
         @Volatile
         var isServiceRunning = false
@@ -90,6 +94,7 @@ class ByMeVpnService : VpnService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var tunInterface: ParcelFileDescriptor? = null
+    private var healthJob: Job? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -126,6 +131,7 @@ class ByMeVpnService : VpnService() {
                 }
 
                 serviceScope.launch {
+                  lifecycleMutex.withLock {
                     val config = pendingSessionConfig
                     if (config == null) {
                         Log.e(TAG, "No pending session configuration provided")
@@ -151,12 +157,13 @@ class ByMeVpnService : VpnService() {
                     Log.i(TAG, "TUN interface established (fd=$tunFd). Starting native Xray-core...")
 
                     val engine = XrayVpnEngine.getInstance(applicationContext)
-                    val result = engine.startTunnel(config, tunFd, bypassRussianTraffic = settings.bypassRussianTraffic)
+                    val result = engine.startTunnel(config, tunFd, bypassRussianTraffic = settings.bypassRussianTraffic, dnsMode = settings.dnsMode)
 
                     if (result.isSuccess) {
                         isServiceRunning = true
                         Log.i(TAG, "Xray tunnel active! Traffic is routing through VLESS+Reality.")
                         VpnManager.getInstance(applicationContext).onTunnelConnected(activeServer)
+                        startHealthMonitor(engine)
                     } else {
                         val error = result.exceptionOrNull()?.message ?: "Xray core failed to start"
                         Log.e(TAG, "Failed to start Xray tunnel: $error")
@@ -166,10 +173,14 @@ class ByMeVpnService : VpnService() {
                         isServiceRunning = false
                         VpnManager.getInstance(applicationContext).onTunnelFailed(error)
                     }
+                  }
                 }
             }
             ACTION_DISCONNECT -> {
                 serviceScope.launch {
+                  lifecycleMutex.withLock {
+                    healthJob?.cancel()
+                    healthJob = null
                     try {
                         XrayVpnEngine.getInstance(applicationContext).disconnect()
                     } catch (e: Exception) {
@@ -182,11 +193,36 @@ class ByMeVpnService : VpnService() {
                     activeServer = null
                     pendingSessionConfig = null
                     VpnManager.getInstance(applicationContext).onTunnelDisconnected()
+                  }
                 }
             }
         }
 
         return START_NOT_STICKY
+    }
+
+    private fun startHealthMonitor(engine: XrayVpnEngine) {
+        healthJob?.cancel()
+        healthJob = serviceScope.launch {
+            var failures = 0
+            while (isActive) {
+                delay(30_000)
+                failures = if (engine.checkConnectivity()) 0 else failures + 1
+                if (failures >= 2) {
+                    lifecycleMutex.withLock {
+                        if (isServiceRunning) {
+                            engine.disconnect()
+                            tearDownTunInterface()
+                            isServiceRunning = false
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            VpnManager.getInstance(applicationContext).onTunnelFailed("VPN-сервер не отвечает. Выберите другой сервер и повторите попытку.")
+                            stopSelf()
+                        }
+                    }
+                    return@launch
+                }
+            }
+        }
     }
 
     /**
@@ -217,18 +253,6 @@ class ByMeVpnService : VpnService() {
                     builder.addDnsServer("1.1.1.1")
                     builder.addDnsServer("8.8.8.8")
                     builder.addDnsServer("77.88.8.8")
-                }
-            }
-
-            // Exclude remote VPN server IP from tunnel route to strictly prevent routing loops
-            val serverHost = pendingSessionConfig?.server?.ifBlank { "2.27.120.247" } ?: "2.27.120.247"
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                try {
-                    val serverIp = InetAddress.getByName(serverHost)
-                    builder.excludeRoute(IpPrefix(serverIp, 32))
-                    Log.i(TAG, "Excluded server IP from VPN route: $serverIp")
-                } catch (e: Exception) {
-                    Log.w(TAG, "excludeRoute failed: ${e.message}")
                 }
             }
 
@@ -339,6 +363,9 @@ class ByMeVpnService : VpnService() {
     override fun onRevoke() {
         Log.w(TAG, "VPN permission revoked by system")
         serviceScope.launch {
+          lifecycleMutex.withLock {
+            healthJob?.cancel()
+            healthJob = null
             try {
                 XrayVpnEngine.getInstance(applicationContext).disconnect()
             } catch (_: Exception) {}
@@ -349,13 +376,27 @@ class ByMeVpnService : VpnService() {
             activeServer = null
             pendingSessionConfig = null
             VpnManager.getInstance(applicationContext).onTunnelDisconnected()
+          }
         }
         super.onRevoke()
     }
 
     override fun onDestroy() {
-        tearDownTunInterface()
         isServiceRunning = false
+        healthJob?.cancel()
+        serviceScope.launch {
+            try {
+                lifecycleMutex.withLock {
+                    try {
+                        XrayVpnEngine.getInstance(applicationContext).disconnect()
+                    } finally {
+                        tearDownTunInterface()
+                    }
+                }
+            } finally {
+                serviceScope.cancel()
+            }
+        }
         super.onDestroy()
     }
 }

@@ -350,6 +350,9 @@ class ByMeApiClient(private val context: Context) {
         isRetry: Boolean = false
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
+        if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
+            throw ApiError("INSECURE_BACKEND", "Backend HTTPS is required before account requests can be sent")
+        }
 
         val connection = try {
             (URL(fullUrl).openConnection() as HttpURLConnection).apply {
@@ -435,6 +438,7 @@ class ByMeApiClient(private val context: Context) {
         withContext(Dispatchers.IO) {
             val refreshToken = storage.getRefreshToken() ?: return@withContext false
             val fullUrl = "${ApiConfig.BASE_URL}/auth/refresh"
+            if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) return@withContext false
             try {
                 val connection = (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"

@@ -66,7 +66,7 @@ fun AdvancedSettingsScreen(
             ByMeTopBar(
                 title = "Дополнительно",
                 onBackClick = onBackClick,
-                onMoreClick = { /* More actions */ }
+                onMoreClick = null
             )
 
             Column(
@@ -95,27 +95,18 @@ fun AdvancedSettingsScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = "Защита при обрыве VPN",
-                        subtitle = "Блокирует интернет, если VPN неожиданно отключится",
+                        subtitle = "Включите постоянный VPN и блокировку в настройках Android",
                         icon = { LockIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {
-                            ByMeToggle(
-                                checked = localKillSwitch,
-                                onCheckedChange = { checked ->
-                                    localKillSwitch = checked
-                                    settingsRepo.setKillSwitchEnabled(checked)
-                                    val msg = if (checked) "Kill Switch активирован" else "Kill Switch отключен"
-                                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
-                                }
-                            )
-                        }
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) }
                     )
                     ByMeSettingRow(
                         title = "Приложения без VPN",
-                        subtitle = "Выберите исключения из подключения",
+                        subtitle = "Выбор исключений пока недоступен",
                         icon = { SmartphoneIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = {
-                            Toast.makeText(context, "Исключения настроены по умолчанию (российские сервисы и банки)", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Выбор исключений пока недоступен", Toast.LENGTH_SHORT).show()
                         },
                         showBottomDivider = false
                     )

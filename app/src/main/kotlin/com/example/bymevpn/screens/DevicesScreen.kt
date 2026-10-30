@@ -63,7 +63,7 @@ fun DevicesScreen(
             ByMeTopBar(
                 title = "Мои устройства",
                 onBackClick = onBackClick,
-                onMoreClick = { /* More actions */ }
+                onMoreClick = null
             )
 
             Column(
@@ -75,7 +75,7 @@ fun DevicesScreen(
                 // Large device count display matching mockup 15_devices
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = "$effectiveConnected",
+                        text = if (devicesList.isEmpty()) "—" else "$effectiveConnected",
                         color = AppColors.TextPrimary,
                         fontSize = 60.sp,
                         fontWeight = FontWeight.Bold,
@@ -91,7 +91,7 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = if (effectiveConnected == 1) "Устройство подключено к вашей подписке" else "Устройств подключено к вашей подписке",
+                    text = if (devicesList.isEmpty()) "Данные об устройствах недоступны" else "Устройств в ответе сервера",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
@@ -155,57 +155,7 @@ fun DevicesScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 } else {
-                    // Default current phone fallback card
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(89.dp)
-                            .clip(RoundedCornerShape(17.dp))
-                            .background(Color(0xFF12221F))
-                            .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
-                            .padding(horizontal = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(37.dp)
-                                .clip(RoundedCornerShape(11.dp))
-                                .background(Color(0xFF172A29)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
-                        }
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Этот телефон",
-                                color = Color(0xFFEAF1EF),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Android · Активно сейчас",
-                                color = Color(0xFF88A09F),
-                                fontSize = 11.5.sp
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF1A3B2C))
-                                .padding(horizontal = 9.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "Вы здесь",
-                                color = Color(0xFF65E3B1),
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
+                    Text("Список устройств не подтверждён сервером.", color = AppColors.TextPrimary, fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))

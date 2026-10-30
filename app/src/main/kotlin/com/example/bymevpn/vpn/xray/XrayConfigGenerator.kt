@@ -16,20 +16,23 @@ object XrayConfigGenerator {
     /**
      * Generates a complete, valid Xray JSON client config object from VpnSessionConfig.
      */
-    fun generateJson(config: VpnSessionConfig, bypassRussianTraffic: Boolean = false): JSONObject {
+    fun generateJson(config: VpnSessionConfig, bypassRussianTraffic: Boolean = false, dnsMode: String = "cloudflare"): JSONObject {
         val root = JSONObject()
 
         // 1. Log configuration
         root.put("log", JSONObject().apply {
             put("loglevel", "warning")
+            put("access", "none")
         })
 
         // 2. DNS configuration (Fast UDP DNS routed via proxy, UseIPv4 prevents AAAA hangs)
         root.put("dns", JSONObject().apply {
             put("servers", JSONArray().apply {
-                put("1.1.1.1")
-                put("8.8.8.8")
-                put("77.88.8.8")
+                when (dnsMode) {
+                    "adguard" -> { put("94.140.14.14"); put("94.140.15.15") }
+                    "google" -> { put("8.8.8.8"); put("8.8.4.4") }
+                    else -> { put("1.1.1.1"); put("8.8.8.8"); put("77.88.8.8") }
+                }
             })
             put("queryStrategy", "UseIPv4")
         })
@@ -125,18 +128,20 @@ object XrayConfigGenerator {
             val proto = config.protocol.lowercase()
 
             if (proto == "hysteria2" || proto == "hy2") {
-                put("protocol", "hysteria2")
-                val serverObj = JSONObject().apply {
+                put("protocol", "hysteria")
+                put("settings", JSONObject().apply {
+                    put("version", 2)
                     put("address", serverAddress)
                     put("port", config.port)
-                    put("password", config.uuid)
-                }
-                put("settings", JSONObject().apply {
-                    put("servers", JSONArray().apply { put(serverObj) })
                 })
 
                 val streamSettings = JSONObject().apply {
+                    put("network", "hysteria")
                     put("security", "tls")
+                    put("hysteriaSettings", JSONObject().apply {
+                        put("version", 2)
+                        put("auth", config.uuid)
+                    })
                     val tlsSettings = JSONObject().apply {
                         put("serverName", config.serverName)
                         put("fingerprint", config.fingerprint.ifEmpty { "firefox" })
@@ -145,11 +150,12 @@ object XrayConfigGenerator {
                     put("tlsSettings", tlsSettings)
 
                     if (config.encryption.isNotBlank()) {
-                        put("hysteria2Settings", JSONObject().apply {
-                            put("obfs", JSONObject().apply {
+                        require(config.encryption.equals("salamander", ignoreCase = true)) { "Unsupported Hysteria obfuscation" }
+                        put("finalmask", JSONObject().apply {
+                            put("udp", JSONArray().put(JSONObject().apply {
                                 put("type", config.encryption)
-                                put("password", config.flow)
-                            })
+                                put("settings", JSONObject().put("password", config.flow))
+                            }))
                         })
                     }
                 }
@@ -183,15 +189,18 @@ object XrayConfigGenerator {
 
                 val streamSettings = JSONObject().apply {
                     put("network", config.network.ifEmpty { "tcp" })
+                    if (config.network.equals("xhttp", ignoreCase = true)) {
+                        put("xhttpSettings", JSONObject().apply {
+                            if (config.transportPath.isNotBlank()) put("path", config.transportPath)
+                            if (config.transportHost.isNotBlank()) put("host", config.transportHost)
+                            if (config.transportMode.isNotBlank()) put("mode", config.transportMode)
+                        })
+                    }
                     val sec = config.security.lowercase()
                     put("security", sec)
 
                     if (sec == "reality") {
-                        val sni = if (config.serverName.isBlank() || config.serverName.contains("duckdns.org", ignoreCase = true)) {
-                            "www.cloudflare.com"
-                        } else {
-                            config.serverName
-                        }
+                        val sni = config.serverName
                         val realitySettings = JSONObject().apply {
                             put("show", false)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
@@ -259,7 +268,20 @@ object XrayConfigGenerator {
                 put("outboundTag", "block")
             })
 
-            // Rule 3: Route private LAN IPs and server IP direct to prevent routing loops
+            if (bypassRussianTraffic) {
+                put(JSONObject().apply {
+                    put("type", "field")
+                    put("domain", JSONArray().put("geosite:category-ru"))
+                    put("outboundTag", "direct")
+                })
+                put(JSONObject().apply {
+                    put("type", "field")
+                    put("ip", JSONArray().put("geoip:ru"))
+                    put("outboundTag", "direct")
+                })
+            }
+
+            // Rule 3: Route private LAN IPs direct
             put(JSONObject().apply {
                 put("type", "field")
                 put("ip", JSONArray().apply {
@@ -269,9 +291,6 @@ object XrayConfigGenerator {
                     put("127.0.0.0/8")
                     put("fc00::/7")
                     put("fe80::/10")
-                    if (serverAddress.isNotBlank()) {
-                        put("$serverAddress/32")
-                    }
                 })
                 put("outboundTag", "direct")
             })
@@ -295,7 +314,7 @@ object XrayConfigGenerator {
     /**
      * Converts to formatted JSON string.
      */
-    fun generateString(config: VpnSessionConfig, bypassRussianTraffic: Boolean = false, indentSpaces: Int = 2): String {
-        return generateJson(config, bypassRussianTraffic).toString(indentSpaces)
+    fun generateString(config: VpnSessionConfig, bypassRussianTraffic: Boolean = false, indentSpaces: Int = 2, dnsMode: String = "cloudflare"): String {
+        return generateJson(config, bypassRussianTraffic, dnsMode).toString(indentSpaces)
     }
 }

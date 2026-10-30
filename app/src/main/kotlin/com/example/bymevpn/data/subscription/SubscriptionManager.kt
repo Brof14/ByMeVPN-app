@@ -19,7 +19,6 @@ import java.security.KeyFactory
 import java.security.PublicKey
 import java.security.Signature
 import java.security.spec.X509EncodedKeySpec
-import javax.net.ssl.HttpsURLConnection
 
 /**
  * Manages the current subscription, offline entitlement evaluation, and trial activation.
@@ -85,6 +84,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             if (!customSubUrl.isNullOrBlank()) {
                 val parsed = fetchSubscriptionFromUrl(customSubUrl)
                 storage.saveServerConfigs(parsed.configs)
+                storage.saveServerNodes(parsed.servers)
                 val status = SubscriptionStatus(
                     status = "active",
                     planName = "ByMeVPN Cloud",
@@ -104,7 +104,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             storage.saveCachedSubscription(status)
             Result.success(status)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh subscription online: ${e.message}")
+            Log.w(TAG, "Failed to refresh subscription online")
             val cached = storage.getCachedSubscription()
             if (cached != null) {
                 _subscriptionStatus.value = cached
@@ -131,6 +131,7 @@ class SubscriptionManager private constructor(private val context: Context) {
                 throw IllegalStateException("Подписка не содержит доступных VLESS-серверов")
             }
             storage.saveServerConfigs(parsed.configs)
+            storage.saveServerNodes(parsed.servers)
 
             val status = SubscriptionStatus(
                 status = "active",
@@ -145,7 +146,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             storage.saveCachedSubscription(status)
             Result.success(parsed)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply subscription: ${e.message}", e)
+            Log.e(TAG, "Failed to apply subscription")
             Result.failure(e)
         } finally {
             _isSyncing.value = false
@@ -153,29 +154,13 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
-        val targetUrlStr = if (subUrl.contains("bymevpn.duckdns.org", ignoreCase = true)) {
-            subUrl.replace("bymevpn.duckdns.org", "2.27.120.247", ignoreCase = true)
-        } else {
-            subUrl
-        }
-        val url = URL(targetUrlStr)
+        val url = URL(subUrl)
+        require(url.protocol.equals("https", ignoreCase = true)) { "Subscription URL must use HTTPS" }
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 15000
             readTimeout = 15000
             setRequestProperty("User-Agent", "ByMeVPN/1.0 (Android; v2rayNG; Happ)")
-            if (this is HttpsURLConnection) {
-                // Allow self-signed or custom domain certs on panel ports
-                val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(object : javax.net.ssl.X509TrustManager {
-                    override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate> = arrayOf()
-                    override fun checkClientTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {}
-                    override fun checkServerTrusted(chain: Array<java.security.cert.X509Certificate>?, authType: String?) {}
-                })
-                val sc = javax.net.ssl.SSLContext.getInstance("TLS")
-                sc.init(null, trustAllCerts, java.security.SecureRandom())
-                sslSocketFactory = sc.socketFactory
-                setHostnameVerifier { _, _ -> true }
-            }
         }
 
         val code = conn.responseCode
@@ -192,25 +177,7 @@ class SubscriptionManager private constructor(private val context: Context) {
     suspend fun activateTrial(): Result<SubscriptionStatus> {
         _isSyncing.value = true
         return try {
-            val status = try {
-                apiClient.activateTrial()
-            } catch (e: Exception) {
-                null
-            }
-            val activeStatus = status ?: run {
-                val trialExpire = System.currentTimeMillis() + 3L * 86400 * 1000
-                SubscriptionStatus(
-                    status = "trial",
-                    planCode = "trial_3d",
-                    planName = "Пробный период (3 дня)",
-                    expiresAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(trialExpire)),
-                    secondsRemaining = 3L * 86400,
-                    trialAvailable = false,
-                    activeDevices = 1,
-                    maxDevices = 5,
-                    lastFetchedAt = System.currentTimeMillis()
-                )
-            }
+            val activeStatus = apiClient.activateTrial()
             _subscriptionStatus.value = activeStatus
             storage.saveCachedSubscription(activeStatus)
             Result.success(activeStatus)
@@ -222,34 +189,7 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     suspend fun activatePaidSubscription(planCode: String, days: Int): Result<SubscriptionStatus> {
-        _isSyncing.value = true
-        return try {
-            val planName = when (planCode) {
-                "12m", "year" -> "Премиум 12 месяцев (-50%)"
-                "6m", "half_year" -> "Премиум 6 месяцев"
-                "3m", "quarter" -> "Премиум 3 месяца"
-                else -> "Премиум 1 месяц"
-            }
-            val expireTime = System.currentTimeMillis() + days.toLong() * 86400 * 1000
-            val status = SubscriptionStatus(
-                status = "active",
-                planCode = planCode,
-                planName = planName,
-                expiresAt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(expireTime)),
-                secondsRemaining = days.toLong() * 86400,
-                trialAvailable = false,
-                activeDevices = 1,
-                maxDevices = 5,
-                lastFetchedAt = System.currentTimeMillis()
-            )
-            _subscriptionStatus.value = status
-            storage.saveCachedSubscription(status)
-            Result.success(status)
-        } catch (e: Exception) {
-            Result.failure(e)
-        } finally {
-            _isSyncing.value = false
-        }
+        return refreshStatus()
     }
 
     fun clear() {
@@ -264,12 +204,15 @@ class SubscriptionManager private constructor(private val context: Context) {
             val parts = jwt.split(".")
             if (parts.size != 3) return false
 
+            val headerJson = String(Base64.decode(parts[0], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP), Charsets.UTF_8)
+            if (JSONObject(headerJson).optString("alg") != "ES256") return false
+
             val payloadJson = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP), Charsets.UTF_8)
             val payload = JSONObject(payloadJson)
 
             // Check expiration
             val exp = payload.optLong("exp", 0L)
-            if (exp > 0 && exp * 1000 < System.currentTimeMillis()) {
+            if (exp <= 0 || exp <= System.currentTimeMillis() / 1000) {
                 return false
             }
 
@@ -277,7 +220,16 @@ class SubscriptionManager private constructor(private val context: Context) {
             if (!ApiConfig.SERVER_ES256_PUBLIC_KEY.contains("Placeholder")) {
                 val publicKey = parsePublicKey(ApiConfig.SERVER_ES256_PUBLIC_KEY) ?: return false
                 val signedData = "${parts[0]}.${parts[1]}".toByteArray(Charsets.US_ASCII)
-                val signatureBytes = Base64.decode(parts[2], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+                val rawSignature = Base64.decode(parts[2], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
+                if (rawSignature.size != 64) return false
+                fun derInteger(bytes: ByteArray): ByteArray {
+                    val trimmed = bytes.dropWhile { it == 0.toByte() }.toByteArray()
+                    val unsigned = if (trimmed.isEmpty()) byteArrayOf(0) else trimmed
+                    val value = if ((unsigned[0].toInt() and 0x80) != 0) byteArrayOf(0) + unsigned else unsigned
+                    return byteArrayOf(2, value.size.toByte()) + value
+                }
+                val values = derInteger(rawSignature.copyOfRange(0, 32)) + derInteger(rawSignature.copyOfRange(32, 64))
+                val signatureBytes = byteArrayOf(0x30, values.size.toByte()) + values
 
                 val verifier = Signature.getInstance("SHA256withECDSA")
                 verifier.initVerify(publicKey)
@@ -285,10 +237,10 @@ class SubscriptionManager private constructor(private val context: Context) {
                 return verifier.verify(signatureBytes)
             }
 
-            return true
+            return false
         } catch (e: Exception) {
             Log.e(TAG, "JWT verification exception: ${e.message}")
-            return true // Don't block client during development if placeholder key
+            return false
         }
     }
 

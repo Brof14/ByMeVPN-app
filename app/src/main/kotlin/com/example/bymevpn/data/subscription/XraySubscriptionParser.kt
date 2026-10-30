@@ -41,7 +41,7 @@ object XraySubscriptionParser {
                     serverList.add(serverNode)
                     configMap[serverNode.nodeCode] = sessionConfig
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse vless link at line $index: ${e.message}")
+                    Log.w(TAG, "Failed to parse vless link at line $index")
                 }
             } else if (line.startsWith("hysteria2://", ignoreCase = true) || line.startsWith("hy2://", ignoreCase = true)) {
                 try {
@@ -49,7 +49,7 @@ object XraySubscriptionParser {
                     serverList.add(serverNode)
                     configMap[serverNode.nodeCode] = sessionConfig
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to parse hysteria2 link at line $index: ${e.message}")
+                    Log.w(TAG, "Failed to parse hysteria2 link at line $index")
                 }
             }
         }
@@ -141,7 +141,7 @@ object XraySubscriptionParser {
 
         val hpSplit = hostPortPart.split(":")
         val rawHost = hpSplit[0]
-        val host = if (rawHost.equals("bymevpn.duckdns.org", ignoreCase = true)) "2.27.120.247" else rawHost
+        val host = rawHost
         val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
 
         val queryParams = mutableMapOf<String, String>()
@@ -220,7 +220,7 @@ object XraySubscriptionParser {
 
         val hpSplit = hostPortPart.split(":")
         val rawHost = hpSplit[0]
-        val host = if (rawHost.equals("bymevpn.duckdns.org", ignoreCase = true)) "2.27.120.247" else rawHost
+        val host = rawHost
         val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
 
         val queryParams = mutableMapOf<String, String>()
@@ -283,7 +283,10 @@ object XraySubscriptionParser {
             publicKey = pbk,
             shortId = sid,
             fingerprint = fp,
-            network = type
+            network = type,
+            transportPath = queryParams["path"] ?: "",
+            transportHost = queryParams["host"] ?: "",
+            transportMode = queryParams["mode"] ?: ""
         )
 
         return Pair(serverNode, config)
