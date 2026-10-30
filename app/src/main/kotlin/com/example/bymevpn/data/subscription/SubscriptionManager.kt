@@ -1,6 +1,7 @@
 package com.example.bymevpn.data.subscription
 
 import android.content.Context
+import android.os.Build
 import android.util.Base64
 import android.util.Log
 import com.example.bymevpn.data.api.ApiConfig
@@ -175,6 +176,12 @@ class SubscriptionManager private constructor(private val context: Context) {
             connectTimeout = 15000
             readTimeout = 15000
             setRequestProperty("User-Agent", "ByMeVPN/1.0 (Android; v2rayNG; Happ)")
+            // 3x-ui enforces the subscription's HWID device limit on fetch.
+            // Without these headers it intentionally returns HTTP 404.
+            setRequestProperty("X-HWID", storage.getInstallId(context))
+            setRequestProperty("X-Device-OS", "Android")
+            setRequestProperty("X-Ver-OS", Build.VERSION.RELEASE.orEmpty())
+            setRequestProperty("X-Device-Model", storage.getDeviceModel())
         }
 
         val code = conn.responseCode
