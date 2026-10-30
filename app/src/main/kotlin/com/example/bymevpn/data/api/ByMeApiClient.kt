@@ -367,6 +367,19 @@ class ByMeApiClient(private val context: Context) {
                 doInput = true
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
+                val installId = storage.getInstallId(context)
+                if (installId.isNotBlank()) {
+                    setRequestProperty("X-HWID", installId)
+                }
+                setRequestProperty("X-Device-OS", "Android")
+                setRequestProperty(
+                    "X-Ver-OS",
+                    android.os.Build.VERSION.RELEASE?.ifBlank { "unknown" } ?: "unknown"
+                )
+                setRequestProperty(
+                    "X-Device-Model",
+                    storage.getDeviceModel().ifBlank { "Android device" }
+                )
 
                 if (requiresAuth) {
                     val token = storage.getAccessToken()
