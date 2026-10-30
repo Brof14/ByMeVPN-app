@@ -50,7 +50,7 @@ object YooKassaPaymentHandler {
             discountPercent = 34,
             isBestValue = true,
             days = 450,
-            badge = "МАКСИМАЛЬНАЯ ВЫГОДА -50%"
+            badge = "ЛУЧШАЯ ЦЕНА · 59 ₽/мес."
         ),
         PlanTariff(
             code = "6m",
