@@ -120,11 +120,11 @@ object YooKassaPaymentHandler {
             return@launch
         }
 
+        val paymentUrl = createResult.paymentUrl
         if (!Uri.parse(paymentUrl).scheme.equals("https", ignoreCase = true)) {
             Toast.makeText(context, "Не удалось открыть безопасную страницу оплаты.", Toast.LENGTH_LONG).show()
             return@launch
         }
-        val paymentUrl = createResult.paymentUrl
         storage.savePendingPayment(tariff.code, tariff.days, createResult.invoiceId!!, createResult.provider)
 
         try {

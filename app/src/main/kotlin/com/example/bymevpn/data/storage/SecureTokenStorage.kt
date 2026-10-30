@@ -383,7 +383,6 @@ class SecureTokenStorage private constructor(context: Context) {
             .putInt("pending_payment_days", days)
             .putString("pending_payment_invoice", invoiceId)
             .putString("pending_payment_provider", provider)
-            .remove("payment_request_id")
             .putLong("pending_payment_time", System.currentTimeMillis())
             .apply()
     }
