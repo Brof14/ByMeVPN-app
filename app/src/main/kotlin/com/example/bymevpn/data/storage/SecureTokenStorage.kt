@@ -180,6 +180,9 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getSubscriptionUrl(): String? = prefs.getString(KEY_SUBSCRIPTION_URL, null)
 
+    fun getServerRefreshAttempt(): Long = prefs.getLong("server_refresh_attempt", 0L)
+    fun setServerRefreshAttempt(time: Long) { prefs.edit().putLong("server_refresh_attempt", time).apply() }
+
     fun saveServerConfigs(configs: Map<String, com.example.bymevpn.data.api.VpnSessionConfig>) {
         val root = JSONObject()
         configs.forEach { (nodeCode, cfg) ->

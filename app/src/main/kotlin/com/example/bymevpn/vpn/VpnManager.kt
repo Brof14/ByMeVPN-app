@@ -94,6 +94,13 @@ class VpnManager private constructor(private val context: Context) {
     private var engineObserverJob: Job? = null
 
     init {
+        scope.launch {
+            loadServers()
+            while (isActive) {
+                delay(6L * 60 * 60 * 1000)
+                loadServers()
+            }
+        }
         // Observe engine statistics
         scope.launch {
             engine.statistics.collect { stats ->
@@ -193,10 +200,13 @@ class VpnManager private constructor(private val context: Context) {
             // 1. Load from subscription URL if set
             val subUrl = storage.getSubscriptionUrl()
             if (!subUrl.isNullOrBlank()) {
-                val parsed = subscriptionManager.applySubscriptionUrl(subUrl).getOrNull()
-                if (parsed != null && parsed.servers.isNotEmpty()) {
-                    setServers(parsed.servers)
-                    return@withContext Result.success(parsed.servers)
+                val saved = storage.getServerNodes()
+                if (saved.isNotEmpty()) setServers(saved)
+                subscriptionManager.refreshStatus()
+                val refreshed = storage.getServerNodes()
+                if (refreshed.isNotEmpty()) {
+                    setServers(refreshed)
+                    return@withContext Result.success(refreshed)
                 }
             }
 

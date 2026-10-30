@@ -11,6 +11,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.example.bymevpn.data.AppLanguage
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -54,13 +59,31 @@ fun SettingsScreen(
 
     val autoConnect by settingsRepo.autoConnectOnLaunch.collectAsState(initial = false)
     val bypassRuSites by settingsRepo.bypassRussianSites.collectAsState(initial = true)
-    val backgroundProtection by settingsRepo.batteryOptimizationDismissed.collectAsState(initial = true)
-    val adBlock by settingsRepo.adBlockEnabled.collectAsState(initial = false)
 
-    var localAutoConnect by remember { mutableStateOf(autoConnect) }
-    var localBypassRu by remember { mutableStateOf(bypassRuSites) }
-    var localBgProtection by remember { mutableStateOf(backgroundProtection) }
-    var localAdBlock by remember { mutableStateOf(adBlock) }
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
+    val scope = rememberCoroutineScope()
+    var showLanguage by remember { mutableStateOf(false) }
+
+    if (showLanguage) {
+        AlertDialog(
+            onDismissRequest = { showLanguage = false },
+            title = { Text(if (isRu) "Язык" else "Language") },
+            text = {
+                Column {
+                    AppLanguage.entries.forEach { choice ->
+                        TextButton(onClick = {
+                            LocaleManager.setLanguage(choice)
+                            scope.launch { settingsRepo.setLanguage(choice.code) }
+                            showLanguage = false
+                        }) { Text(if (isRu) choice.titleRu else choice.titleEn) }
+                    }
+                    Text(if (isRu) "Перевод некоторых экранов ещё не завершён." else "Some screens are not translated yet.", fontSize = 12.sp)
+                }
+            },
+            confirmButton = { TextButton(onClick = { showLanguage = false }) { Text(if (isRu) "Закрыть" else "Close") } }
+        )
+    }
 
     Box(
         modifier = modifier
@@ -69,7 +92,7 @@ fun SettingsScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ByMeTopBar(
-                title = "Настройки",
+                title = if (isRu) "Настройки" else "Settings",
                 onBackClick = onBackClick,
                 onMoreClick = null
             )
@@ -83,7 +106,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "Приложение работает за вас.",
+                    text = if (isRu) "Приложение работает за вас." else "The app works for you.",
                     color = AppColors.TextPrimary,
                     fontSize = 25.sp,
                     fontWeight = FontWeight.Bold,
@@ -93,7 +116,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
-                    text = "Основные настройки уже подобраны. При желании их можно изменить.",
+                    text = if (isRu) "Основные настройки уже подобраны. При желании их можно изменить." else "The defaults are ready to use. You can change them here.",
                     color = Color(0xFF8EA4A2),
                     fontSize = 12.5.sp,
                     lineHeight = 17.sp,
@@ -102,7 +125,7 @@ fun SettingsScreen(
 
                 // Section: Подключение
                 Text(
-                    text = "Подключение",
+                    text = if (isRu) "Подключение" else "Connection",
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -111,30 +134,28 @@ fun SettingsScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "Подключаться автоматически",
-                        subtitle = "После включения телефона",
+                        title = if (isRu) "Подключаться автоматически" else "Connect automatically",
+                        subtitle = if (isRu) "После включения телефона" else "After the phone starts",
                         icon = { PowerIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
-                                checked = localAutoConnect,
+                                checked = autoConnect,
                                 onCheckedChange = { checked ->
-                                    localAutoConnect = checked
                                     settingsRepo.setAutoConnectOnLaunch(checked)
                                 }
                             )
                         }
                     )
                     ByMeSettingRow(
-                        title = "Российские сайты напрямую",
-                        subtitle = "Банки и местные сервисы без VPN",
+                        title = if (isRu) "Российские сайты напрямую" else "Russian sites directly",
+                        subtitle = if (isRu) "Банки и местные сервисы без VPN" else "Banks and local services without VPN",
                         icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
-                                checked = localBypassRu,
+                                checked = bypassRuSites,
                                 onCheckedChange = { checked ->
-                                    localBypassRu = checked
                                     settingsRepo.setBypassRussianSites(checked)
-                                    Toast.makeText(context, "Изменение применится при следующем подключении", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, if (isRu) "Изменение применится при следующем подключении" else "Applied next time you connect", Toast.LENGTH_SHORT).show()
                                 }
                             )
                         },
@@ -144,7 +165,7 @@ fun SettingsScreen(
 
                 // Section: Комфорт
                 Text(
-                    text = "Комфорт",
+                    text = if (isRu) "Комфорт" else "Comfort",
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -153,24 +174,19 @@ fun SettingsScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "Защита в фоне",
-                        subtitle = "Настраивается в параметрах батареи Android",
+                        title = if (isRu) "Защита в фоне" else "Background protection",
+                        subtitle = if (isRu) "Настраивается в параметрах батареи Android" else "Configure in Android battery settings",
                         icon = { ShieldSecurityIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
-                    )
-                    ByMeSettingRow(
-                        title = "Блокировка рекламы",
-                        subtitle = "Пока недоступно",
-                        icon = { SparkleStarIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {},
+                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
                         showBottomDivider = false
                     )
+
                 }
 
                 // Section: Дополнительно
                 Text(
-                    text = "Дополнительно",
+                    text = if (isRu) "Дополнительно" else "More",
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -179,17 +195,18 @@ fun SettingsScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "Дополнительные настройки",
-                        subtitle = "DNS, приложения и защита при разрыве",
+                        title = if (isRu) "Дополнительные настройки" else "More settings",
+                        subtitle = if (isRu) "DNS, приложения и защита при разрыве" else "Protection when VPN disconnects",
                         icon = { SettingsGearIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToAdvanced
                     )
                     ByMeSettingRow(
-                        title = "Язык",
-                        subtitle = "Приветствие — как в системе",
+                        title = if (isRu) "Язык" else "Language",
+                        subtitle = if (isRu) language.titleRu else language.titleEn,
                         icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {},
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = { showLanguage = true },
                         showBottomDivider = false
                     )
                 }
@@ -197,7 +214,7 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 ByMeInfoBox(
-                    text = "Не уверены, что выбрать? Оставьте настройки по умолчанию."
+                    text = if (isRu) "Не уверены, что выбрать? Оставьте настройки по умолчанию." else "Not sure? Keep the default settings."
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))

@@ -52,10 +52,8 @@ fun AdvancedSettingsScreen(
     val scrollState = rememberScrollState()
     val settingsRepo = remember { SettingsRepository.getInstance(context) }
 
-    val killSwitchEnabled by settingsRepo.killSwitchEnabled.collectAsState(initial = false)
-    val dnsMode by settingsRepo.dnsMode.collectAsState(initial = "auto")
-
-    var localKillSwitch by remember { mutableStateOf(killSwitchEnabled) }
+    val language by com.example.bymevpn.data.LocaleManager.currentLanguage.collectAsState()
+    val isRu = com.example.bymevpn.data.LocaleManager.isRussian(language = language)
 
     Box(
         modifier = modifier
@@ -64,7 +62,7 @@ fun AdvancedSettingsScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ByMeTopBar(
-                title = "Дополнительно",
+                title = if (isRu) "Дополнительно" else "More settings",
                 onBackClick = onBackClick,
                 onMoreClick = null
             )
@@ -76,7 +74,7 @@ fun AdvancedSettingsScreen(
                     .padding(horizontal = 26.dp)
             ) {
                 Text(
-                    text = "Эти параметры необязательно изменять. Они нужны для особых сценариев подключения.",
+                    text = if (isRu) "Эти параметры необязательно изменять. Они нужны для особых сценариев подключения." else "You can change these options when needed.",
                     color = Color(0xFF8EA4A2),
                     fontSize = 12.5.sp,
                     lineHeight = 17.sp,
@@ -85,7 +83,7 @@ fun AdvancedSettingsScreen(
 
                 // Section: Защита
                 Text(
-                    text = "Защита",
+                    text = if (isRu) "Защита" else "Protection",
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -94,93 +92,14 @@ fun AdvancedSettingsScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "Защита при обрыве VPN",
-                        subtitle = "Включите постоянный VPN и блокировку в настройках Android",
+                        title = if (isRu) "Защита при обрыве VPN" else "Protection if VPN disconnects",
+                        subtitle = if (isRu) "Включите постоянный VPN и блокировку в настройках Android" else "Enable always-on VPN and blocking in Android settings",
                         icon = { LockIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) }
-                    )
-                    ByMeSettingRow(
-                        title = "Приложения без VPN",
-                        subtitle = "Выбор исключений пока недоступен",
-                        icon = { SmartphoneIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = {
-                            Toast.makeText(context, "Выбор исключений пока недоступен", Toast.LENGTH_SHORT).show()
-                        },
+                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) },
                         showBottomDivider = false
                     )
-                }
 
-                // Section: Соединение
-                Text(
-                    text = "Соединение",
-                    color = Color(0xFF8BA3A4),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
-                )
-
-                ByMeCardGroup {
-                    ByMeSettingRow(
-                        title = "DNS-сервер",
-                        subtitle = "Автоматически · рекомендуется",
-                        icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = {
-                            Toast.makeText(context, "Используется защищенный Cloudflare/Google DNS", Toast.LENGTH_SHORT).show()
-                        },
-                        showBottomDivider = false
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // DNS explainer box
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(15.dp))
-                        .background(Color(0xFF102420))
-                        .border(1.dp, Color(0xFF21463B), RoundedCornerShape(15.dp))
-                        .padding(17.dp)
-                ) {
-                    Text(
-                        text = "ЧТО ТАКОЕ DNS?",
-                        color = Color(0xFF698589),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
-                    )
-                    Spacer(modifier = Modifier.height(7.dp))
-                    Text(
-                        text = "Сервис, который помогает устройству находить сайты. Для большинства пользователей менять его не нужно.",
-                        color = Color(0xFF9DB6AC),
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
-                    )
-                }
-
-                // Section: Язык
-                Text(
-                    text = "Язык",
-                    color = Color(0xFF8BA3A4),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
-                )
-
-                ByMeCardGroup {
-                    ByMeSettingRow(
-                        title = "Язык приложения",
-                        subtitle = "Русский",
-                        icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = {
-                            Toast.makeText(context, "Текущий язык: Русский", Toast.LENGTH_SHORT).show()
-                        },
-                        showBottomDivider = false
-                    )
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))

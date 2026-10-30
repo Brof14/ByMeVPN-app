@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -41,6 +43,7 @@ class SubscriptionManager private constructor(private val context: Context) {
         }
     }
 
+    private val refreshMutex = Mutex()
     private val apiClient = ByMeApiClient(context)
     private val storage = SecureTokenStorage.getInstance(context)
 
@@ -77,12 +80,19 @@ class SubscriptionManager private constructor(private val context: Context) {
         return true
     }
 
-    suspend fun refreshStatus(): Result<SubscriptionStatus> {
+    suspend fun refreshStatus(): Result<SubscriptionStatus> = refreshMutex.withLock {
         _isSyncing.value = true
-        return try {
+        try {
             val customSubUrl = storage.getSubscriptionUrl()
             if (!customSubUrl.isNullOrBlank()) {
+                val elapsed = System.currentTimeMillis() - storage.getServerRefreshAttempt()
+                val cached = storage.getCachedSubscription()
+                if (elapsed in 0 until 6L * 60 * 60 * 1000 && cached != null && storage.getServerConfigs().isNotEmpty()) {
+                    return@withLock Result.success(cached)
+                }
+                storage.setServerRefreshAttempt(System.currentTimeMillis())
                 val parsed = fetchSubscriptionFromUrl(customSubUrl)
+                require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) { "Subscription contains no servers" }
                 storage.saveServerConfigs(parsed.configs)
                 storage.saveServerNodes(parsed.servers)
                 val status = SubscriptionStatus(
@@ -96,7 +106,7 @@ class SubscriptionManager private constructor(private val context: Context) {
                 )
                 _subscriptionStatus.value = status
                 storage.saveCachedSubscription(status)
-                return Result.success(status)
+                return@withLock Result.success(status)
             }
 
             val status = apiClient.getSubscriptionStatus()
@@ -120,7 +130,6 @@ class SubscriptionManager private constructor(private val context: Context) {
         try {
             val trimmed = urlOrConfig.trim()
             val parsed = if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) {
-                storage.saveSubscriptionUrl(trimmed)
                 fetchSubscriptionFromUrl(trimmed)
             } else {
                 // Direct vless:// or base64 blob
@@ -130,8 +139,13 @@ class SubscriptionManager private constructor(private val context: Context) {
             if (parsed.servers.isEmpty()) {
                 throw IllegalStateException("Подписка не содержит доступных VLESS-серверов")
             }
+            require(parsed.configs.isNotEmpty()) { "Subscription contains no configurations" }
             storage.saveServerConfigs(parsed.configs)
             storage.saveServerNodes(parsed.servers)
+            if (trimmed.startsWith("https://", ignoreCase = true)) {
+                storage.saveSubscriptionUrl(trimmed)
+                storage.setServerRefreshAttempt(System.currentTimeMillis())
+            }
 
             val status = SubscriptionStatus(
                 status = "active",

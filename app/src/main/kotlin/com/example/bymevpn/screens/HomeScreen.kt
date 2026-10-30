@@ -413,14 +413,14 @@ private fun HomeNoPlanContent(
 
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = "3 дня за ",
+                        text = "3 дня ",
                         color = AppColors.TextPrimary,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-1).sp
                     )
                     Text(
-                        text = "1 ₽",
+                        text = "бесплатно",
                         color = Color(0xFF43E0AC),
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
@@ -439,7 +439,7 @@ private fun HomeNoPlanContent(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 ByMePrimaryButton(
-                    text = "Попробовать за 1 ₽",
+                    text = "Попробовать бесплатно",
                     onClick = onTrialClick,
                     height = 50.dp
                 )
@@ -447,7 +447,7 @@ private fun HomeNoPlanContent(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "Далее — 89 ₽ за 30 дней при автопродлении. Условия и отмена — до оплаты.",
+                    text = "После пробного периода можно выбрать тариф.",
                     color = Color(0xFF8DABA5),
                     fontSize = 10.5.sp,
                     lineHeight = 15.sp

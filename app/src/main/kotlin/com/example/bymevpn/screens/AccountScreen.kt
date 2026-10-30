@@ -259,7 +259,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(20.dp))
 
                         ByMePrimaryButton(
-                            text = "Начать за 1 ₽",
+                            text = "3 дня бесплатно",
                             onClick = onNavigateToTrial,
                             height = 50.dp
                         )

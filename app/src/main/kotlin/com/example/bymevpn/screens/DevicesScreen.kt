@@ -97,6 +97,11 @@ fun DevicesScreen(
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
 
+                if (devicesList.none { it.isCurrent }) {
+                    Text("Этот телефон · ${android.os.Build.MODEL}", color = AppColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Текущее устройство. Регистрация на сервере не подтверждена.", color = Color(0xFF92A9A5), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                }
+
                 // List of Devices
                 if (devicesList.isNotEmpty()) {
                     devicesList.forEach { dev ->

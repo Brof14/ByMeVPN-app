@@ -23,6 +23,8 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +47,8 @@ fun ServerSelectionSheet(
     onSelectServer: (ServerNode) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val language by com.example.bymevpn.data.LocaleManager.currentLanguage.collectAsState()
+    val isRu = com.example.bymevpn.data.LocaleManager.isRussian(language = language)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
@@ -85,7 +89,7 @@ fun ServerSelectionSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Серверы",
+                    text = if (isRu) "Серверы" else "Servers",
                     color = AppColors.TextPrimary,
                     fontSize = 27.sp,
                     fontWeight = FontWeight.Bold,
@@ -106,14 +110,14 @@ fun ServerSelectionSheet(
 
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Выберите страну или доверьтесь автоматике.",
+                text = if (isRu) "Выберите страну или доверьтесь автоматике." else "Choose a country or use automatic selection.",
                 color = Color(0xFF889EA0),
                 fontSize = 12.sp
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Recommended card: "Автоматически"
+            // Recommended card: if (isRu) "Автоматически" else "Automatic"
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -141,14 +145,14 @@ fun ServerSelectionSheet(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Автоматически",
+                        text = if (isRu) "Автоматически" else "Automatic",
                         color = AppColors.TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(modifier = Modifier.height(5.dp))
                     Text(
-                        text = "Выберем по проверке TCP; VPN проверяется при подключении",
+                        text = if (isRu) "Подберём сервер" else "We will choose a server",
                         color = Color(0xFF89A6A0),
                         fontSize = 11.sp
                     )
@@ -175,7 +179,7 @@ fun ServerSelectionSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = "ДОСТУПНЫЕ СЕРВЕРЫ",
+                text = if (isRu) "ДОСТУПНЫЕ СЕРВЕРЫ" else "AVAILABLE SERVERS",
                 color = AppColors.TextKicker,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
@@ -187,7 +191,7 @@ fun ServerSelectionSheet(
             // Server rows
             val displayServers = servers
             if (displayServers.isEmpty()) {
-                Text("Серверы пока недоступны. Обновите подписку и повторите попытку.", color = Color(0xFF889EA0), fontSize = 12.sp)
+                Text(if (isRu) "Серверы пока недоступны. Обновите подписку и повторите попытку." else "No servers yet. Refresh your subscription and try again.", color = Color(0xFF889EA0), fontSize = 12.sp)
             }
 
             LazyColumn(
@@ -261,9 +265,12 @@ fun ServerSelectionSheet(
                                 }
 
                                 val pingColor = when {
+                                    server.connectionCheck < 0 -> Color(0xFFFF8A65)
+                                    server.connectionCheck > 0 -> Color(0xFF3CDFAC)
+                                    server.pingMs == -2 -> Color(0xFFFF8A65)
                                     server.pingMs <= 0 -> Color(0xFF89A6A0)
-                                    server.pingMs < 60 -> Color(0xFF3CDFAC)
-                                    server.pingMs < 120 -> Color(0xFFFFD54F)
+                                    server.pingMs <= 200 -> Color(0xFF3CDFAC)
+                                    server.pingMs <= 350 -> Color(0xFFFFD54F)
                                     else -> Color(0xFFFF8A65)
                                 }
                                 Box(
@@ -274,11 +281,11 @@ fun ServerSelectionSheet(
                                 )
                                 Text(
                                     text = when {
-                                        server.connectionCheck < 0 -> "Последнее подключение не удалось"
-                                        server.connectionCheck > 0 -> "Последнее подключение удалось"
-                                        server.pingMs == -2 -> "Нет ответа TCP"
-                                        server.pingMs > 0 -> "TCP ${server.pingMs} мс · VPN не проверен"
-                                        else -> "Подключение не проверено"
+                                        server.connectionCheck < 0 -> if (isRu) "Не удалось подключиться" else "Connection failed"
+                                        server.connectionCheck > 0 -> if (isRu) "Подключение удалось" else "Connected before"
+                                        server.pingMs == -2 -> if (isRu) "Нет ответа" else "No response"
+                                        server.pingMs > 0 -> "${server.pingMs} ms"
+                                        else -> if (isRu) "Не проверен" else "Not tested"
                                     },
                                     color = pingColor,
                                     fontSize = 11.sp,
@@ -310,7 +317,7 @@ fun ServerSelectionSheet(
             Spacer(modifier = Modifier.height(18.dp))
 
             Text(
-                text = "Отображаются только серверы, доступные по вашей подписке.",
+                text = if (isRu) "Отображаются только серверы, доступные по вашей подписке." else "Only servers in your subscription are shown.",
                 color = Color(0xFF688985),
                 fontSize = 11.sp,
                 textAlign = TextAlign.Center,

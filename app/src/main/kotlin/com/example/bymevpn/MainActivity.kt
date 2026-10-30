@@ -117,6 +117,11 @@ class MainActivity : ComponentActivity() {
 fun MainAppNav() {
     val context = LocalContext.current
     val currentUser by AccountRepository.currentUser.collectAsState()
+    LaunchedEffect(Unit) {
+        com.example.bymevpn.data.settings.SettingsRepository.getInstance(context).settingsFlow.collect { settings ->
+            com.example.bymevpn.data.LocaleManager.setLanguage(com.example.bymevpn.data.AppLanguage.fromCode(settings.language))
+        }
+    }
 
     var currentScreen by remember {
         mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.SignIn)
