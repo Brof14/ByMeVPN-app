@@ -311,7 +311,7 @@ fun PricingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
+                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )
