@@ -14,7 +14,7 @@ private val Context.dataStore by preferencesDataStore(name = "bymevpn_settings")
 
 data class AppSettings(
     val protocol: String = "VLESS + Reality",
-    val bypassRussianTraffic: Boolean = true, // Default ON: Russian traffic bypasses VPN directly
+    val bypassRussianTraffic: Boolean = false, // Privacy-first default: avoid direct Russian traffic bypass
     val autoConnectOnBoot: Boolean = false,
     val autoConnectOpenWifi: Boolean = false,
     val autoReconnect: Boolean = true,
@@ -56,7 +56,7 @@ class SettingsRepository(private val context: Context) {
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         AppSettings(
             protocol = prefs[KEY_PROTOCOL] ?: "VLESS + Reality",
-            bypassRussianTraffic = prefs[KEY_BYPASS_RU] ?: true,
+            bypassRussianTraffic = prefs[KEY_BYPASS_RU] ?: false,
             autoConnectOnBoot = prefs[KEY_AUTO_BOOT] ?: false,
             autoConnectOpenWifi = prefs[KEY_AUTO_WIFI] ?: false,
             autoReconnect = prefs[KEY_AUTO_RECONNECT] ?: true,
