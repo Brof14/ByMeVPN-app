@@ -216,7 +216,7 @@ fun SignInScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     CircularProgressIndicator(
-                        color = Color(0xFF3CDFAC),
+                        color = Color(0xFF69D3BC),
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp
                     )
@@ -242,7 +242,7 @@ fun SignInScreen(
                         .fillMaxWidth()
                         .height(46.dp)
                         .clip(RoundedCornerShape(13.dp))
-                        .background(Color(0xFF00E575))
+                        .background(Color(0xFF79D9BC))
                         .clickable {
                             telegramBotUrl?.let {
                                 com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, it)
@@ -252,7 +252,7 @@ fun SignInScreen(
                 ) {
                     Text(
                         text = if (isRu) "Открыть Telegram снова" else "Open Telegram again",
-                        color = Color(0xFF002213),
+                        color = Color(0xFF0B2230),
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -329,7 +329,7 @@ fun SignInScreen(
                         }
                         withStyle(
                             SpanStyle(
-                                color = Color(0xFF00E676),
+                                color = Color(0xFF79D9BC),
                                 fontSize = 30.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 letterSpacing = 0.5.sp
@@ -553,9 +553,9 @@ fun SignInScreen(
                             .background(
                                 Brush.horizontalGradient(
                                     listOf(
-                                        Color(0xFF00F59B),
-                                        Color(0xFF00E575),
-                                        Color(0xFF1DE9B6)
+                                        Color(0xFF79D9BC),
+                                        Color(0xFF79D9BC),
+                                        Color(0xFF69D3BC)
                                     )
                                 )
                             )
@@ -565,7 +565,7 @@ fun SignInScreen(
                     ) {
                         if (isEmailLoading) {
                             CircularProgressIndicator(
-                                color = Color(0xFF002213),
+                                color = Color(0xFF0B2230),
                                 modifier = Modifier.size(22.dp),
                                 strokeWidth = 2.5.dp
                             )
@@ -579,12 +579,12 @@ fun SignInScreen(
                                 Spacer(modifier = Modifier.weight(1f))
                                 Text(
                                     text = if (isRu) "Войти" else "Sign In",
-                                    color = Color(0xFF002213),
+                                    color = Color(0xFF0B2230),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
-                                ChevronRightIcon(color = Color(0xFF002213), size = 18.dp)
+                                ChevronRightIcon(color = Color(0xFF0B2230), size = 18.dp)
                             }
                         }
                     }
@@ -663,8 +663,8 @@ fun SignInScreen(
                                     .background(
                                         Brush.horizontalGradient(
                                             listOf(
-                                                Color(0xFF00F59B),
-                                                Color(0xFF00E575)
+                                                Color(0xFF79D9BC),
+                                                Color(0xFF79D9BC)
                                             )
                                         )
                                     )
@@ -721,11 +721,11 @@ fun SignInScreen(
                             ) {
                                 if (isTelegramLoading) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        CircularProgressIndicator(color = Color(0xFF002213), modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        CircularProgressIndicator(color = Color(0xFF0B2230), modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = telegramStatusText ?: (if (isRu) "Вход..." else "Logging in..."),
-                                            color = Color(0xFF002213),
+                                            color = Color(0xFF0B2230),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -737,16 +737,16 @@ fun SignInScreen(
                                             .padding(horizontal = 16.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        PaperPlaneIcon(color = Color(0xFF002213), size = 18.dp)
+                                        PaperPlaneIcon(color = Color(0xFF0B2230), size = 18.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
-                                            color = Color(0xFF002213),
+                                            color = Color(0xFF0B2230),
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
-                                        ChevronRightIcon(color = Color(0xFF002213), size = 18.dp)
+                                        ChevronRightIcon(color = Color(0xFF0B2230), size = 18.dp)
                                     }
                                 }
                             }
@@ -771,12 +771,12 @@ fun SignInScreen(
                         )
                         Text(
                             text = if (isRu) "Зарегистрироваться" else "Sign Up",
-                            color = Color(0xFF00F59B),
+                            color = Color(0xFF79D9BC),
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        ChevronRightIcon(color = Color(0xFF00F59B), size = 14.dp)
+                        ChevronRightIcon(color = Color(0xFF79D9BC), size = 14.dp)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -803,7 +803,7 @@ private fun TelegramStep(number: Int, text: String) {
         ) {
             Text(
                 text = "$number",
-                color = Color(0xFF7FE3C1),
+                color = Color(0xFF90DDCE),
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -837,7 +837,7 @@ private fun ExactInputField(
 
     val borderColor = when {
         isError -> Color(0xFFFF5252)
-        isFocused -> Color(0xFF00E676)
+        isFocused -> Color(0xFF79D9BC)
         else -> Color(0xFF182836)
     }
 
@@ -887,7 +887,7 @@ private fun ExactInputField(
                         onDone = { onImeAction() },
                         onNext = { onImeAction() }
                     ),
-                    cursorBrush = SolidColor(Color(0xFF00E676)),
+                    cursorBrush = SolidColor(Color(0xFF79D9BC)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .onFocusChanged { isFocused = it.isFocused }

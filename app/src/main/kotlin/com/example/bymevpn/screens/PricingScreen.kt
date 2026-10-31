@@ -301,7 +301,7 @@ fun PricingScreen(
                                 )
                                 .border(
                                     width = 1.dp,
-                                    color = if (isSelected) Color(0xFF37CF9E) else Color(0xFF283C3E),
+                                    color = if (isSelected) Color(0xFF69D3BC) else Color(0xFF283C3E),
                                     shape = RoundedCornerShape(18.dp)
                                 )
                                 .clickable { selectedPlan = plan }
@@ -340,10 +340,10 @@ fun PricingScreen(
                                     modifier = Modifier
                                         .size(20.dp)
                                         .clip(CircleShape)
-                                        .background(if (isSelected) Color(0xFF48E4B4) else Color.Transparent)
+                                        .background(if (isSelected) Color(0xFF78D3C9) else Color.Transparent)
                                         .border(
                                             1.dp,
-                                            if (isSelected) Color(0xFF48E4B4) else Color(0xFF607A77),
+                                            if (isSelected) Color(0xFF78D3C9) else Color(0xFF607A77),
                                             CircleShape
                                         ),
                                     contentAlignment = Alignment.Center
@@ -361,7 +361,7 @@ fun PricingScreen(
                                     .align(Alignment.TopEnd)
                                     .offset(x = (-16).dp, y = (-8).dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF38D9A5))
+                                    .background(Color(0xFF69D3BC))
                                     .padding(horizontal = 9.dp, vertical = 5.dp)
                             ) {
                                 Text(
@@ -400,7 +400,7 @@ fun PricingScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(if (selectedProvider == "yookassa") Color(0xFF43DDB1) else Color.Transparent)
+                            .background(if (selectedProvider == "yookassa") Color(0xFF69D3BC) else Color.Transparent)
                             
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
@@ -523,7 +523,7 @@ private fun DeviceCountTab(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(11.dp))
-            .background(if (selected) Color(0xFF43DDB1) else Color.Transparent)
+            .background(if (selected) Color(0xFF69D3BC) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center

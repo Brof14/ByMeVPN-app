@@ -61,7 +61,7 @@ fun ServerSelectionSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = Color(0xFF10191B),
+        containerColor = Color(0xFF101B2A),
         scrimColor = Color(0x99000000),
         dragHandle = null,
         modifier = modifier
@@ -126,8 +126,8 @@ fun ServerSelectionSheet(
                     .fillMaxWidth()
                     .height(80.dp)
                     .clip(RoundedCornerShape(18.dp))
-                    .background(Color(0xFF17322A))
-                    .border(1.dp, Color(0xFF2C8265), RoundedCornerShape(18.dp))
+                    .background(Color(0xFF182D3B))
+                    .border(1.dp, Color(0xFF437D90), RoundedCornerShape(18.dp))
                     .clickable {
                         onSelectAuto()
                         onDismissRequest()
@@ -140,10 +140,10 @@ fun ServerSelectionSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF234E3F)),
+                        .background(Color(0xFF2C4D5D)),
                     contentAlignment = Alignment.Center
                 ) {
-                    SparkleStarIcon(color = Color(0xFF37EDB2), size = 20.dp)
+                    SparkleStarIcon(color = Color(0xFF69D3BC), size = 20.dp)
                 }
 
                 Column(modifier = Modifier.weight(1f)) {
@@ -165,16 +165,16 @@ fun ServerSelectionSheet(
                     modifier = Modifier
                         .size(22.dp)
                         .clip(CircleShape)
-                        .background(if (isAutoSelected) Color(0xFF3CDFAC) else Color.Transparent)
+                        .background(if (isAutoSelected) Color(0xFF69D3BC) else Color.Transparent)
                         .border(
                             1.dp,
-                            if (isAutoSelected) Color(0xFF3CDFAC) else Color(0xFF57716F),
+                            if (isAutoSelected) Color(0xFF69D3BC) else Color(0xFF57716F),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     if (isAutoSelected) {
-                        CheckmarkIcon(color = Color(0xFF03231C), size = 14.dp)
+                        CheckmarkIcon(color = Color(0xFF0A2231), size = 14.dp)
                     }
                 }
             }
@@ -198,8 +198,8 @@ fun ServerSelectionSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF12211F))
-                        .border(1.dp, Color(0xFF28443C), RoundedCornerShape(16.dp))
+                        .background(Color(0xFF142235))
+                        .border(1.dp, Color(0xFF294453), RoundedCornerShape(16.dp))
                         .padding(16.dp)
                 ) {
                     Text(
@@ -223,7 +223,7 @@ fun ServerSelectionSheet(
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isLoading) Color(0xFF1B3030) else Color(0xFF234E3F))
+                            .background(if (isLoading) Color(0xFF1A2D3B) else Color(0xFF2C4D5D))
                             .clickable(enabled = !isLoading, onClick = onRefresh)
                             .padding(horizontal = 16.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -231,16 +231,16 @@ fun ServerSelectionSheet(
                     ) {
                         if (isLoading) {
                             androidx.compose.material3.CircularProgressIndicator(
-                                color = Color(0xFF3CDFAC),
+                                color = Color(0xFF69D3BC),
                                 modifier = Modifier.size(14.dp),
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            RefreshIcon(color = Color(0xFF7FE3C1), size = 14.dp)
+                            RefreshIcon(color = Color(0xFF90DDCE), size = 14.dp)
                         }
                         Text(
                             text = if (isLoading) (if (isRu) "Загрузка…" else "Loading…") else (if (isRu) "Обновить" else "Refresh"),
-                            color = Color(0xFF7FE3C1),
+                            color = Color(0xFF90DDCE),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -260,10 +260,10 @@ fun ServerSelectionSheet(
                             .fillMaxWidth()
                             .height(76.dp)
                             .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFF101D1F))
+                            .background(Color(0xFF111D2D))
                             .border(
                                 1.dp,
-                                if (isSelected) Color(0xFF39DAA7) else Color(0xFF253639),
+                                if (isSelected) Color(0xFF69D3BC) else Color(0xFF293E4F),
                                 RoundedCornerShape(18.dp)
                             )
                             .clickable {
@@ -310,7 +310,7 @@ fun ServerSelectionSheet(
                                 ) {
                                     Text(
                                         text = server.protocol,
-                                        color = if (server.protocol.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                        color = if (server.protocol.contains("Reality", ignoreCase = true)) Color(0xFF69D3BC)
                                                 else if (server.protocol.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
                                                 else Color(0xFF78C6FF),
                                         fontSize = 10.sp,
@@ -322,7 +322,7 @@ fun ServerSelectionSheet(
                                     server.connectionCheck < 0 -> Color(0xFFFF8A65)
                                     server.pingMs == -2 -> Color(0xFFFF8A65)
                                     server.pingMs <= 0 -> Color(0xFF89A6A0)
-                                    server.pingMs <= 200 -> Color(0xFF3CDFAC)
+                                    server.pingMs <= 200 -> Color(0xFF69D3BC)
                                     server.pingMs <= 350 -> Color(0xFFFFD54F)
                                     else -> Color(0xFFFF8A65)
                                 }
@@ -350,16 +350,16 @@ fun ServerSelectionSheet(
                             modifier = Modifier
                                 .size(21.dp)
                                 .clip(CircleShape)
-                                .background(if (isSelected) Color(0xFF39DAA7) else Color.Transparent)
+                                .background(if (isSelected) Color(0xFF69D3BC) else Color.Transparent)
                                 .border(
                                     1.dp,
-                                    if (isSelected) Color(0xFF39DAA7) else Color(0xFF435D5A),
+                                    if (isSelected) Color(0xFF69D3BC) else Color(0xFF435D5A),
                                     CircleShape
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
                             if (isSelected) {
-                                CheckmarkIcon(color = Color(0xFF03231C), size = 13.dp)
+                                CheckmarkIcon(color = Color(0xFF0A2231), size = 13.dp)
                             }
                         }
                     }

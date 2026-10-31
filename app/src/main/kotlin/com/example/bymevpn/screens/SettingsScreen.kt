@@ -136,7 +136,7 @@ fun SettingsScreen(
                     ByMeSettingRow(
                         title = if (isRu) "Подключаться автоматически" else "Connect automatically",
                         subtitle = if (isRu) "После включения телефона" else "After the phone starts",
-                        icon = { PowerIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        icon = { PowerIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = autoConnect,
@@ -149,7 +149,7 @@ fun SettingsScreen(
                     ByMeSettingRow(
                         title = if (isRu) "Российские сайты напрямую" else "Russian sites directly",
                         subtitle = if (isRu) "Банки и местные сервисы без VPN" else "Banks and local services without VPN",
-                        icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = bypassRuSites,
@@ -172,7 +172,7 @@ fun SettingsScreen(
                     ByMeSettingRow(
                         title = if (isRu) "Язык" else "Language",
                         subtitle = if (isRu) language.titleRu else language.titleEn,
-                        icon = { GlobeIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showLanguage = true },
                         showBottomDivider = false

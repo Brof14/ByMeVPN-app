@@ -116,11 +116,11 @@ fun AccountScreen(
                         modifier = Modifier
                             .size(51.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF1A2D2C))
+                            .background(Color(0xFF192C3D))
                             .border(1.dp, Color(0xFF294A41), RoundedCornerShape(16.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        PersonProfileIcon(color = Color(0xFF65CAB0), size = 25.dp)
+                        PersonProfileIcon(color = Color(0xFF79C7C6), size = 25.dp)
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
@@ -141,12 +141,12 @@ fun AccountScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isActive) Color(0xFF1A3B2C) else Color(0xFF2B2424))
+                            .background(if (isActive) Color(0xFF193743) else Color(0xFF2B2424))
                             .padding(horizontal = 9.dp, vertical = 7.dp)
                     ) {
                         Text(
                             text = if (isActive) "Активен" else "Без подписки",
-                            color = if (isActive) Color(0xFF65E3B1) else Color(0xFFE3A29A),
+                            color = if (isActive) Color(0xFF8CDECA) else Color(0xFFE3A29A),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -160,13 +160,13 @@ fun AccountScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color(0xFF19312B))
-                            .border(1.dp, Color(0xFF2A5449), RoundedCornerShape(21.dp))
+                            .background(Color(0xFF1A2D40))
+                            .border(1.dp, Color(0xFF34566A), RoundedCornerShape(21.dp))
                             .padding(21.dp)
                     ) {
                         Text(
                             text = "ПОДПИСКА BYMEVPN",
-                            color = Color(0xFF68B8A7),
+                            color = Color(0xFF8FBBCA),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp
@@ -184,7 +184,7 @@ fun AccountScreen(
                             )
                             Text(
                                 text = if (remainingDays == null) "" else " дн.",
-                                color = Color(0xFF6EDBB0),
+                                color = Color(0xFF80D3C6),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
@@ -233,13 +233,13 @@ fun AccountScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color(0xFF19312B))
-                            .border(1.dp, Color(0xFF2A5449), RoundedCornerShape(21.dp))
+                            .background(Color(0xFF1A2D40))
+                            .border(1.dp, Color(0xFF34566A), RoundedCornerShape(21.dp))
                             .padding(21.dp)
                     ) {
                         Text(
                             text = "ВАШ ДОСТУП",
-                            color = Color(0xFF68B8A7),
+                            color = Color(0xFF8FBBCA),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.2.sp
@@ -275,7 +275,7 @@ fun AccountScreen(
 
                         Text(
                             text = "Посмотреть тарифы",
-                            color = Color(0xFF8CD0B8),
+                            color = Color(0xFF90CFCE),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center,
@@ -302,7 +302,7 @@ fun AccountScreen(
                         subtitle = if (devices.isNotEmpty()) {
                             maxDevices?.let { "$activeDevicesCount из $it" } ?: "$activeDevicesCount устройств"
                         } else "Нет подтверждённого списка устройств",
-                        icon = { DevicesMultiIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToDevices,
                         showBottomDivider = false
@@ -322,7 +322,7 @@ fun AccountScreen(
                     ByMeSettingRow(
                         title = "Настройки аккаунта",
                         subtitle = "Имя, почта и автопродление",
-                        icon = { PersonProfileIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showAccountDialog = true },
                         showBottomDivider = false
@@ -347,7 +347,7 @@ fun AccountScreen(
         if (showAccountDialog) {
             AlertDialog(
                 onDismissRequest = { showAccountDialog = false },
-                containerColor = Color(0xFF111A1D),
+                containerColor = Color(0xFF121C2B),
                 titleContentColor = AppColors.TextPrimary,
                 textContentColor = Color(0xFF8CA5A2),
                 title = { Text("Настройки аккаунта") },
@@ -364,7 +364,7 @@ fun AccountScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(1.dp)
-                                .background(Color(0xFF243B3A))
+                                .background(Color(0xFF2B4050))
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         Row(
@@ -382,14 +382,14 @@ fun AccountScreen(
                                 null -> "Нет данных"
                             }
                             val renewColor = when (subscription?.autoRenew) {
-                                true -> Color(0xFF65E3B1)
+                                true -> Color(0xFF8CDECA)
                                 false -> Color(0xFFE3B26A)
                                 null -> Color(0xFF8CA5A2)
                             }
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF172A29))
+                                    .background(Color(0xFF182A3B))
                                     .padding(horizontal = 9.dp, vertical = 5.dp)
                             ) {
                                 Text(renewLabel, color = renewColor, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
@@ -426,7 +426,7 @@ fun AccountScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showAccountDialog = false }) {
-                        Text("Закрыть", color = Color(0xFF65E3B1))
+                        Text("Закрыть", color = Color(0xFF8CDECA))
                     }
                 }
             )
