@@ -1,5 +1,7 @@
 package com.example.bymevpn.screens
 
+import android.widget.Toast
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +53,7 @@ import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun AccountScreen(
@@ -78,6 +82,9 @@ fun AccountScreen(
     val activeDevicesCount = devices.size
 
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var deletingAccount by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = modifier
@@ -397,6 +404,16 @@ fun AccountScreen(
                         )
                         Spacer(modifier = Modifier.height(14.dp))
                         AccountInfoLine("Версия приложения", "1.0.0")
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            text = "Удалить аккаунт и данные",
+                            color = Color(0xFFFF8A8A),
+                            fontSize = 12.sp,
+                            modifier = Modifier.clickable {
+                                showAccountDialog = false
+                                showDeleteDialog = true
+                            }.padding(vertical = 10.dp)
+                        )
                     }
                 },
                 confirmButton = {
@@ -411,6 +428,31 @@ fun AccountScreen(
                     TextButton(onClick = { showAccountDialog = false }) {
                         Text("Закрыть", color = Color(0xFF65E3B1))
                     }
+                }
+            )
+        }
+        if (showDeleteDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!deletingAccount) showDeleteDialog = false },
+                title = { Text("Удалить аккаунт навсегда?") },
+                text = { Text("Это действие удалит аккаунт на сервере и приведёт к потере доступа к подписке. Отменить удаление невозможно.") },
+                confirmButton = {
+                    TextButton(enabled = !deletingAccount, onClick = {
+                        deletingAccount = true
+                        scope.launch {
+                            val result = AccountRepository.deleteAccount(context)
+                            deletingAccount = false
+                            if (result.isSuccess) {
+                                showDeleteDialog = false
+                                onLogOut()
+                            } else {
+                                Toast.makeText(context, "Не удалось удалить аккаунт. Попробуйте позже.", Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }) { Text("Удалить навсегда", color = Color(0xFFFF7373)) }
+                },
+                dismissButton = {
+                    TextButton(enabled = !deletingAccount, onClick = { showDeleteDialog = false }) { Text("Отмена") }
                 }
             )
         }

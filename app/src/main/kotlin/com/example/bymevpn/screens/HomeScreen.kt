@@ -449,21 +449,12 @@ private fun HomeNoPlanContent(
             }
         }
 
-        if (hasServers) {
-            Text(
-                text = if (isRu) "Посмотреть серверы  ›" else "View servers  ›",
-                color = AppColors.BrandGreen,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable(onClick = onServerSelectClick).padding(12.dp)
-            )
-        } else {
-            ServerLoadStatusRow(
-                isRu = isRu,
-                error = serversError,
-                isLoading = isLoadingServers,
-                onRefresh = onRefreshServers
-            )
-        }
+        // Hide server discovery until an entitlement is active, regardless of old cached nodes.
+        Text(
+            text = if (isRu) "Серверы появятся после активации подписки" else "Servers become available after activation",
+            color = AppColors.TextSecondary,
+            modifier = Modifier.padding(12.dp)
+        )
         Spacer(modifier = Modifier.weight(1f))
 
         // Action dock: Trial card + All plans link

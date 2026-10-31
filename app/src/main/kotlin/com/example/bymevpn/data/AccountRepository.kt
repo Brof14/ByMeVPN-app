@@ -187,6 +187,7 @@ object AccountRepository {
             val storage = SecureTokenStorage.getInstance(context)
             storage.removeRegisteredDevice(deviceId)
             _userDevices.value = storage.getRegisteredDevices()
+            refreshDevices(context)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
