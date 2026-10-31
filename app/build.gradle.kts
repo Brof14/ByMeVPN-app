@@ -40,7 +40,7 @@ android {
     buildTypes {
         debug {
             if (providers.gradleProperty("sideBySideDebug").orNull == "true") {
-                applicationIdSuffix = ".preview"
+                applicationIdSuffix = ".${providers.gradleProperty("previewSuffix").orElse("preview").get()}"
             }
             signingConfigs.findByName("debugConfig")?.let {
                 signingConfig = it

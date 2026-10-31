@@ -172,15 +172,20 @@ object ApiJsonParsers {
             return if (v != null && v != JSONObject.NULL && v.toString().isNotBlank() && v.toString() != "null") v.toString() else null
         }
 
+        val planCode = optNullableString("plan_code")
+        val explicitDeviceLimit = target.optInt("max_devices", 0).takeIf { it > 0 }
+        val deviceLimitFromServerPlan = planCode
+            ?.let { Regex("(?:^|_)d(2|5|10)$").find(it)?.groupValues?.get(1)?.toIntOrNull() }
+
         return SubscriptionStatus(
             status = target.optString("status", "none"),
-            planCode = optNullableString("plan_code"),
+            planCode = planCode,
             planName = optNullableString("plan_name"),
             expiresAt = optNullableString("expires_at"),
             secondsRemaining = target.optLong("seconds_remaining", 0L),
             autoRenew = if (target.has("auto_renew") && !target.isNull("auto_renew")) target.optBoolean("auto_renew") else null,
             trialAvailable = target.optBoolean("trial_available", false),
-            maxDevices = target.optInt("max_devices", 0),
+            maxDevices = explicitDeviceLimit ?: deviceLimitFromServerPlan ?: 0,
             activeDevices = target.optInt("active_devices", 0),
             entitlement = optNullableString("entitlement"),
             serverTime = optNullableString("server_time"),
