@@ -82,6 +82,13 @@ class VpnManager private constructor(private val context: Context) {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    /** Human-readable reason why the server list could not be refreshed. */
+    private val _serversError = MutableStateFlow<String?>(null)
+    val serversError: StateFlow<String?> = _serversError.asStateFlow()
+
+    private val _isLoadingServers = MutableStateFlow(false)
+    val isLoadingServers: StateFlow<Boolean> = _isLoadingServers.asStateFlow()
+
     private val _bytesIn = MutableStateFlow(0L)
     val bytesIn: StateFlow<Long> = _bytesIn.asStateFlow()
 
@@ -208,22 +215,46 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     suspend fun loadServers(): Result<List<ServerNode>> = serverLoadMutex.withLock {
-        loadServersLocked()
+        _isLoadingServers.value = true
+        try {
+            loadServersLocked()
+        } finally {
+            _isLoadingServers.value = false
+        }
+    }
+
+    private fun serverLoadFailure(message: String, cause: Throwable? = null): Result<List<ServerNode>> {
+        _serversError.value = message
+        // Keep a previously delivered list: a failed refresh must not erase known servers.
+        if (_availableServers.value.isEmpty()) {
+            _currentServer.value = null
+        }
+        return Result.failure(cause ?: IllegalStateException(message))
     }
 
     private suspend fun loadServersLocked(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
         try {
-            // 1. Load from subscription URL if set
+            // 1. Show the last saved subscription list immediately, then refresh it in the background.
             val subUrl = storage.getSubscriptionUrl()
             if (!subUrl.isNullOrBlank()) {
                 val saved = storage.getServerNodes()
-                if (saved.isNotEmpty()) setServers(saved)
-                subscriptionManager.refreshStatus()
-                val refreshed = storage.getServerNodes()
-                if (refreshed.isNotEmpty()) {
-                    setServers(refreshed)
-                    return@withContext Result.success(refreshed)
+                if (saved.isNotEmpty()) {
+                    setServers(saved)
+                    _serversError.value = null
+                    scope.launch {
+                        if (subscriptionManager.refreshStatus().isSuccess) {
+                            val refreshed = storage.getServerNodes()
+                            if (refreshed.isNotEmpty()) {
+                                setServers(refreshed)
+                                _serversError.value = null
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Serving saved subscription list (${saved.size} nodes)")
+                    return@withContext Result.success(saved)
                 }
+                // Nothing saved yet: refresh in the background so it cannot delay the API request below.
+                scope.launch { subscriptionManager.refreshStatus() }
             }
 
             // API-only accounts also need an offline list, scoped to the signed-in account.
@@ -231,7 +262,9 @@ class VpnManager private constructor(private val context: Context) {
             val apiCache = storage.getApiServerCache(ownerId)
             if (apiCache != null) {
                 setServers(apiCache.nodes)
+                _serversError.value = null
                 if (subUrl.isNullOrBlank() && isServerCacheFresh(apiCache.savedAt, System.currentTimeMillis())) {
+                    Log.d(TAG, "Serving fresh cached API list (${apiCache.nodes.size} nodes)")
                     return@withContext Result.success(apiCache.nodes)
                 }
             }
@@ -242,6 +275,7 @@ class VpnManager private constructor(private val context: Context) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                Log.w(TAG, "Server list request failed: ${e.javaClass.simpleName}")
                 emptyList()
             }
             if (ownerId.isNotBlank() && storage.getCachedUser()?.id != ownerId) {
@@ -252,10 +286,13 @@ class VpnManager private constructor(private val context: Context) {
                     storage.saveApiServerCache(ownerId, servers, System.currentTimeMillis())
                 }
                 setServers(servers)
+                _serversError.value = null
+                Log.d(TAG, "Loaded ${servers.size} servers from the API")
                 return@withContext Result.success(servers)
             }
 
             if (apiCache != null && storage.getCachedUser()?.id == ownerId) {
+                Log.d(TAG, "API returned no servers; keeping cached list (${apiCache.nodes.size} nodes)")
                 return@withContext Result.success(apiCache.nodes)
             }
 
@@ -282,17 +319,24 @@ class VpnManager private constructor(private val context: Context) {
                     }
                 }
                 setServers(localNodes)
+                _serversError.value = null
                 return@withContext Result.success(localNodes)
             }
 
-            _availableServers.value = emptyList()
-            _currentServer.value = null
-            Result.failure(Exception("Нет доступных серверов. Активируйте подписку или войдите через Telegram-бота."))
+            val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+            val message = if (isRu)
+                "Серверы не получены. Проверьте интернет и обновите список."
+            else "No servers received. Check your connection and refresh the list."
+            serverLoadFailure(message)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load servers: ${e.message}")
-            Result.failure(e)
+            Log.w(TAG, "Failed to load servers: ${e.javaClass.simpleName}")
+            val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+            serverLoadFailure(
+                if (isRu) "Не удалось обновить список серверов" else "Could not refresh the server list",
+                e
+            )
         }
     }
 

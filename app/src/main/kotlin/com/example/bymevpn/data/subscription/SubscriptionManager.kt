@@ -115,7 +115,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             storage.saveCachedSubscription(status)
             Result.success(status)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh subscription online")
+            Log.w(TAG, "Failed to refresh subscription online: ${e.javaClass.simpleName}")
             val cached = storage.getCachedSubscription()
             if (cached != null) {
                 _subscriptionStatus.value = cached
@@ -158,7 +158,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             storage.saveCachedSubscription(status)
             Result.success(parsed)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply subscription")
+            Log.e(TAG, "Failed to apply subscription: ${e.javaClass.simpleName}")
             Result.failure(e)
         } finally {
             _isSyncing.value = false
@@ -166,7 +166,11 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
-        val url = URL(subUrl)
+        val resolved = SubscriptionUrlPolicy.resolve(subUrl, ApiConfig.BASE_URL)
+        val url = resolved.url
+        if (resolved.rewritten) {
+            Log.w(TAG, "Subscription URL was server-local or plain HTTP; retrying over HTTPS on the public backend host")
+        }
         require(url.protocol.equals("https", ignoreCase = true)) { "Subscription URL must use HTTPS" }
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -183,13 +187,16 @@ class SubscriptionManager private constructor(private val context: Context) {
 
         val code = conn.responseCode
         if (code !in 200..299) {
+            Log.w(TAG, "Subscription endpoint returned HTTP $code")
             throw IllegalStateException("Ошибка сервера подписки (HTTP $code)")
         }
 
         val userInfoHeader = conn.getHeaderField("Subscription-Userinfo")
             ?: conn.getHeaderField("subscription-userinfo")
         val body = conn.inputStream.bufferedReader().use { it.readText() }
-        XraySubscriptionParser.parse(body, userInfoHeader)
+        val parsed = XraySubscriptionParser.parse(body, userInfoHeader)
+        Log.d(TAG, "Subscription fetched: servers=${parsed.servers.size}, configs=${parsed.configs.size}")
+        parsed
     }
 
     suspend fun activateTrial(): Result<SubscriptionStatus> {

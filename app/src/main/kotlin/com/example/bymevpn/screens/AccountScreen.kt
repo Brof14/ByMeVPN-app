@@ -314,7 +314,7 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = "Настройки аккаунта",
-                        subtitle = null,
+                        subtitle = "Имя, почта и автопродление",
                         icon = { PersonProfileIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showAccountDialog = true },
@@ -346,13 +346,57 @@ fun AccountScreen(
                 title = { Text("Настройки аккаунта") },
                 text = {
                     Column {
-                        Text("Пользователь: ${currentUser?.displayName ?: "Пользователь"}")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Почта: ${currentUser?.email ?: "Не указана"}")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Автопродление: " + when (subscription?.autoRenew) { true -> "включено"; false -> "отключено"; null -> "нет подтверждённых данных" })
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Для изменения автопродления обратитесь в поддержку.")
+                        AccountInfoLine("Имя", currentUser?.displayName.orEmpty().ifBlank { "Не указано" })
+                        Spacer(modifier = Modifier.height(10.dp))
+                        AccountInfoLine(
+                            "Почта",
+                            currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: "Не указана"
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color(0xFF243B3A))
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Автопродление", color = Color(0xFFEAF1EF), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Статус, подтверждённый сервером", color = Color(0xFF8CA5A2), fontSize = 11.sp)
+                            }
+                            val renewLabel = when (subscription?.autoRenew) {
+                                true -> "Включено"
+                                false -> "Отключено"
+                                null -> "Нет данных"
+                            }
+                            val renewColor = when (subscription?.autoRenew) {
+                                true -> Color(0xFF65E3B1)
+                                false -> Color(0xFFE3B26A)
+                                null -> Color(0xFF8CA5A2)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF172A29))
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Text(renewLabel, color = renewColor, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            "Переключатель появится, когда сервер начнёт возвращать управление автопродлением. Сейчас приложение показывает только подтверждённый статус.",
+                            color = Color(0xFF8CA5A2),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        AccountInfoLine("Версия приложения", "1.0.0")
                     }
                 },
                 confirmButton = {
@@ -370,5 +414,26 @@ fun AccountScreen(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun AccountInfoLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(label, color = Color(0xFF8CA5A2), fontSize = 12.5.sp)
+        Text(
+            text = value,
+            color = Color(0xFFEAF1EF),
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 16.dp)
+        )
     }
 }

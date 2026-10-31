@@ -3,7 +3,9 @@ package com.example.bymevpn.data.api
 import android.content.Context
 import android.util.Log
 import com.example.bymevpn.data.storage.SecureTokenStorage
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -234,15 +236,10 @@ class ByMeApiClient(private val context: Context) {
     suspend fun getServers(): List<ServerNode> {
         val json = request("GET", "/servers", null, requiresAuth = true)
         val subUrl = json.optString("subscription_url")
-        if (subUrl.isNotBlank()) {
-            storage.saveSubscriptionUrl(subUrl)
-            try {
-                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(subUrl)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to apply subscription URL from servers endpoint: ${e.message}")
-            }
-        }
+        if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl)
         val array = json.optJSONArray("servers") ?: JSONArray()
+        // No URLs or tokens here: only counts and presence flags are diagnostic.
+        Log.d(TAG, "GET /servers: nodes=${array.length()}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}")
         val parsed = ApiJsonParsers.parseServers(array)
         for (i in 0 until array.length()) {
             val sObj = array.getJSONObject(i)
@@ -251,6 +248,26 @@ class ByMeApiClient(private val context: Context) {
             if (code.isNotBlank() && cfgObj != null) {
                 val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
                 storage.saveServerConfig(code, cfg)
+            }
+        }
+        if (subUrl.isNotBlank()) {
+            val subManager = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
+            if (parsed.isEmpty()) {
+                // The API has no nodes; the subscription URL is the only possible source.
+                try {
+                    subManager.applySubscriptionUrl(subUrl)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Subscription URL from /servers was not applied: ${safeError(e)}")
+                }
+            } else {
+                // Nodes are already available: never delay the server list for a subscription fetch.
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        subManager.applySubscriptionUrl(subUrl)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Background subscription refresh failed: ${safeError(e)}")
+                    }
+                }
             }
         }
         return parsed
@@ -427,6 +444,13 @@ class ByMeApiClient(private val context: Context) {
                 }
             }
         }
+    }
+
+    /** Keeps diagnostics useful without ever logging a subscription URL or a token. */
+    private fun safeError(e: Exception): String {
+        val message = e.message.orEmpty()
+        return if (message.isBlank() || message.contains("://")) e.javaClass.simpleName
+        else "${e.javaClass.simpleName}: ${message.take(160)}"
     }
 
     private suspend fun refreshAccessToken(): Boolean = refreshMutex.withLock {

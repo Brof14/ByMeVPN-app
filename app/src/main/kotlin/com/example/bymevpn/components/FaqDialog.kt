@@ -49,11 +49,55 @@ data class FaqItem(
 )
 
 val FAQ_ITEMS = listOf(
-    FaqItem("VPN включён, но сайт не открывается", "VPN is on, but a site won't open", "Попробуйте другой сервер. Если проблема остаётся, проверьте интернет без VPN и обратитесь в поддержку, указав название сервера.", "Try another server. If the problem remains, check your connection without VPN and contact support with the server name.", ""),
-    FaqItem("Что означает задержка сервера?", "What does server latency mean?", "Задержка показывает время ответа в миллисекундах. Небольшое значение обычно лучше, но само по себе не гарантирует работу VPN.", "Latency is response time in milliseconds. Lower is usually better, but it does not guarantee VPN connectivity.", ""),
-    FaqItem("Почему устройство не подтверждено?", "Why isn't my device confirmed?", "Список устройств предоставляет сервер. Если он недоступен, телефон показан отдельно; это не подтверждает его регистрацию или свободное место в тарифе.", "The server provides the device list. If unavailable, this phone is shown separately; that does not confirm registration or an available slot.", ""),
-    FaqItem("Как узнать, включено ли автопродление?", "How can I check automatic renewal?", "Откройте аккаунт и его настройки. Если данных нет, статус не подтверждён; уточните его в поддержке.", "Open Account settings. If no data is shown, the status is unconfirmed; ask support.", ""),
-    FaqItem("Как вернуть доступ через Telegram?", "How do I recover access through Telegram?", "На экране входа выберите Telegram и подтвердите вход в боте. Вернитесь в приложение и дождитесь проверки.", "Choose Telegram on the sign-in screen and confirm in the bot. Return to the app and wait for verification.", "")
+    FaqItem(
+        "VPN отключается, когда экран заблокирован",
+        "VPN drops when the screen is locked",
+        "Android и оболочки производителей ограничивают фоновую работу. Откройте «Настройки» → «Защита в фоне» и разрешите приложению работать без ограничений батареи; на Xiaomi, Huawei и Samsung дополнительно отключите оптимизацию в системных настройках батареи.",
+        "Android and vendor skins limit background work. Open Settings → Background protection and allow the app to run without battery restrictions; on Xiaomi, Huawei and Samsung also disable battery optimisation in system settings.",
+        ""
+    ),
+    FaqItem(
+        "Сайт не открывается, хотя VPN включён",
+        "A site won't open while the VPN is on",
+        "Сначала проверьте, открывается ли сайт без VPN. Затем смените сервер или протокол: Hysteria 2 лучше на нестабильных сетях, VLESS Reality — на сетях с блокировками. Если не работает только банк или госуслуги, включите «Российские сайты напрямую» в настройках.",
+        "First check whether the site opens without the VPN. Then switch the server or protocol: Hysteria 2 copes better with unstable networks, VLESS Reality with filtering. If only a bank or local service fails, enable “Russian sites directly” in Settings.",
+        ""
+    ),
+    FaqItem(
+        "Почему пинг у сервера иногда «Нет ответа»?",
+        "Why does server latency sometimes show “No response”?",
+        "Пинг — это проверка доступности узла по TCP. Провайдер или сеть могут блокировать такие проверки, а Hysteria 2 работает по UDP и по TCP не проверяется. Поэтому ориентируйтесь на фактическое подключение: если VPN запускается и трафик идёт, сервер доступен.",
+        "Latency is a TCP reachability probe. Carriers may block such probes, and Hysteria 2 runs over UDP, so TCP cannot test it. Judge by the real connection: if the VPN starts and traffic flows, the server is reachable.",
+        ""
+    ),
+    FaqItem(
+        "Что такое лимит устройств?",
+        "What is the device limit?",
+        "Сервер считает устройства по установленному приложению, а не по IP-адресу. В разделе «Мои устройства» видно, какие устройства подтвердил сервер. Если телефон не появился в списке, значит сервер ещё не зарегистрировал его, а не то, что место закончилось.",
+        "The server counts devices by app installation, not by IP address. “My devices” shows what the server has confirmed. If your phone is missing there, the server has not registered it yet — it does not mean the limit is full.",
+        ""
+    ),
+    FaqItem(
+        "Как перенести подписку на новый телефон",
+        "How do I move my subscription to a new phone?",
+        "Войдите тем же способом (Telegram или почта) на новом телефоне. Старое устройство при необходимости удалите в разделе «Мои устройства», чтобы освободить место в лимите тарифа.",
+        "Sign in the same way (Telegram or email) on the new phone. If needed, remove the old device in “My devices” to free a slot in your plan's limit.",
+        ""
+    ),
+    FaqItem(
+        "Как проверить или отключить автопродление",
+        "How to check or disable automatic renewal",
+        "Откройте «Аккаунт» → «Настройки аккаунта». Там показан подтверждённый сервером статус. Если стоит «нет данных», приложение не выдумывает значение: управление автопродлением ещё не подключено к серверу.",
+        "Open Account → Account settings. The server-confirmed status is shown there. If it says “no data”, the app does not invent a value: renewal management is not connected to the server yet.",
+        ""
+    ),
+    FaqItem(
+        "Вход через Telegram не завершается",
+        "Telegram sign-in does not complete",
+        "После перехода в бота нажмите «Старт» и вернитесь в приложение. Экран ожидания сам проверит подтверждение; кнопка «Открыть Telegram» поможет, если бот не открылся с первого раза. Если ожидание истекло, начните вход заново — старая ссылка больше не действует.",
+        "After opening the bot, tap Start and return to the app. The waiting screen checks confirmation automatically; “Open Telegram” helps if the bot did not open the first time. If the wait expires, start again — the old link is no longer valid.",
+        ""
+    )
 )
 
 @Composable

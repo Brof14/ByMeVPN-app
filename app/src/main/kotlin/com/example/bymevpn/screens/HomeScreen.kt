@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,6 +87,8 @@ fun HomeScreen(
     val currentServer by vpnManager.currentServer.collectAsState()
     val availableServers by vpnManager.availableServers.collectAsState()
     val connectedSeconds by vpnManager.connectedSeconds.collectAsState()
+    val serversError by vpnManager.serversError.collectAsState()
+    val isLoadingServers by vpnManager.isLoadingServers.collectAsState()
 
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
@@ -101,6 +104,17 @@ fun HomeScreen(
     LaunchedEffect(Unit) {
         AppUpdateManager.checkForUpdates()
         YooKassaPaymentHandler.checkAndCompletePendingPayment(context)
+    }
+
+    // Servers must be ready before the user taps "connect", not after it.
+    LaunchedEffect(hasPlan, availableServers.isEmpty()) {
+        if (hasPlan && availableServers.isEmpty()) {
+            vpnManager.loadServers()
+        }
+    }
+
+    fun refreshServers() {
+        scope.launch { vpnManager.loadServers() }
     }
 
     // VPN Permission Launcher
@@ -205,7 +219,10 @@ fun HomeScreen(
                         onTrialClick = onNavigateToTrial,
                         onPlansClick = onNavigateToPricing,
                         hasServers = availableServers.isNotEmpty(),
-                        onServerSelectClick = { showServerSheet = true }
+                        onServerSelectClick = { showServerSheet = true },
+                        serversError = serversError,
+                        isLoadingServers = isLoadingServers,
+                        onRefreshServers = { refreshServers() }
                     )
                 } else if (vpnState == VpnConnectionState.ERROR) {
                     val vpnError by vpnManager.errorMessage.collectAsState()
@@ -225,7 +242,10 @@ fun HomeScreen(
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
                         currentServer = currentServer,
-                        remainingDays = remainingDays
+                        remainingDays = remainingDays,
+                        serversError = serversError,
+                        isLoadingServers = isLoadingServers,
+                        onRefreshServers = { refreshServers() }
                     )
                 } else {
                     // MOCKUP 04_home_off (also handles connecting)
@@ -235,7 +255,10 @@ fun HomeScreen(
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
                         currentServer = currentServer,
-                        remainingDays = remainingDays
+                        remainingDays = remainingDays,
+                        serversError = serversError,
+                        isLoadingServers = isLoadingServers,
+                        onRefreshServers = { refreshServers() }
                     )
                 }
             }
@@ -260,6 +283,9 @@ fun HomeScreen(
                 servers = availableServers,
                 selectedServer = currentServer,
                 isAutoSelected = isAutoServerSelected,
+                isLoading = isLoadingServers,
+                error = serversError,
+                onRefresh = { scope.launch { vpnManager.loadServers() } },
                 onSelectAuto = {
                     isAutoServerSelected = true
                     if (availableServers.isNotEmpty()) {
@@ -293,7 +319,10 @@ private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
     onPlansClick: () -> Unit,
     hasServers: Boolean,
-    onServerSelectClick: () -> Unit
+    onServerSelectClick: () -> Unit,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onRefreshServers: () -> Unit
 ) {
     val isRu = homeIsRussian()
     Column(
@@ -393,6 +422,13 @@ private fun HomeNoPlanContent(
                 color = AppColors.BrandGreen,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clickable(onClick = onServerSelectClick).padding(12.dp)
+            )
+        } else {
+            ServerLoadStatusRow(
+                isRu = isRu,
+                error = serversError,
+                isLoading = isLoadingServers,
+                onRefresh = onRefreshServers
             )
         }
         Spacer(modifier = Modifier.weight(1f))
@@ -508,7 +544,10 @@ private fun HomeDisconnectedContent(
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
-    remainingDays: Long?
+    remainingDays: Long?,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onRefreshServers: () -> Unit
 ) {
     val isRu = homeIsRussian()
     Column(
@@ -606,13 +645,15 @@ private fun HomeDisconnectedContent(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)
@@ -645,6 +686,15 @@ private fun HomeDisconnectedContent(
                 ) {
                     ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
                 }
+            }
+
+            if (currentServer == null) {
+                ServerLoadStatusRow(
+                    isRu = isRu,
+                    error = serversError,
+                    isLoading = isLoadingServers,
+                    onRefresh = onRefreshServers
+                )
             }
 
             // Subscription access strip
@@ -700,7 +750,10 @@ private fun HomeConnectedContent(
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
-    remainingDays: Long?
+    remainingDays: Long?,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onRefreshServers: () -> Unit
 ) {
     val isRu = homeIsRussian()
     val hours = connectedSeconds / 3600
@@ -819,13 +872,15 @@ private fun HomeConnectedContent(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)
@@ -859,6 +914,15 @@ private fun HomeConnectedContent(
                 ) {
                     ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
                 }
+            }
+
+            if (currentServer == null) {
+                ServerLoadStatusRow(
+                    isRu = isRu,
+                    error = serversError,
+                    isLoading = isLoadingServers,
+                    onRefresh = onRefreshServers
+                )
             }
 
             // Subscription access strip
@@ -901,6 +965,73 @@ private fun HomeConnectedContent(
                 ChevronRightIcon(color = Color(0xFF73898A), size = 17.dp)
             }
         }
+    }
+}
+
+/**
+ * Compact status/retry strip shown while the server list is missing or being refreshed.
+ */
+@Composable
+private fun ServerLoadStatusRow(
+    isRu: Boolean,
+    error: String?,
+    isLoading: Boolean,
+    onRefresh: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(15.dp))
+            .background(Color(0xFF152420))
+            .border(1.dp, Color(0xFF2A4A42), RoundedCornerShape(15.dp))
+            .clickable(enabled = !isLoading, onClick = onRefresh)
+            .padding(horizontal = 15.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF1D3731)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = Color(0xFF3CDFAC),
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                RefreshIcon(color = Color(0xFF3CDFAC), size = 14.dp)
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (isRu) "Список серверов" else "Server list",
+                color = Color(0xFFEDF5F2),
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = when {
+                    isLoading -> if (isRu) "Получаем серверы…" else "Loading servers…"
+                    !error.isNullOrBlank() -> error
+                    else -> if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
+                },
+                color = Color(0xFF8AA1A1),
+                fontSize = 10.5.sp,
+                maxLines = 2
+            )
+        }
+
+        Text(
+            text = if (isLoading) "" else if (isRu) "Обновить" else "Refresh",
+            color = Color(0xFF3CDFAC),
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -1034,13 +1165,15 @@ private fun HomeConnectionErrorContent(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)

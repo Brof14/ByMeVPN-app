@@ -43,6 +43,9 @@ fun ServerSelectionSheet(
     servers: List<ServerNode>,
     selectedServer: ServerNode?,
     isAutoSelected: Boolean,
+    isLoading: Boolean = false,
+    error: String? = null,
+    onRefresh: () -> Unit = {},
     onSelectAuto: () -> Unit,
     onSelectServer: (ServerNode) -> Unit,
     modifier: Modifier = Modifier
@@ -191,7 +194,58 @@ fun ServerSelectionSheet(
             // Server rows
             val displayServers = servers
             if (displayServers.isEmpty()) {
-                Text(if (isRu) "Серверы пока недоступны. Обновите подписку и повторите попытку." else "No servers yet. Refresh your subscription and try again.", color = Color(0xFF889EA0), fontSize = 12.sp)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF12211F))
+                        .border(1.dp, Color(0xFF28443C), RoundedCornerShape(16.dp))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = if (isLoading) {
+                            if (isRu) "Получаем список серверов…" else "Loading servers…"
+                        } else {
+                            if (isRu) "Серверы пока недоступны" else "No servers yet"
+                        },
+                        color = AppColors.TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = error?.takeIf { it.isNotBlank() }
+                            ?: if (isRu) "Нажмите «Обновить», чтобы повторить запрос." else "Tap Refresh to retry.",
+                        color = Color(0xFF889EA0),
+                        fontSize = 11.5.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isLoading) Color(0xFF1B3030) else Color(0xFF234E3F))
+                            .clickable(enabled = !isLoading, onClick = onRefresh)
+                            .padding(horizontal = 16.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (isLoading) {
+                            androidx.compose.material3.CircularProgressIndicator(
+                                color = Color(0xFF3CDFAC),
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            RefreshIcon(color = Color(0xFF7FE3C1), size = 14.dp)
+                        }
+                        Text(
+                            text = if (isLoading) (if (isRu) "Загрузка…" else "Loading…") else (if (isRu) "Обновить" else "Refresh"),
+                            color = Color(0xFF7FE3C1),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             LazyColumn(
