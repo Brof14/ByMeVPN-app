@@ -1,7 +1,5 @@
 package com.example.bymevpn.screens
 
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -69,10 +67,8 @@ import androidx.compose.material3.TextButton
 
 /**
  * 01 Welcome & Authentication Screen tailored for Google Play launch:
- * 1. Prominent 1-tap Google Sign-In as primary method
- * 2. Email sign in & registration
- * 3. Dedicated prompt: «Уже пользовались через Telegram-бота?» with direct Telegram button
- * 4. Direct subscription link / clipboard auto-import
+ * Email sign-in and registration are the normal account path. Telegram remains
+ * available only as a compatibility path for accounts originally created in the bot.
  */
 @Composable
 fun WelcomeScreen(
@@ -98,6 +94,7 @@ fun WelcomeScreen(
     var isSubLoading by remember { mutableStateOf(false) }
     var subError by remember { mutableStateOf<String?>(null) }
     var showInputCard by remember { mutableStateOf(false) }
+    var showLegacyTelegramLogin by remember { mutableStateOf(false) }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         val detected = ClipboardKeyDetector.detectKey(context)
@@ -191,7 +188,7 @@ fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (isRu) "Войдите через Telegram или электронную почту" else "Sign in with Telegram or email",
+                    text = if (isRu) "Войдите или создайте аккаунт по почте" else "Sign in or create an account with email",
                     color = AppColors.TextSecondary,
                     fontSize = 12.5.sp,
                     textAlign = TextAlign.Center
@@ -252,18 +249,30 @@ fun WelcomeScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // DEDICATED TELEGRAM PROMPT (Per User Request)
-                Column(
+                Text(
+                    text = if (isRu) "Уже есть старый аккаунт бота?" else "Have an older bot account?",
+                    color = AppColors.TextMuted,
+                    fontSize = 12.sp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF0C161C))
-                        .border(1.2.dp, AppColors.ElectricBlue.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { showLegacyTelegramLogin = !showLegacyTelegramLogin }
+                        .padding(vertical = 10.dp),
+                    textAlign = TextAlign.Center
+                )
+
+                AnimatedVisibility(visible = showLegacyTelegramLogin) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF0C161C))
+                            .border(1.2.dp, AppColors.ElectricBlue.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
                     Text(
-                        text = if (isRu) "Уже пользовались через Telegram-бота?" else "Already used via Telegram bot?",
+                        text = if (isRu) "Старый аккаунт из Telegram-бота?" else "Existing Telegram bot account?",
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -273,7 +282,7 @@ fun WelcomeScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = if (isRu) "Войдите в один клик через вашего бота или вставьте ключ" else "Sign in with 1 tap via bot or paste your access key",
+                        text = if (isRu) "Это запасной вход для старых аккаунтов. Для нового аккаунта используйте почту." else "Legacy sign-in only. Use email to create a new account.",
                         color = AppColors.TextSecondary,
                         fontSize = 11.5.sp,
                         textAlign = TextAlign.Center
@@ -349,7 +358,7 @@ fun WelcomeScreen(
                                 TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isRu) "Войти через Telegram-бота" else "Log In with Telegram",
+                                    text = if (isRu) "Войти в старый аккаунт через Telegram" else "Legacy sign-in with Telegram",
                                     color = AppColors.DarkText,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.ExtraBold
@@ -457,12 +466,13 @@ fun WelcomeScreen(
                             }
                         }
                     }
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 3. Footer Links: Sign Up & Telegram Support
+            // 3. Footer Links: Sign Up & Email Support
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -486,11 +496,21 @@ fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = if (isRu) "Поддержка в Telegram: @ByMeVPNSupportBot" else "Telegram Support: @ByMeVPNSupportBot",
+                    text = if (isRu) "Поддержка по почте: support@bymevpn.com" else "Email support: support@bymevpn.com",
                     color = AppColors.TextMuted,
                     fontSize = 11.5.sp,
                     modifier = Modifier.clickable {
-                        openTelegramBot(context, null)
+                        val intent = android.content.Intent(
+                            android.content.Intent.ACTION_SENDTO,
+                            Uri.parse("mailto:support@bymevpn.com")
+                        ).apply {
+                            putExtra(android.content.Intent.EXTRA_SUBJECT, if (isRu) "Поддержка ByMeVPN" else "ByMeVPN support")
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, if (isRu) "На устройстве не настроена почта" else "No email app is configured", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 )
 
@@ -549,15 +569,5 @@ fun WelcomeScreen(
             isRussian = isRu,
             onDismiss = { showTermsDialog = false }
         )
-    }
-}
-
-private fun openTelegramBot(context: Context, param: String?) {
-    val url = if (param != null) "https://t.me/ByMeVPNBot?$param" else "https://t.me/ByMeVPNSupportBot"
-    try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        context.startActivity(intent)
-    } catch (_: Exception) {
-        Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
     }
 }

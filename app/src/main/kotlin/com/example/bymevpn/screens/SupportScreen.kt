@@ -2,6 +2,7 @@ package com.example.bymevpn.screens
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +33,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.bymevpn.components.BellNewsIcon
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeCardGroup
@@ -128,8 +128,14 @@ fun SupportScreen(
                     ByMePrimaryButton(
                         text = t("Написать в поддержку", "Contact support"),
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/bymevpn_support_bot"))
-                            context.startActivity(intent)
+                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bymevpn.com")).apply {
+                                putExtra(Intent.EXTRA_SUBJECT, t("Поддержка ByMeVPN", "ByMeVPN support"))
+                            }
+                            try {
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                Toast.makeText(context, t("На устройстве не настроена почта", "No email app is configured"), Toast.LENGTH_SHORT).show()
+                            }
                         }
                     )
                 }
@@ -150,17 +156,6 @@ fun SupportScreen(
                         icon = { QuestionHelpIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showFaqDialog = true }
-                    )
-                    ByMeSettingRow(
-                        title = t("Новости ByMeVPN", "ByMeVPN news"),
-                        subtitle = t("Обновления и работа сервиса", "Updates and service status"),
-                        icon = { BellNewsIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/bymevpn"))
-                            context.startActivity(intent)
-                        },
-                        showBottomDivider = false
                     )
                 }
 

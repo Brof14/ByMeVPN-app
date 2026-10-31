@@ -88,7 +88,7 @@ class MainActivity : ComponentActivity() {
         val subUrl = data.getQueryParameter("url")
             ?: data.getQueryParameter("sub")
             ?: if (data.scheme == "http" || data.scheme == "https") data.toString() else null
-        val userName = data.getQueryParameter("name") ?: "Telegram User"
+        val userName = data.getQueryParameter("name") ?: "ByMeVPN user"
 
         if (!subUrl.isNullOrBlank()) {
             CoroutineScope(Dispatchers.Main).launch {

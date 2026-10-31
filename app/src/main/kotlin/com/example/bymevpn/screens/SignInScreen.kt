@@ -85,7 +85,7 @@ private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,
  * 4. Distinct "или по почте" horizontal divider
  * 5. High-contrast dark inputs for email and password
  * 6. Vibrant neon green "Войти" button with right chevron
- * 7. Dedicated Telegram Bot card with badge and green "Войти через Telegram" button
+ * 7. Optional Telegram compatibility card for legacy bot accounts
  * 8. "Нет аккаунта? Зарегистрироваться >" footer link
  */
 @Composable
@@ -636,7 +636,7 @@ fun SignInScreen(
 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (isRu) "Уже пользовались через\nTelegram-бота?" else "Already used via\nTelegram bot?",
+                                        text = if (isRu) "Старый аккаунт из\nTelegram-бота?" else "Legacy account from\nTelegram bot?",
                                         color = Color.White,
                                         fontSize = 14.5.sp,
                                         fontWeight = FontWeight.Bold,
@@ -644,7 +644,7 @@ fun SignInScreen(
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = if (isRu) "Войдите в один клик через вашего бота" else "Sign in with 1 tap via your bot",
+                                        text = if (isRu) "Почта работает без Telegram. Это вход только для старых аккаунтов." else "Email works without Telegram. This is only for legacy accounts.",
                                         color = Color(0xFF758A9E),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Normal
@@ -686,7 +686,7 @@ fun SignInScreen(
                                                 telegramStatusText = if (isRu) "Ожидаем подтверждение в боте…" else "Waiting for confirmation in the bot…"
 
                                                 var confirmed = false
-                                                for (attempt in 1..200) {
+                                                    for (attempt in 1..40) {
                                                     val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
                                                     if (checkRes.isSuccess && checkRes.getOrNull() != null) {
                                                         confirmed = true
@@ -740,7 +740,7 @@ fun SignInScreen(
                                         PaperPlaneIcon(color = Color(0xFF0B2230), size = 18.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
+                                            text = if (isRu) "Войти в старый аккаунт через Telegram" else "Legacy sign-in with Telegram",
                                             color = Color(0xFF0B2230),
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold

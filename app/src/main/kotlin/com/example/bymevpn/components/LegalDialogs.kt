@@ -101,9 +101,9 @@ fun PrivacyPolicyDialog(
                     LegalSection(
                         title = if (isRussian) "4. Право на удаление данных" else "4. Right to Deletion",
                         body = if (isRussian)
-                            "Для запроса удаления аккаунта и связанных данных обратитесь в поддержку @ByMeVPNSupportBot. Автоматическое удаление в приложении станет доступным после поддержки на сервере."
+                            "Для удаления аккаунта обратитесь на support@bymevpn.com или отправьте запрос на bymevpn.com/delete-account. Само приложение пока зависит от серверной функции удаления."
                         else
-                            "To request deletion of your account and associated data, contact @ByMeVPNSupportBot. In-app deletion will become available after the backend implements it."
+                            "To request account deletion, email support@bymevpn.com or use bymevpn.com/delete-account. In-app deletion still depends on the server implementing the required endpoint."
                     )
                 }
 
@@ -217,9 +217,9 @@ fun TermsOfServiceDialog(
                     LegalSection(
                         title = if (isRussian) "3. Возврат средств и отмена" else "3. Refunds & Cancellation",
                         body = if (isRussian)
-                            "Мы предоставляем бесплатный 3-дневный пробный период без привязки карты. Если приобретенная подписка не работает должным образом, возврат средств доступен в течение 14 дней через службу поддержки @ByMeVPNSupportBot."
+                            "Мы предоставляем бесплатный 3-дневный пробный период без привязки карты. Если приобретённая подписка не работает, обратитесь на support@bymevpn.com в течение 14 дней."
                         else
-                            "A free 3-day trial is provided with no card required. If a purchased plan does not perform properly, refund requests can be made within 14 days via support @ByMeVPNSupportBot."
+                            "A free 3-day trial is provided with no card required. If a purchased plan does not work, contact support@bymevpn.com within 14 days."
                     )
                 }
 

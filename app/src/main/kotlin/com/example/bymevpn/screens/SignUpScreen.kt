@@ -66,7 +66,6 @@ import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.ShieldLogo
-import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
@@ -379,59 +378,6 @@ fun SignUpScreen(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Dedicated Telegram Bot Callout
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color(0xFF0C161C))
-                        .border(1.dp, AppColors.ElectricBlue.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
-                        .padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = if (isRu) "Уже пользовались через Telegram-бота?" else "Already used via Telegram bot?",
-                        color = Color.White,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = if (isRu) "Войдите в один клик через вашего бота" else "Log in with 1 tap via your bot",
-                        color = AppColors.TextSecondary,
-                        fontSize = 11.5.sp
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
-                                )
-                            )
-                            .clickable {
-                                onSignInClick()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (isRu) "Войти через Telegram" else "Log In with Telegram",
-                                color = AppColors.DarkText,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
                     }
                 }
 
