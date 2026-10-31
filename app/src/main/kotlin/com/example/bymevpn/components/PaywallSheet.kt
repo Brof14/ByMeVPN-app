@@ -51,7 +51,7 @@ import kotlinx.coroutines.launch
  * Offers:
  * 1) 3-Day Free Trial activation in 1 tap (no credit card required)
  * 2) YooKassa subscription plans (SBP, SberPay, T-Pay, Mir cards)
- * 3) Direct Telegram Bot payment option
+ * 3) Payments are created and confirmed through the app backend.
  */
 @Composable
 fun PaywallSheet(
@@ -329,41 +329,6 @@ fun PaywallSheet(
                                 fontWeight = FontWeight.ExtraBold
                             )
                         }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Secondary Telegram Bot Button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(AppColors.InputBg)
-                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
-                        .clickable {
-                            val tgIntent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://t.me/ByMeVPNBot?start=pay_${selectedPlan.code}")
-                            )
-                            try {
-                                context.startActivity(tgIntent)
-                            } catch (_: Exception) {
-                                Toast.makeText(context, "Telegram не установлен", Toast.LENGTH_SHORT).show()
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        TelegramLogoIcon(size = 18.dp, color = AppColors.SkyBlue)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isRu) "Оплатить в Telegram-боте" else "Pay in Telegram Bot",
-                            color = AppColors.SkyBlue,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
                     }
                 }
 

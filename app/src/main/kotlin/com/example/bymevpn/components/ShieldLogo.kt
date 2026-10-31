@@ -7,12 +7,10 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -21,8 +19,7 @@ import androidx.compose.ui.unit.dp
 import com.example.bymevpn.R
 
 /**
- * The official ByMeVPN artwork, shared by the connect/disconnect control and branding.
- * Avoid redrawn geometry, ambient animation and extra glows.
+ * Transparent shield artwork shared by the connect control and app branding.
  */
 @Composable
 fun ShieldLogo(
@@ -45,12 +42,11 @@ fun ShieldLogo(
         animated
     } else 1f
     Image(
-        painter = painterResource(id = R.drawable.byme_connect_shield),
+        painter = painterResource(id = R.drawable.byme_connect_shield_transparent),
         contentDescription = "ByMeVPN",
         contentScale = ContentScale.Fit,
         modifier = modifier
             .size(size)
-            .clip(RoundedCornerShape(size * 0.15f))
             .graphicsLayer {
                 scaleX = if (isConnecting) scale else 1f
                 scaleY = if (isConnecting) scale else 1f

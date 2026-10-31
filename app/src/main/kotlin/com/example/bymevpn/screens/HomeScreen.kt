@@ -60,6 +60,7 @@ import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
 import com.example.bymevpn.components.ServerSelectionSheet
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.components.VpnPowerButton
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
@@ -592,9 +593,7 @@ private fun HomeDisconnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Включить VPN" else "Connect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
-            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = 0.35f, isConnecting = isConnecting)
-        }
+        VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -798,9 +797,7 @@ private fun HomeConnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Выключить VPN" else "Disconnect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
-            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = 1f)
-        }
+        VpnPowerButton(connected = true, connecting = false, isRussian = isRu, onClick = onPowerClick)
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -1075,9 +1072,7 @@ private fun HomeConnectionErrorContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Повторить подключение" else "Retry connection", onClick = onRetry), contentAlignment = Alignment.Center) {
-            ShieldLogo(size = 205.dp, isActive = false, glowAlpha = 0.2f)
-        }
+        VpnPowerButton(connected = false, connecting = false, isRussian = isRu, onClick = onRetry)
 
         Spacer(modifier = Modifier.height(20.dp))
 

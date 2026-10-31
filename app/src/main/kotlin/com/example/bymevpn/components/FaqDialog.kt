@@ -80,8 +80,8 @@ val FAQ_ITEMS = listOf(
     FaqItem(
         "Как перенести подписку на новый телефон",
         "How do I move my subscription to a new phone?",
-        "Войдите тем же способом (Telegram или почта) на новом телефоне. Старое устройство при необходимости удалите в разделе «Мои устройства», чтобы освободить место в лимите тарифа.",
-        "Sign in the same way (Telegram or email) on the new phone. If needed, remove the old device in “My devices” to free a slot in your plan's limit.",
+        "Войдите в тот же аккаунт по почте. Старое устройство при необходимости удалите в разделе «Мои устройства», чтобы освободить место в лимите тарифа. Аккаунты, созданные только через бота, пока входят прежним способом.",
+        "Sign in to the same email account on the new phone. If needed, remove the old device in “My devices” to free a slot in your plan's limit. Accounts created only through the bot still use their original sign-in method.",
         ""
     ),
     FaqItem(
@@ -92,10 +92,10 @@ val FAQ_ITEMS = listOf(
         ""
     ),
     FaqItem(
-        "Вход через Telegram не завершается",
-        "Telegram sign-in does not complete",
-        "После перехода в бота нажмите «Старт» и вернитесь в приложение. Экран ожидания сам проверит подтверждение; кнопка «Открыть Telegram» поможет, если бот не открылся с первого раза. Если ожидание истекло, начните вход заново — старая ссылка больше не действует.",
-        "After opening the bot, tap Start and return to the app. The waiting screen checks confirmation automatically; “Open Telegram” helps if the bot did not open the first time. If the wait expires, start again — the old link is no longer valid.",
+        "Не получается войти в аккаунт",
+        "I can't sign in to my account",
+        "Проверьте адрес почты и пароль. Если аккаунт раньше создавался через бота, используйте раздел «Старый аккаунт из Telegram-бота?» на экране входа. Восстановление пароля через приложение пока не поддерживается.",
+        "Check your email and password. If the account was created through the bot, use “Legacy account from Telegram bot?” on the sign-in screen. In-app password recovery is not available yet.",
         ""
     )
 )
