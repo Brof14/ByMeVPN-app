@@ -87,7 +87,7 @@ fun AccountScreen(
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.size
-    val effectiveDevicesText = maxDevices?.let { "$activeDevicesCount / $it" } ?: t("Лимит уточняется", "Limit pending")
+    val effectiveDevicesText = maxDevices?.let { "$activeDevicesCount / $it" } ?: t("Лимит не получен от сервера", "Server did not provide the limit")
 
     var showAccountDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -310,7 +310,7 @@ fun AccountScreen(
                         title = t("Мои устройства", "My devices"),
                         subtitle = if (devices.isNotEmpty()) {
                             effectiveDevicesText
-                        } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Лимит уточняется сервером", "Device limit pending"),
+                        } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Сервер не передал лимит тарифа", "Server did not provide the plan limit"),
                         icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToDevices,

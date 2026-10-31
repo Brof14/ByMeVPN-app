@@ -45,6 +45,7 @@ import com.example.bymevpn.components.ChevronLeftIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.data.api.ByMeApiClient
+import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.LocaleManager
 import androidx.compose.runtime.collectAsState
@@ -97,19 +98,22 @@ fun PricingScreen(
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
     var plansLoading by remember { mutableStateOf(true) }
     var priceError by remember { mutableStateOf(false) }
+    var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
     var refreshSequence by remember { mutableIntStateOf(0) }
     var isPaying by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDeviceCount, refreshSequence) {
         serverPlans = emptyList()
         priceError = false
+        mobileCatalogNotDeployed = false
         plansLoading = true
         try {
             serverPlans = ByMeApiClient(context).getPlans(selectedDeviceCount)
             priceError = serverPlans.none { it.devices == selectedDeviceCount && it.priceRub > 0 }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             serverPlans = emptyList()
             priceError = true
+            mobileCatalogNotDeployed = (e as? ApiError)?.httpStatusCode == 404
         } finally {
             plansLoading = false
         }
@@ -229,10 +233,10 @@ fun PricingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 if (priceError && !plansLoading) {
                     Text(
-                        text = if (selectedDeviceCount == 2)
-                            t("Нет подтверждения цены от сервера. Проверьте сеть и повторите.", "Price not confirmed. Check your connection and retry.")
+                        text = if (mobileCatalogNotDeployed)
+                            t("Сервер тарифов ещё не обновлён. Цены и оплата пока недоступны.", "The server has not enabled mobile plans yet. Prices and checkout are unavailable.")
                         else
-                            t("Цена пока предварительная: сервер ещё не подтвердил тариф на $selectedDeviceCount устройств.", "Estimated price: the server has not confirmed $selectedDeviceCount-device plans."),
+                            t("Не удалось получить подтверждённые тарифы. Проверьте подключение и повторите.", "Could not load confirmed plans. Check your connection and retry."),
                         color = AppColors.TextSecondary,
                         fontSize = 12.sp
                     )
