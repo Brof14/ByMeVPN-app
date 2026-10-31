@@ -94,7 +94,7 @@ fun AdvancedSettingsScreen(
                     ByMeSettingRow(
                         title = if (isRu) "Защита при обрыве VPN" else "Protection if VPN disconnects",
                         subtitle = if (isRu) "Включите постоянный VPN и блокировку в настройках Android" else "Enable always-on VPN and blocking in Android settings",
-                        icon = { LockIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        icon = { LockIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) },
                         showBottomDivider = false

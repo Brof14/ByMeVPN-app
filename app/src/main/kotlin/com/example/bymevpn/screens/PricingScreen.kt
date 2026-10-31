@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +46,8 @@ import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.PlanItem
+import com.example.bymevpn.data.LocaleManager
+import androidx.compose.runtime.collectAsState
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
@@ -69,12 +72,35 @@ private fun PlanDuration.apiCode(): String = when (this) {
     PlanDuration.Month15 -> "12m"
 }
 
+/** Preview only. Checkout must use the server-confirmed /plans price. */
+internal fun PlanDuration.matchesConfirmedPlan(plan: PlanItem, devices: Int): Boolean =
+    plan.code == apiCode() &&
+        plan.devices == devices &&
+        plan.days == totalDays &&
+        plan.priceRub > 0
+
+internal fun PlanDuration.referencePriceRub(devices: Int): Int {
+    require(devices in setOf(2, 5, 10))
+    val months = when (this) {
+        PlanDuration.Month1 -> 1
+        PlanDuration.Month4 -> 3
+        PlanDuration.Month8 -> 6
+        PlanDuration.Month15 -> 12
+    }
+    val baseMonthly = when (months) { 1 -> 89; 3 -> 79; 6 -> 69; else -> 59 }
+    val extraMonthly = when (devices) { 5 -> 20; 10 -> 40; else -> 0 }
+    return (baseMonthly + extraMonthly) * (totalDays / 30)
+}
+
 @Composable
 fun PricingScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
+    val t: (String, String) -> String = { ru, en -> if (isRu) ru else en }
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -83,24 +109,30 @@ fun PricingScreen(
     val selectedProvider = "yookassa" // Only payment method accepted by the current backend.
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
     var plansLoading by remember { mutableStateOf(true) }
-    LaunchedEffect(selectedDeviceCount) {
+    var priceError by remember { mutableStateOf(false) }
+    var refreshSequence by remember { mutableIntStateOf(0) }
+    var isPaying by remember { mutableStateOf(false) }
+
+    LaunchedEffect(selectedDeviceCount, refreshSequence) {
         serverPlans = emptyList()
+        priceError = false
         plansLoading = true
         try {
             serverPlans = ByMeApiClient(context).getPlans(selectedDeviceCount)
+            priceError = serverPlans.none { it.devices == selectedDeviceCount && it.priceRub > 0 }
         } catch (_: Exception) {
             serverPlans = emptyList()
+            priceError = true
         } finally {
             plansLoading = false
         }
     }
 
-    // Only show prices and enable checkout for the exact device limit confirmed by /plans.
-    val currentPlan = serverPlans.firstOrNull {
-        it.code == selectedPlan.apiCode() && it.devices == selectedDeviceCount && it.priceRub > 0
-    }
+    // Only a server-confirmed exact plan is eligible for actual checkout.
+    val currentPlan = serverPlans.firstOrNull { selectedPlan.matchesConfirmedPlan(it, selectedDeviceCount) }
     val currentPrice = currentPlan?.priceRub ?: 0
-    val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽" else "—"
+    val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽"
+        else "≈ ${selectedPlan.referencePriceRub(selectedDeviceCount)} ₽"
 
     val perMonthPrice = when (selectedPlan) {
         PlanDuration.Month1 -> currentPrice
@@ -144,7 +176,7 @@ fun PricingScreen(
 
                 Column {
                     Text(
-                        text = "Выберите тариф",
+                        text = t("Выберите тариф", "Choose a plan"),
                         color = AppColors.TextPrimary,
                         fontSize = 27.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -152,7 +184,7 @@ fun PricingScreen(
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "Одна подписка для всех ваших устройств",
+                        text = t("Одна подписка для всех ваших устройств", "One plan for all your devices"),
                         color = Color(0xFF8FA3A4),
                         fontSize = 12.sp
                     )
@@ -168,7 +200,7 @@ fun PricingScreen(
                     .padding(horizontal = 26.dp)
             ) {
                 Text(
-                    text = "СКОЛЬКО УСТРОЙСТВ?",
+                    text = t("СКОЛЬКО УСТРОЙСТВ?", "HOW MANY DEVICES?"),
                     color = AppColors.TextKicker,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -189,29 +221,51 @@ fun PricingScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     DeviceCountTab(
-                        label = "2 устройства",
+                        label = t("2 устройства", "2 devices"),
                         selected = selectedDeviceCount == 2,
                         onClick = { selectedDeviceCount = 2 },
                         modifier = Modifier.weight(1f)
                     )
                     DeviceCountTab(
-                        label = "5 устройств",
+                        label = t("5 устройств", "5 devices"),
                         selected = selectedDeviceCount == 5,
                         onClick = { selectedDeviceCount = 5 },
                         modifier = Modifier.weight(1f)
                     )
                     DeviceCountTab(
-                        label = "10 устройств",
+                        label = t("10 устройств", "10 devices"),
                         selected = selectedDeviceCount == 10,
                         onClick = { selectedDeviceCount = 10 },
                         modifier = Modifier.weight(1f)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                if (priceError && !plansLoading) {
+                    Text(
+                        text = if (selectedDeviceCount == 2)
+                            t("Нет подтверждения цены от сервера. Проверьте сеть и повторите.", "Price not confirmed. Check your connection and retry.")
+                        else
+                            t("Цена пока предварительная: сервер ещё не подтвердил тариф на $selectedDeviceCount устройств.", "Estimated price: the server has not confirmed $selectedDeviceCount-device plans."),
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = t("Повторить загрузку", "Retry loading"),
+                        color = AppColors.BrandMint,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                        modifier = Modifier
+                            .clickable { refreshSequence++ }
+                            .padding(vertical = 12.dp)
+                    )
+                } else if (plansLoading) {
+                    Text(t("Проверяем цены и доступность тарифов…", "Checking prices and availability…"), color = AppColors.TextSecondary, fontSize = 12.sp)
+                }
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "СРОК ПОДПИСКИ",
+                    text = t("СРОК ПОДПИСКИ", "SUBSCRIPTION LENGTH"),
                     color = AppColors.TextKicker,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -222,9 +276,10 @@ fun PricingScreen(
 
                 // 4 Plan options
                 PlanDuration.values().forEach { plan ->
-                    val priceForPlan = serverPlans.firstOrNull {
-                        it.code == plan.apiCode() && it.devices == selectedDeviceCount
-                    }?.priceRub?.takeIf { it > 0 } ?: 0
+                    val verifiedPrice = serverPlans.firstOrNull {
+                        plan.matchesConfirmedPlan(it, selectedDeviceCount)
+                    }?.priceRub
+                    val priceForPlan = verifiedPrice ?: plan.referencePriceRub(selectedDeviceCount)
 
                     val monthlyRate = when (plan) {
                         PlanDuration.Month1 -> priceForPlan
@@ -253,7 +308,7 @@ fun PricingScreen(
                                 )
                                 .border(
                                     width = 1.dp,
-                                    color = if (isSelected) Color(0xFF37CF9E) else Color(0xFF283C3E),
+                                    color = if (isSelected) Color(0xFF69D3BC) else Color(0xFF283C3E),
                                     shape = RoundedCornerShape(18.dp)
                                 )
                                 .clickable { selectedPlan = plan }
@@ -263,14 +318,14 @@ fun PricingScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = plan.title,
+                                    text = if (isRu) plan.title else when (plan) { PlanDuration.Month1 -> "1 month"; PlanDuration.Month4 -> "3 + 1 months"; PlanDuration.Month8 -> "6 + 2 months"; PlanDuration.Month15 -> "12 + 3 months" },
                                     color = AppColors.TextPrimary,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (priceForPlan == 0) "Тариф пока недоступен" else if (plan == PlanDuration.Month1) "$monthlyRate ₽ за месяц" else "$monthlyRate ₽ / месяц ${plan.bonusSubtitle}",
+                                    text = if (verifiedPrice == null) t("Предварительно · $monthlyRate ₽/мес.", "Estimate · $monthlyRate RUB/month") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )
@@ -281,7 +336,7 @@ fun PricingScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Text(
-                                    text = if (priceForPlan > 0) "$priceForPlan ₽" else "—",
+                                    text = if (verifiedPrice != null) "$priceForPlan ₽" else "≈ $priceForPlan ₽",
                                     color = AppColors.TextPrimary,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
@@ -292,10 +347,10 @@ fun PricingScreen(
                                     modifier = Modifier
                                         .size(20.dp)
                                         .clip(CircleShape)
-                                        .background(if (isSelected) Color(0xFF48E4B4) else Color.Transparent)
+                                        .background(if (isSelected) Color(0xFF78D3C9) else Color.Transparent)
                                         .border(
                                             1.dp,
-                                            if (isSelected) Color(0xFF48E4B4) else Color(0xFF607A77),
+                                            if (isSelected) Color(0xFF78D3C9) else Color(0xFF607A77),
                                             CircleShape
                                         ),
                                     contentAlignment = Alignment.Center
@@ -313,11 +368,11 @@ fun PricingScreen(
                                     .align(Alignment.TopEnd)
                                     .offset(x = (-16).dp, y = (-8).dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF38D9A5))
+                                    .background(Color(0xFF69D3BC))
                                     .padding(horizontal = 9.dp, vertical = 5.dp)
                             ) {
                                 Text(
-                                    text = "ЛУЧШАЯ ЦЕНА",
+                                    text = t("ЛУЧШАЯ ЦЕНА", "BEST VALUE"),
                                     color = Color(0xFF06231A),
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
@@ -331,7 +386,7 @@ fun PricingScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "СПОСОБ ОПЛАТЫ",
+                    text = t("СПОСОБ ОПЛАТЫ", "PAYMENT METHOD"),
                     color = AppColors.TextKicker,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -352,13 +407,13 @@ fun PricingScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(if (selectedProvider == "yookassa") Color(0xFF43DDB1) else Color.Transparent)
+                            .background(if (selectedProvider == "yookassa") Color(0xFF69D3BC) else Color.Transparent)
                             
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "💳 Карта / СБП",
+                            text = t("💳 Карта / СБП", "💳 Card / SBP"),
                             color = if (selectedProvider == "yookassa") Color(0xFF10241E) else Color(0xFF829C9A),
                             fontSize = 12.sp,
                             fontWeight = if (selectedProvider == "yookassa") FontWeight.Bold else FontWeight.Medium
@@ -374,7 +429,7 @@ fun PricingScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Криптовалюта недоступна",
+                            text = t("Криптовалюта недоступна", "Crypto unavailable"),
                             color = Color(0xFF829C9A),
                             fontSize = 11.sp
                         )
@@ -393,7 +448,7 @@ fun PricingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "К оплате сейчас",
+                        text = t("К оплате сейчас", "Amount due"),
                         color = Color(0xFFA1B5B3),
                         fontSize = 13.sp
                     )
@@ -406,7 +461,7 @@ fun PricingScreen(
                 }
 
                 Text(
-                    text = "Доступ на ${selectedPlan.totalMonths} ${if (selectedPlan.totalMonths == 1) "месяц" else "месяцев"} · до $selectedDeviceCount устройств",
+                    text = if (isRu) "Доступ на ${selectedPlan.totalMonths} ${if (selectedPlan.totalMonths == 1) "месяц" else "месяцев"} · до $selectedDeviceCount устройств" else "Access for ${selectedPlan.totalMonths} months · up to $selectedDeviceCount devices",
                     color = Color(0xFF8B9F9E),
                     fontSize = 11.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
@@ -414,26 +469,33 @@ fun PricingScreen(
 
                 // CTA Button
                 ByMePrimaryButton(
-                    text = if (currentPrice > 0) "Продолжить · $currentPrice ₽" else if (plansLoading) "Загружаем тарифы…" else "Тариф недоступен",
+                    text = when {
+                        isPaying -> t("Открываем оплату…", "Opening checkout…")
+                        currentPrice > 0 -> t("Оплатить · $currentPrice ₽", "Pay · $currentPrice RUB")
+                        plansLoading -> t("Загружаем тарифы…", "Loading plans…")
+                        else -> t("Оплата пока недоступна", "Payment unavailable")
+                    },
+                    enabled = currentPlan != null && !isPaying,
                     onClick = {
-                        val confirmed = currentPlan
-                        if (confirmed == null || confirmed.days <= 0) {
-                            Toast.makeText(context, "Этот тариф не подтверждён сервером. Выберите другой или попробуйте позже.", Toast.LENGTH_LONG).show()
-                        } else {
+                        val confirmed = currentPlan ?: return@ByMePrimaryButton
+                        isPaying = true
                         scope.launch {
-                            val success = YooKassaPaymentHandler.startPayment(
-                                context = context,
-                                planCode = confirmed.code,
-                                planTitle = "${selectedPlan.title} ($selectedDeviceCount устройств)",
-                                amountRub = confirmed.priceRub,
-                                days = confirmed.days,
-                                devices = selectedDeviceCount,
-                                provider = selectedProvider
-                            )
-                            if (!success) {
-                                Toast.makeText(context, "Не удалось открыть форму оплаты. Попробуйте снова.", Toast.LENGTH_LONG).show()
+                            try {
+                                val success = YooKassaPaymentHandler.startPayment(
+                                    context = context,
+                                    planCode = confirmed.code,
+                                    planTitle = if (isRu) "${selectedPlan.title} ($selectedDeviceCount устройств)" else "$selectedDeviceCount devices",
+                                    amountRub = confirmed.priceRub,
+                                    days = confirmed.days,
+                                    devices = selectedDeviceCount,
+                                    provider = selectedProvider
+                                )
+                                if (!success) {
+                                    Toast.makeText(context, t("Не удалось открыть оплату. Проверьте подключение и попробуйте снова.", "Could not open checkout. Check your connection."), Toast.LENGTH_LONG).show()
+                                }
+                            } finally {
+                                isPaying = false
                             }
-                        }
                         }
                     }
                 )
@@ -448,7 +510,7 @@ fun PricingScreen(
                     LockIcon(color = Color(0xFF729D90), size = 15.dp)
                     Spacer(modifier = Modifier.padding(horizontal = 4.dp))
                     Text(
-                        text = "Безопасная оплата через ЮKassa",
+                        text = t("Безопасная оплата через ЮKassa", "Secure checkout via YooKassa"),
                         color = Color(0xFF729D90),
                         fontSize = 11.sp
                     )
@@ -468,7 +530,7 @@ private fun DeviceCountTab(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(11.dp))
-            .background(if (selected) Color(0xFF43DDB1) else Color.Transparent)
+            .background(if (selected) Color(0xFF69D3BC) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center

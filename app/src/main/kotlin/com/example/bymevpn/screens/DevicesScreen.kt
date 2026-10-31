@@ -87,15 +87,15 @@ fun DevicesScreen(
                 // Large device count display matching mockup 15_devices
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = if (devicesList.isEmpty()) "—" else "$effectiveConnected",
+                        text = "$effectiveConnected",
                         color = AppColors.TextPrimary,
                         fontSize = 60.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
-                        color = Color(0xFF6EDBB0),
+                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: (if (isRu) " / ?" else " / ?"),
+                        color = Color(0xFF80D3C6),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
@@ -103,13 +103,23 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = if (devicesList.isEmpty()) {
-                        if (isRu) "Данные об устройствах недоступны" else "Device information unavailable"
-                    } else if (isRu) "Устройств в ответе сервера" else "Devices reported by the server",
+                    text = if (effectiveMax == null) {
+                        if (isRu) "Лимит подписки пока не подтверждён сервером" else "Subscription device limit not yet confirmed by the server"
+                    } else if (isRu) "Зарегистрировано устройств · лимит $effectiveMax" else "Registered devices · limit $effectiveMax",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
+
+                if (effectiveMax != null) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { (effectiveConnected.toFloat() / effectiveMax).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = AppColors.BrandMint,
+                        trackColor = AppColors.CardBorder
+                    )
+                    Spacer(Modifier.height(20.dp))
+                }
 
                 val currentDevice = devicesList.firstOrNull { it.isCurrent }
                 val localModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
@@ -122,8 +132,8 @@ fun DevicesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(17.dp))
-                        .background(Color(0xFF12221F))
-                        .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
+                        .background(Color(0xFF142638))
+                        .border(1.dp, Color(0xFF294453), RoundedCornerShape(17.dp))
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -132,10 +142,10 @@ fun DevicesScreen(
                         modifier = Modifier
                             .size(37.dp)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(Color(0xFF172A29)),
+                            .background(Color(0xFF182A3B)),
                         contentAlignment = Alignment.Center
                     ) {
-                        SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
+                        SmartphoneIcon(color = Color(0xFF7AC9CB), size = 21.dp)
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -159,7 +169,7 @@ fun DevicesScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(if (currentDevice != null) Color(0xFF3CDFAC) else Color(0xFFE3B26A))
+                                    .background(if (currentDevice != null) Color(0xFF69D3BC) else Color(0xFFE3B26A))
                             )
                             Text(
                                 text = if (currentDevice != null) {
@@ -167,7 +177,7 @@ fun DevicesScreen(
                                 } else {
                                     if (isRu) "Сервер пока не подтвердил это устройство" else "Not confirmed by the server yet"
                                 },
-                                color = if (currentDevice != null) Color(0xFF65E3B1) else Color(0xFFE3B26A),
+                                color = if (currentDevice != null) Color(0xFF8CDECA) else Color(0xFFE3B26A),
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -196,8 +206,8 @@ fun DevicesScreen(
                                 .fillMaxWidth()
                                 .height(89.dp)
                                 .clip(RoundedCornerShape(17.dp))
-                                .background(Color(0xFF12221F))
-                                .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
+                                .background(Color(0xFF142638))
+                                .border(1.dp, Color(0xFF294453), RoundedCornerShape(17.dp))
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -206,10 +216,10 @@ fun DevicesScreen(
                                 modifier = Modifier
                                     .size(37.dp)
                                     .clip(RoundedCornerShape(11.dp))
-                                    .background(Color(0xFF172A29)),
+                                    .background(Color(0xFF182A3B)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
+                                SmartphoneIcon(color = Color(0xFF7AC9CB), size = 21.dp)
                             }
 
                             Column(modifier = Modifier.weight(1f)) {
@@ -251,13 +261,13 @@ fun DevicesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(17.dp))
-                        .background(Color(0xFF102420))
-                        .border(1.dp, Color(0xFF21463B), RoundedCornerShape(17.dp))
+                        .background(Color(0xFF142538))
+                        .border(1.dp, Color(0xFF294455), RoundedCornerShape(17.dp))
                         .padding(18.dp)
                 ) {
                     Text(
                         text = if (isRu) "ДОБАВИТЬ УСТРОЙСТВО" else "ADD A DEVICE",
-                        color = Color(0xFF68B8A7),
+                        color = Color(0xFF8FBBCA),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.2.sp

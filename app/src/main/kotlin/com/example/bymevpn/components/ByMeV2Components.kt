@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.data.LocaleManager
+import androidx.compose.runtime.collectAsState
 import com.example.bymevpn.theme.AppGradients
 
 enum class BottomNavTab {
@@ -172,6 +174,8 @@ fun ByMeBottomNav(
     onTabSelected: (BottomNavTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -187,7 +191,7 @@ fun ByMeBottomNav(
         ) {
             // Home tab
             NavTabItem(
-                title = "Главная",
+                title = if (isRu) "Главная" else "Home",
                 selected = currentTab == BottomNavTab.Home,
                 onClick = { onTabSelected(BottomNavTab.Home) },
                 icon = { color -> PowerIcon(color = color, size = 21.dp) },
@@ -196,7 +200,7 @@ fun ByMeBottomNav(
 
             // Settings tab
             NavTabItem(
-                title = "Настройки",
+                title = if (isRu) "Настройки" else "Settings",
                 selected = currentTab == BottomNavTab.Settings,
                 onClick = { onTabSelected(BottomNavTab.Settings) },
                 icon = { color -> SettingsGearIcon(color = color, size = 21.dp) },
@@ -205,7 +209,7 @@ fun ByMeBottomNav(
 
             // Account tab
             NavTabItem(
-                title = "Аккаунт",
+                title = if (isRu) "Аккаунт" else "Account",
                 selected = currentTab == BottomNavTab.Account,
                 onClick = { onTabSelected(BottomNavTab.Account) },
                 icon = { color -> PersonProfileIcon(color = color, size = 21.dp) },
@@ -274,7 +278,7 @@ fun ByMePrimaryButton(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(17.dp))
-            .background(AppGradients.PrimaryButton)
+            .background(if (enabled) AppGradients.PrimaryButton else androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFF25364A), Color(0xFF253B4D))))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 20.dp)
             .testTag("primary_button"),
@@ -282,14 +286,14 @@ fun ByMePrimaryButton(
     ) {
         Text(
             text = text,
-            color = AppColors.BrandMintDark,
+            color = if (enabled) AppColors.BrandMintDark else AppColors.TextSecondary,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.2).sp
         )
         if (showArrow) {
             Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                ChevronRightIcon(color = AppColors.BrandMintDark, size = 18.dp)
+                ChevronRightIcon(color = if (enabled) AppColors.BrandMintDark else AppColors.TextMuted, size = 18.dp)
             }
         }
     }

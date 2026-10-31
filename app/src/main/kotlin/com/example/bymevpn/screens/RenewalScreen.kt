@@ -19,6 +19,7 @@ import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
 
 @Composable
@@ -30,19 +31,21 @@ fun RenewalScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
     val manager = remember { SubscriptionManager.getInstance(context) }
     val subscription by manager.subscriptionStatus.collectAsState()
     val status = when (subscription?.autoRenew) {
-        true -> "Включено по данным сервера"
-        false -> "Отключено по данным сервера"
-        null -> "Нет подтверждённых данных"
+        true -> if (isRu) "Включено по данным сервера" else "Enabled by server"
+        false -> if (isRu) "Отключено по данным сервера" else "Disabled by server"
+        null -> if (isRu) "Нет подтверждённых данных" else "No confirmed data"
     }
     Column(modifier.fillMaxSize().background(AppColors.BgCanvas)) {
-        ByMeTopBar(title = "Автопродление", onBackClick = onBackClick, onMoreClick = null)
+        ByMeTopBar(title = if (isRu) "Автопродление" else "Auto-renewal", onBackClick = onBackClick, onMoreClick = null)
         Column(Modifier.weight(1f).padding(26.dp)) {
-            Text("Статус: $status", color = AppColors.TextPrimary, fontSize = 19.sp)
+            Text(if (isRu) "Статус: $status" else "Status: $status", color = AppColors.TextPrimary, fontSize = 19.sp)
             Spacer(Modifier.height(16.dp))
-            Text("Данные о привязанной карте, сумме и дате списания пока недоступны. Изменение автопродления в приложении ещё не подключено.", color = AppColors.TextPrimary, fontSize = 14.sp)
+            Text(if (isRu) "Данные о привязанной карте, сумме и дате списания пока недоступны. Изменение автопродления в приложении ещё не подключено." else "Card details, next payment amount and charge date are unavailable. Managing renewal is not yet supported in the app.", color = AppColors.TextPrimary, fontSize = 14.sp)
         }
         ByMeBottomNav(currentTab = BottomNavTab.Account, onTabSelected = { tab ->
             when (tab) {

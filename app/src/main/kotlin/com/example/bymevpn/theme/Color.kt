@@ -5,81 +5,81 @@ import androidx.compose.ui.graphics.Color
 
 object AppColors {
     // V2 Design Tokens: Canvas & Surfaces
-    val BgCanvas = Color(0xFF080E10)
-    val BgSurface = Color(0xFF111A1D)
-    val BgSurfaceAccent = Color(0xFF142A25)
-    val BgSurfaceAccentAlt = Color(0xFF132A26)
-    val BgSurfaceElevated = Color(0xFF142321)
-    val BgInput = Color(0xFF111B1D)
+    val BgCanvas = Color(0xFF090F1D)
+    val BgSurface = Color(0xFF121C2B)
+    val BgSurfaceAccent = Color(0xFF172536)
+    val BgSurfaceAccentAlt = Color(0xFF142638)
+    val BgSurfaceElevated = Color(0xFF18283A)
+    val BgInput = Color(0xFF111C2B)
 
     // Borders
-    val BorderDefault = Color(0xFF203137)
-    val BorderSubtle = Color(0xFF203033)
-    val BorderAccent = Color(0xFF285A4C)
-    val BorderActiveGreen = Color(0xFF38EFB6)
-    val BorderInput = Color(0xFF2A4245)
-    val BorderTelegram = Color(0xFF25525A)
-    val BorderSecondaryButton = Color(0xFF587971)
+    val BorderDefault = Color(0xFF263647)
+    val BorderSubtle = Color(0xFF203246)
+    val BorderAccent = Color(0xFF346071)
+    val BorderActiveGreen = Color(0xFF69D3BC)
+    val BorderInput = Color(0xFF2B4051)
+    val BorderTelegram = Color(0xFF315B70)
+    val BorderSecondaryButton = Color(0xFF526F80)
 
     // Primary CTA Mint & Brand Accents
-    val BrandMint = Color(0xFF38EFB6)
-    val BrandMintAccent = Color(0xFF3CDEAC)
-    val BrandMintBright = Color(0xFF43E0AC)
-    val BrandMintDark = Color(0xFF062019)
-    val BrandMintDarkText = Color(0xFF0E2D23)
+    val BrandMint = Color(0xFF69D3BC)
+    val BrandMintAccent = Color(0xFF66C7BE)
+    val BrandMintBright = Color(0xFF79D9C4)
+    val BrandMintDark = Color(0xFF0A1C29)
+    val BrandMintDarkText = Color(0xFF0A2431)
 
     // Text & Typography
     val TextPrimary = Color(0xFFEEF4F4)
-    val TextSecondary = Color(0xFF91A6A5)
-    val TextMuted = Color(0xFF698589)
-    val TextKicker = Color(0xFF698589)
-    val TextSoft = Color(0xFFA0C2AE)
+    val TextSecondary = Color(0xFF9CACBD)
+    val TextMuted = Color(0xFF7D94A8)
+    val TextKicker = Color(0xFF7D94A8)
+    val TextSoft = Color(0xFFA7C4CC)
     val White = Color(0xFFFFFFFF)
 
     // Navigation & Toolbars
-    val NavBackground = Color(0xFF0F1719)
-    val NavBorder = Color(0xFF1D2C2E)
-    val NavItemActive = Color(0xFF38E2B0)
-    val NavItemInactive = Color(0xFF667E80)
-    val TopBarIconBg = Color(0xFF121D20)
-    val TopBarIconBorder = Color(0xFF26373A)
-    val TopBarBackBg = Color(0xFF111D20)
-    val TopBarBackBorder = Color(0xFF25383B)
+    val NavBackground = Color(0xFF101A29)
+    val NavBorder = Color(0xFF243447)
+    val NavItemActive = Color(0xFF71D2C3)
+    val NavItemInactive = Color(0xFF8096A8)
+    val TopBarIconBg = Color(0xFF152335)
+    val TopBarIconBorder = Color(0xFF2B4053)
+    val TopBarBackBg = Color(0xFF142235)
+    val TopBarBackBorder = Color(0xFF2C4154)
 
     // Toggles & Controls
     val ToggleTrackOff = Color(0xFF303E40)
-    val ToggleTrackOn = Color(0xFF33E1AD)
+    val ToggleTrackOn = Color(0xFF71D0C4)
     val ToggleThumbOff = Color(0xFFA5B2B3)
-    val ToggleThumbOn = Color(0xFF09231C)
+    val ToggleThumbOn = Color(0xFF0A2230)
 
     // Badges & Status
-    val BadgeGreenBg = Color(0xFF1A3B2C)
-    val BadgeGreenText = Color(0xFF65E3B1)
+    val BadgeGreenBg = Color(0xFF17373B)
+    val BadgeGreenText = Color(0xFF8BDFCC)
     val BadgeRedBg = Color(0xFF2B2424)
     val BadgeRedText = Color(0xFFE3A29A)
 
     // Secondary Buttons
-    val SecondaryButtonBg = Color(0xFFEDF9F4)
-    val SecondaryButtonText = Color(0xFF0E2D23)
+    val SecondaryButtonBg = Color(0xFFEAF8F8)
+    val SecondaryButtonText = Color(0xFF0A2431)
 
     // Telegram Brand
     val TelegramBlue = Color(0xFF39BFFF)
-    val TelegramBg = Color(0xFF123A4D)
+    val TelegramBg = Color(0xFF16374C)
 
     // Status Colors
-    val StatusActive = Color(0xFF38EFB6)
-    val StatusInactive = Color(0xFF698589)
+    val StatusActive = Color(0xFF69D3BC)
+    val StatusInactive = Color(0xFF7D94A8)
     val StatusError = Color(0xFFFF5353)
     val StatusWarning = Color(0xFFFFB74D)
 
     // Backward compatibility aliases
     val BrandGreen = BrandMint
-    val BrandGreenGlow = Color(0xFF6EFFA6)
+    val BrandGreenGlow = Color(0xFF82D8C6)
     val BrandGreenDark = BrandMintDark
-    val ElectricBlue = Color(0xFF1E92FF)
-    val SkyBlue = Color(0xFF06C8BF)
-    val BrandBlue = Color(0xFF1E92FF)
-    val Cyan = Color(0xFF21E7A4)
+    val ElectricBlue = Color(0xFF468FF0)
+    val SkyBlue = Color(0xFF53BFCF)
+    val BrandBlue = Color(0xFF468FF0)
+    val Cyan = Color(0xFF79D9BC)
     val CardBg = BgSurface
     val CardBgElevated = BgSurfaceAccent
     val CardBorder = BorderDefault
@@ -96,8 +96,8 @@ object AppColors {
 object AppGradients {
     // Canvas background with top radial glow
     val Canvas = Brush.radialGradient(
-        0.0f to Color(0x57113939),
-        0.48f to Color(0x00113939),
+        0.0f to Color(0x27152E57),
+        0.48f to Color(0x00152E57),
         1.0f to AppColors.BgCanvas
     )
 
@@ -111,25 +111,25 @@ object AppGradients {
     // Official Shield Rim: Electric Blue -> Sky Blue -> Cyan -> Neon Green
     val Shield = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF1E92FF),
-            Color(0xFF06C8BF),
-            Color(0xFF21E7A4)
+            Color(0xFF468FF0),
+            Color(0xFF53BFCF),
+            Color(0xFF79D9BC)
         )
     )
 
     // Primary CTA Button Gradient (#38EFB6 -> #48D8B7)
     val PrimaryButton = Brush.horizontalGradient(
         colors = listOf(
-            Color(0xFF38EFB6),
-            Color(0xFF48D8B7)
+            Color(0xFF69D3BC),
+            Color(0xFF64C0D4)
         )
     )
 
     // Accent Card Gradient (#132A26 -> #142321 -> #101E1D)
     val AccentCard = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF132A26),
-            Color(0xFF142321),
+            Color(0xFF142638),
+            Color(0xFF18283A),
             Color(0xFF101E1D)
         )
     )
@@ -137,24 +137,24 @@ object AppGradients {
     // Active Plan Card Gradient (#19312B -> #112221)
     val ActivePlanCard = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF19312B),
-            Color(0xFF112221)
+            Color(0xFF1B3044),
+            Color(0xFF122438)
         )
     )
 
     // Power button active inner circle
     val PowerButtonActive = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF123C34),
-            Color(0xFF102620)
+            Color(0xFF203E57),
+            Color(0xFF142C42)
         )
     )
 
     // Power button inactive inner circle
     val PowerButtonInactive = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF1A2B2C),
-            Color(0xFF101B1E)
+            Color(0xFF1B2A3F),
+            Color(0xFF111D30)
         )
     )
 }

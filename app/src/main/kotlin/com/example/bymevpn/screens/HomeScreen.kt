@@ -206,7 +206,7 @@ fun HomeScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF163128))
-                            .border(1.dp, Color(0xFF3CDFAC), RoundedCornerShape(12.dp))
+                            .border(1.dp, AppColors.BrandMint, RoundedCornerShape(12.dp))
                             .clickable {
                                 AppUpdateManager.openUpdateDownload(context, updateInfo!!.downloadUrl)
                             }
@@ -217,7 +217,7 @@ fun HomeScreen(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = if (isRu) "Доступно обновление v${updateInfo!!.latestVersion}" else "Update v${updateInfo!!.latestVersion} available",
-                                color = Color(0xFF3CDFAC),
+                                color = AppColors.BrandMint,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -229,7 +229,7 @@ fun HomeScreen(
                         }
                         Text(
                             text = if (isRu) "Обновить >" else "Update >",
-                            color = Color(0xFF3CDFAC),
+                            color = AppColors.BrandMint,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -390,7 +390,7 @@ private fun HomeNoPlanContent(
 
         Text(
             text = "BYMEVPN",
-            color = Color(0xFF40CAA6),
+            color = AppColors.BrandMint,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = 2.sp
@@ -429,7 +429,7 @@ private fun HomeNoPlanContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                CheckmarkIcon(color = Color(0xFF38D5A5), size = 15.dp)
+                CheckmarkIcon(color = AppColors.BrandMint, size = 15.dp)
                 Text(
                     text = if (isRu) "Простое подключение" else "Easy connection",
                     color = Color(0xFF89A99E),
@@ -440,7 +440,7 @@ private fun HomeNoPlanContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                CheckmarkIcon(color = Color(0xFF38D5A5), size = 15.dp)
+                CheckmarkIcon(color = AppColors.BrandMint, size = 15.dp)
                 Text(
                     text = if (isRu) "Прозрачные условия" else "Clear terms",
                     color = Color(0xFF89A99E),
@@ -478,7 +478,7 @@ private fun HomeNoPlanContent(
                 ) {
                     Text(
                         text = "01",
-                        color = Color(0xFF3BCB9D),
+                        color = AppColors.BrandMint,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
@@ -502,7 +502,7 @@ private fun HomeNoPlanContent(
                     )
                     Text(
                         text = if (isRu) "бесплатно" else "free",
-                        color = Color(0xFF43E0AC),
+                        color = AppColors.BrandMint,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-1).sp
@@ -593,7 +593,7 @@ private fun HomeDisconnectedContent(
         Spacer(modifier = Modifier.height(26.dp))
 
         Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Включить VPN" else "Connect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
-            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = if (isConnecting) 0.9f else 0.35f)
+            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = 0.35f, isConnecting = isConnecting)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -686,7 +686,7 @@ private fun HomeDisconnectedContent(
                         ) {
                             Text(
                                 text = proto,
-                                color = if (proto.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                color = if (proto.contains("Reality", ignoreCase = true)) AppColors.BrandMint
                                         else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
                                         else Color(0xFF78C6FF),
                                 fontSize = 10.sp,
@@ -908,7 +908,7 @@ private fun HomeConnectedContent(
                         ) {
                             Text(
                                 text = proto,
-                                color = if (proto.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                color = if (proto.contains("Reality", ignoreCase = true)) AppColors.BrandMint
                                         else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
                                         else Color(0xFF78C6FF),
                                 fontSize = 10.sp,
@@ -917,7 +917,7 @@ private fun HomeConnectedContent(
                         }
                         Text(
                             text = if (isRu) "Подключено" else "Connected",
-                            color = Color(0xFF3CDFAC),
+                            color = AppColors.BrandMint,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -1008,12 +1008,12 @@ private fun ServerLoadStatusRow(
         ) {
             if (isLoading) {
                 CircularProgressIndicator(
-                    color = Color(0xFF3CDFAC),
+                    color = AppColors.BrandMint,
                     modifier = Modifier.size(14.dp),
                     strokeWidth = 2.dp
                 )
             } else {
-                RefreshIcon(color = Color(0xFF3CDFAC), size = 14.dp)
+                RefreshIcon(color = AppColors.BrandMint, size = 14.dp)
             }
         }
 
@@ -1038,7 +1038,7 @@ private fun ServerLoadStatusRow(
 
         Text(
             text = if (isLoading) "" else if (isRu) "Обновить" else "Refresh",
-            color = Color(0xFF3CDFAC),
+            color = AppColors.BrandMint,
             fontSize = 11.5.sp,
             fontWeight = FontWeight.Bold
         )
@@ -1192,7 +1192,7 @@ private fun HomeConnectionErrorContent(
                         ) {
                             Text(
                                 text = proto,
-                                color = if (proto.contains("Reality", ignoreCase = true)) Color(0xFF3CDFAC)
+                                color = if (proto.contains("Reality", ignoreCase = true)) AppColors.BrandMint
                                         else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
                                         else Color(0xFF78C6FF),
                                 fontSize = 10.sp,
