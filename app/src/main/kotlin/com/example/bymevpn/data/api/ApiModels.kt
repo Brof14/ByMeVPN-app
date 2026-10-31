@@ -83,7 +83,9 @@ data class PlanItem(
     val discountPercent: Int = 0,
     val priceRub: Int = 0,
     val days: Int = 0,
-    val devices: Int = 2
+    val devices: Int = 2,
+    /** Explicit backend capability; missing means checkout is unavailable. */
+    val purchaseEnabled: Boolean = false
 )
 
 data class ServerNode(
@@ -141,6 +143,43 @@ data class DeviceItem(
 )
 
 object ApiJsonParsers {
+    fun parsePlans(json: JSONObject): List<PlanItem> {
+        val array = json.optJSONArray("raw_array") ?: json.optJSONArray("plans") ?: runCatching {
+            json.optString("raw").takeIf { it.isNotBlank() }?.let { JSONArray(it) }
+        }.getOrNull() ?: JSONArray()
+        val checkoutEnabled = json.optBoolean("payment_enabled", false)
+        return buildList {
+            for (i in 0 until array.length()) {
+                val plan = array.optJSONObject(i) ?: continue
+                val code = plan.optString("code", "")
+                val priceRub = plan.optInt("price_rub", 0)
+                val days = plan.optInt("days", 0)
+                val period = when {
+                    days in 1..30 -> "1 месяц"
+                    days in 31..120 -> "4 месяца"
+                    days in 121..240 -> "8 месяцев"
+                    days in 241..450 -> "15 месяцев"
+                    days > 450 -> "$days дней"
+                    else -> ""
+                }
+                add(
+                    PlanItem(
+                        code = code,
+                        name = plan.optString("name", code),
+                        price = if (priceRub > 0) "$priceRub ₽" else plan.optString("price", ""),
+                        period = period,
+                        isPopular = plan.optBoolean("is_popular", false),
+                        discountPercent = plan.optInt("discount_percent", 0),
+                        priceRub = priceRub,
+                        days = days,
+                        devices = plan.optInt("devices", 2),
+                        purchaseEnabled = plan.optBoolean("purchase_enabled", checkoutEnabled)
+                    )
+                )
+            }
+        }
+    }
+
     fun parseUserProfile(json: JSONObject): UserProfile {
         val target = json.optJSONObject("user") ?: json
         val idStr = when {

@@ -27,7 +27,8 @@ data class PlanTariff(
     val discountPercent: Int,
     val isBestValue: Boolean,
     val days: Int,
-    val badge: String? = null
+    val badge: String? = null,
+    val checkoutEnabled: Boolean = false
 )
 
 /**
