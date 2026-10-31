@@ -55,7 +55,6 @@ import com.example.bymevpn.components.RefreshIcon
 import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
-import com.example.bymevpn.data.settings.SettingsRepository
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
@@ -77,7 +76,6 @@ fun AccountScreen(
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
     val t: (String, String) -> String = { ru, en -> if (isRu) ru else en }
-    val settingsRepo = remember { SettingsRepository.getInstance(context) }
     val scrollState = rememberScrollState()
 
     val currentUser by AccountRepository.currentUser.collectAsState()
@@ -94,6 +92,7 @@ fun AccountScreen(
     var showAccountDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
+    var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Box(
@@ -382,6 +381,34 @@ fun AccountScreen(
                                 Toast.makeText(context, t("ID скопирован", "ID copied"), Toast.LENGTH_SHORT).show()
                             }
                         ) { Text(t("Скопировать ID", "Copy ID"), color = AppColors.BrandMint) }
+
+                        TextButton(
+                            enabled = !refreshingAccount,
+                            onClick = {
+                                refreshingAccount = true
+                                scope.launch {
+                                    try {
+                                        AccountRepository.refreshProfile(context)
+                                        AccountRepository.refreshDevices(context)
+                                        val result = subManager.refreshStatus()
+                                        Toast.makeText(
+                                            context,
+                                            if (result.isSuccess) t("Данные обновлены", "Account refreshed")
+                                            else t("Не удалось проверить подписку", "Could not refresh subscription"),
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    } finally {
+                                        refreshingAccount = false
+                                    }
+                                }
+                            }
+                        ) {
+                            Text(
+                                if (refreshingAccount) t("Обновляем…", "Refreshing…")
+                                else t("Обновить данные аккаунта", "Refresh account data"),
+                                color = AppColors.BrandMint
+                            )
+                        }
 
                         AccountInfoLine(t("Устройства", "Devices"), effectiveDevicesText)
                         TextButton(onClick = {
