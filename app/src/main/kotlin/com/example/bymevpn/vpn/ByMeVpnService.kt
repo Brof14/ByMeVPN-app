@@ -111,7 +111,7 @@ class ByMeVpnService : VpnService() {
 
                 val notif = buildNotification(
                     title = if (serverCountry.isNotEmpty()) "ByMeVPN • $serverCountry" else "ByMeVPN",
-                    text = "VLESS + Reality: $serverName"
+                    text = "VPN: $serverName"
                 )
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -161,7 +161,7 @@ class ByMeVpnService : VpnService() {
 
                     if (result.isSuccess) {
                         isServiceRunning = true
-                        Log.i(TAG, "Xray tunnel active! Traffic is routing through VLESS+Reality.")
+                        Log.i(TAG, "Xray core started and proxy connectivity check passed")
                         VpnManager.getInstance(applicationContext).onTunnelConnected(activeServer)
                         startHealthMonitor(engine)
                     } else {
