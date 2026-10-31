@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.data.LocaleManager
+import androidx.compose.runtime.collectAsState
 import com.example.bymevpn.theme.AppGradients
 
 enum class BottomNavTab {
@@ -172,6 +174,8 @@ fun ByMeBottomNav(
     onTabSelected: (BottomNavTab) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -187,7 +191,7 @@ fun ByMeBottomNav(
         ) {
             // Home tab
             NavTabItem(
-                title = "Главная",
+                title = if (isRu) "Главная" else "Home",
                 selected = currentTab == BottomNavTab.Home,
                 onClick = { onTabSelected(BottomNavTab.Home) },
                 icon = { color -> PowerIcon(color = color, size = 21.dp) },
@@ -196,7 +200,7 @@ fun ByMeBottomNav(
 
             // Settings tab
             NavTabItem(
-                title = "Настройки",
+                title = if (isRu) "Настройки" else "Settings",
                 selected = currentTab == BottomNavTab.Settings,
                 onClick = { onTabSelected(BottomNavTab.Settings) },
                 icon = { color -> SettingsGearIcon(color = color, size = 21.dp) },
@@ -205,7 +209,7 @@ fun ByMeBottomNav(
 
             // Account tab
             NavTabItem(
-                title = "Аккаунт",
+                title = if (isRu) "Аккаунт" else "Account",
                 selected = currentTab == BottomNavTab.Account,
                 onClick = { onTabSelected(BottomNavTab.Account) },
                 icon = { color -> PersonProfileIcon(color = color, size = 21.dp) },

@@ -34,13 +34,16 @@ fun ShieldLogo(
     isConnecting: Boolean = false
 ) {
     // Animate only while connecting; do not keep the renderer running forever.
-    val transition = rememberInfiniteTransition(label = "vpn-connecting")
-    val scale by transition.animateFloat(
-        initialValue = 0.97f,
-        targetValue = 1.03f,
-        animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
-        label = "vpn-connect-scale"
-    )
+    val scale = if (isConnecting) {
+        val transition = rememberInfiniteTransition(label = "vpn-connecting")
+        val animated by transition.animateFloat(
+            initialValue = 0.97f,
+            targetValue = 1.03f,
+            animationSpec = infiniteRepeatable(tween(1100), RepeatMode.Reverse),
+            label = "vpn-connect-scale"
+        )
+        animated
+    } else 1f
     Image(
         painter = painterResource(id = R.drawable.byme_connect_shield),
         contentDescription = "ByMeVPN",

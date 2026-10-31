@@ -47,6 +47,8 @@ import com.example.bymevpn.components.LegalTermsDialog
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.ShieldSecurityIcon
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.data.LocaleManager
+import androidx.compose.runtime.collectAsState
 
 @Composable
 fun SupportScreen(
@@ -57,6 +59,9 @@ fun SupportScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
+    val t: (String, String) -> String = { ru, en -> if (isRu) ru else en }
     val scrollState = rememberScrollState()
     var showFaqDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
@@ -68,7 +73,7 @@ fun SupportScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ByMeTopBar(
-                title = "Помощь",
+                title = t("Помощь", "Help"),
                 onBackClick = onBackClick,
                 onMoreClick = null
             )
@@ -99,7 +104,7 @@ fun SupportScreen(
                     Spacer(modifier = Modifier.height(18.dp))
 
                     Text(
-                        text = "Мы рядом, если\nнужна помощь",
+                        text = t("Мы рядом, если\nнужна помощь", "We're here\nto help"),
                         color = AppColors.TextPrimary,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
@@ -110,7 +115,7 @@ fun SupportScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = "Нашли ошибку или придумали улучшение? Напишите нам: за подтверждённые ошибки и принятые предложения добавим дни к подписке.",
+                        text = t("Нашли ошибку или придумали улучшение? Напишите нам: за подтверждённые ошибки и принятые предложения добавим дни к подписке.", "Found a bug or have a suggestion? Contact us: confirmed reports and accepted suggestions may earn extra days."),
                         color = Color(0xFF92AAA4),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp,
@@ -121,7 +126,7 @@ fun SupportScreen(
                     Spacer(modifier = Modifier.height(20.dp))
 
                     ByMePrimaryButton(
-                        text = "Написать в поддержку",
+                        text = t("Написать в поддержку", "Contact support"),
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/bymevpn_support_bot"))
                             context.startActivity(intent)
@@ -131,7 +136,7 @@ fun SupportScreen(
 
                 // Section: Полезное
                 Text(
-                    text = "Полезное",
+                    text = t("Полезное", "Useful links"),
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -140,15 +145,15 @@ fun SupportScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "Ответы на вопросы",
-                        subtitle = "Оплата, подключение и устройства",
+                        title = t("Ответы на вопросы", "FAQ"),
+                        subtitle = t("Оплата, подключение и устройства", "Payments, connection and devices"),
                         icon = { QuestionHelpIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showFaqDialog = true }
                     )
                     ByMeSettingRow(
-                        title = "Новости ByMeVPN",
-                        subtitle = "Обновления и работа сервиса",
+                        title = t("Новости ByMeVPN", "ByMeVPN news"),
+                        subtitle = t("Обновления и работа сервиса", "Updates and service status"),
                         icon = { BellNewsIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = {
@@ -161,7 +166,7 @@ fun SupportScreen(
 
                 // Section: Информация
                 Text(
-                    text = "Информация",
+                    text = t("Информация", "Information"),
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -170,13 +175,13 @@ fun SupportScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "О приложении",
-                        subtitle = "Версия 1.0.0",
+                        title = t("О приложении", "About the app"),
+                        subtitle = t("Версия 1.0.0", "Version 1.0.0"),
                         icon = { InfoCircleIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) }
                     )
                     ByMeSettingRow(
-                        title = "Документы и приватность",
+                        title = t("Документы и приватность", "Privacy and documents"),
                         subtitle = null,
                         icon = { ShieldSecurityIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
@@ -188,7 +193,7 @@ fun SupportScreen(
                 Spacer(modifier = Modifier.height(28.dp))
 
                 Text(
-                    text = "ByMeVPN · Скорость. Свобода. Простота.",
+                    text = t("ByMeVPN · Скорость. Свобода. Простота.", "ByMeVPN · Speed. Freedom. Simplicity."),
                     color = Color(0xFF617E79),
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center,

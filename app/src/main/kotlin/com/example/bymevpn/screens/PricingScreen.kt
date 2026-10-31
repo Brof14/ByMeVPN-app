@@ -46,6 +46,8 @@ import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.PlanItem
+import com.example.bymevpn.data.LocaleManager
+import androidx.compose.runtime.collectAsState
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
@@ -96,6 +98,9 @@ fun PricingScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
+    val t: (String, String) -> String = { ru, en -> if (isRu) ru else en }
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -171,7 +176,7 @@ fun PricingScreen(
 
                 Column {
                     Text(
-                        text = "Выберите тариф",
+                        text = t("Выберите тариф", "Choose a plan"),
                         color = AppColors.TextPrimary,
                         fontSize = 27.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -179,7 +184,7 @@ fun PricingScreen(
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        text = "Одна подписка для всех ваших устройств",
+                        text = t("Одна подписка для всех ваших устройств", "One plan for all your devices"),
                         color = Color(0xFF8FA3A4),
                         fontSize = 12.sp
                     )
@@ -195,7 +200,7 @@ fun PricingScreen(
                     .padding(horizontal = 26.dp)
             ) {
                 Text(
-                    text = "СКОЛЬКО УСТРОЙСТВ?",
+                    text = t("СКОЛЬКО УСТРОЙСТВ?", "HOW MANY DEVICES?"),
                     color = AppColors.TextKicker,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -216,19 +221,19 @@ fun PricingScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     DeviceCountTab(
-                        label = "2 устройства",
+                        label = t("2 устройства", "2 devices"),
                         selected = selectedDeviceCount == 2,
                         onClick = { selectedDeviceCount = 2 },
                         modifier = Modifier.weight(1f)
                     )
                     DeviceCountTab(
-                        label = "5 устройств",
+                        label = t("5 устройств", "5 devices"),
                         selected = selectedDeviceCount == 5,
                         onClick = { selectedDeviceCount = 5 },
                         modifier = Modifier.weight(1f)
                     )
                     DeviceCountTab(
-                        label = "10 устройств",
+                        label = t("10 устройств", "10 devices"),
                         selected = selectedDeviceCount == 10,
                         onClick = { selectedDeviceCount = 10 },
                         modifier = Modifier.weight(1f)
@@ -239,14 +244,14 @@ fun PricingScreen(
                 if (priceError && !plansLoading) {
                     Text(
                         text = if (selectedDeviceCount == 2)
-                            "Нет подтверждения цены от сервера. Проверьте сеть и повторите."
+                            t("Нет подтверждения цены от сервера. Проверьте сеть и повторите.", "Price not confirmed. Check your connection and retry.")
                         else
-                            "Цена пока предварительная: сервер ещё не подтвердил тариф на $selectedDeviceCount устройств.",
+                            t("Цена пока предварительная: сервер ещё не подтвердил тариф на $selectedDeviceCount устройств.", "Estimated price: the server has not confirmed $selectedDeviceCount-device plans."),
                         color = AppColors.TextSecondary,
                         fontSize = 12.sp
                     )
                     Text(
-                        text = "Повторить загрузку",
+                        text = t("Повторить загрузку", "Retry loading"),
                         color = AppColors.BrandMint,
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 12.sp,
@@ -255,12 +260,12 @@ fun PricingScreen(
                             .padding(vertical = 12.dp)
                     )
                 } else if (plansLoading) {
-                    Text("Проверяем цены и доступность тарифов…", color = AppColors.TextSecondary, fontSize = 12.sp)
+                    Text(t("Проверяем цены и доступность тарифов…", "Checking prices and availability…"), color = AppColors.TextSecondary, fontSize = 12.sp)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "СРОК ПОДПИСКИ",
+                    text = t("СРОК ПОДПИСКИ", "SUBSCRIPTION LENGTH"),
                     color = AppColors.TextKicker,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -313,14 +318,14 @@ fun PricingScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = plan.title,
+                                    text = if (isRu) plan.title else when (plan) { PlanDuration.Month1 -> "1 month"; PlanDuration.Month4 -> "3 + 1 months"; PlanDuration.Month8 -> "6 + 2 months"; PlanDuration.Month15 -> "12 + 3 months" },
                                     color = AppColors.TextPrimary,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (verifiedPrice == null) "Предварительно · $monthlyRate ₽/мес." else if (plan == PlanDuration.Month1) "$monthlyRate ₽ за месяц" else "$monthlyRate ₽ / месяц ${plan.bonusSubtitle}",
+                                    text = if (verifiedPrice == null) t("Предварительно · $monthlyRate ₽/мес.", "Estimate · $monthlyRate RUB/month") else if (plan == PlanDuration.Month1) "$monthlyRate ₽ за месяц" else "$monthlyRate ₽ / месяц ${plan.bonusSubtitle}",
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )
@@ -367,7 +372,7 @@ fun PricingScreen(
                                     .padding(horizontal = 9.dp, vertical = 5.dp)
                             ) {
                                 Text(
-                                    text = "ЛУЧШАЯ ЦЕНА",
+                                    text = t("ЛУЧШАЯ ЦЕНА", "BEST VALUE"),
                                     color = Color(0xFF06231A),
                                     fontSize = 9.sp,
                                     fontWeight = FontWeight.Bold,
@@ -381,7 +386,7 @@ fun PricingScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "СПОСОБ ОПЛАТЫ",
+                    text = t("СПОСОБ ОПЛАТЫ", "PAYMENT METHOD"),
                     color = AppColors.TextKicker,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
@@ -408,7 +413,7 @@ fun PricingScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "💳 Карта / СБП",
+                            text = t("💳 Карта / СБП", "💳 Card / SBP"),
                             color = if (selectedProvider == "yookassa") Color(0xFF10241E) else Color(0xFF829C9A),
                             fontSize = 12.sp,
                             fontWeight = if (selectedProvider == "yookassa") FontWeight.Bold else FontWeight.Medium
@@ -424,7 +429,7 @@ fun PricingScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Криптовалюта недоступна",
+                            text = t("Криптовалюта недоступна", "Crypto unavailable"),
                             color = Color(0xFF829C9A),
                             fontSize = 11.sp
                         )
@@ -443,7 +448,7 @@ fun PricingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "К оплате сейчас",
+                        text = t("К оплате сейчас", "Amount due"),
                         color = Color(0xFFA1B5B3),
                         fontSize = 13.sp
                     )
@@ -486,7 +491,7 @@ fun PricingScreen(
                                     provider = selectedProvider
                                 )
                                 if (!success) {
-                                    Toast.makeText(context, "Не удалось открыть оплату. Проверьте подключение и попробуйте снова.", Toast.LENGTH_LONG).show()
+                                    Toast.makeText(context, t("Не удалось открыть оплату. Проверьте подключение и попробуйте снова.", "Could not open checkout. Check your connection."), Toast.LENGTH_LONG).show()
                                 }
                             } finally {
                                 isPaying = false
@@ -505,7 +510,7 @@ fun PricingScreen(
                     LockIcon(color = Color(0xFF729D90), size = 15.dp)
                     Spacer(modifier = Modifier.padding(horizontal = 4.dp))
                     Text(
-                        text = "Безопасная оплата через ЮKassa",
+                        text = t("Безопасная оплата через ЮKassa", "Secure checkout via YooKassa"),
                         color = Color(0xFF729D90),
                         fontSize = 11.sp
                     )
