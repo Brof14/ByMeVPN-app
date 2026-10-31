@@ -50,8 +50,8 @@ data class SubscriptionStatus(
     val secondsRemaining: Long = 0L,
     val autoRenew: Boolean? = null,
     val trialAvailable: Boolean = false,
-    val maxDevices: Int = 5,
-    val activeDevices: Int = 1,
+    val maxDevices: Int = 0,
+    val activeDevices: Int = 0,
     val entitlement: String? = null,
     val serverTime: String? = null,
     val subscriptionUrl: String? = null,
@@ -61,8 +61,12 @@ data class SubscriptionStatus(
         get() = status == "active" || status == "trial" || status == "grace"
     val isActive: Boolean
         get() = isUsable
-    val daysRemaining: Int
-        get() = (secondsRemaining / 86400L).toInt().coerceAtLeast(1)
+    fun daysRemainingAt(nowMillis: Long): Long? {
+        if (secondsRemaining <= 0 || nowMillis < lastFetchedAt) return null
+        val elapsedSeconds = (nowMillis - lastFetchedAt) / 1000
+        val remaining = (secondsRemaining - elapsedSeconds).coerceAtLeast(0)
+        return if (remaining > 0) (remaining - 1) / 86400 + 1 else null
+    }
 }
 
 data class PlanItem(
@@ -168,8 +172,8 @@ object ApiJsonParsers {
             secondsRemaining = target.optLong("seconds_remaining", 0L),
             autoRenew = if (target.has("auto_renew") && !target.isNull("auto_renew")) target.optBoolean("auto_renew") else null,
             trialAvailable = target.optBoolean("trial_available", false),
-            maxDevices = target.optInt("max_devices", 5),
-            activeDevices = target.optInt("active_devices", 1),
+            maxDevices = target.optInt("max_devices", 0),
+            activeDevices = target.optInt("active_devices", 0),
             entitlement = optNullableString("entitlement"),
             serverTime = optNullableString("server_time"),
             subscriptionUrl = optNullableString("subscription_url") ?: optNullableString("sub_url"),

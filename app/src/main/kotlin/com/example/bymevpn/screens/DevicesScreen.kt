@@ -42,8 +42,6 @@ fun DevicesScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
-    connectedDevicesCount: Int = 1,
-    maxDevicesCount: Int = 5,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -51,8 +49,8 @@ fun DevicesScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
     val devicesList by AccountRepository.userDevices.collectAsState()
 
-    val effectiveMax = subscription?.maxDevices ?: maxDevicesCount
-    val effectiveConnected = if (devicesList.isNotEmpty()) devicesList.size else connectedDevicesCount
+    val effectiveMax = subscription?.maxDevices?.takeIf { it > 0 }
+    val effectiveConnected = devicesList.size
 
     Box(
         modifier = modifier
@@ -82,7 +80,7 @@ fun DevicesScreen(
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = " из $effectiveMax",
+                        text = effectiveMax?.let { " из $it" } ?: "",
                         color = Color(0xFF6EDBB0),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -183,7 +181,7 @@ fun DevicesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь автоматически в рамках вашей подписки (до $effectiveMax устройств).",
+                        text = "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь после регистрации на сервере.",
                         color = Color(0xFF9DB6AC),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp

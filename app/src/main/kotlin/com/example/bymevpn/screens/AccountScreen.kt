@@ -73,9 +73,9 @@ fun AccountScreen(
     val devices by AccountRepository.userDevices.collectAsState()
 
     val isActive = subscription?.isActive == true
-    val remainingDays = subscription?.daysRemaining ?: 0
-    val maxDevices = subscription?.maxDevices ?: 5
-    val activeDevicesCount = if (devices.isNotEmpty()) devices.size else (subscription?.activeDevices ?: 1)
+    val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
+    val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
+    val activeDevicesCount = devices.size
 
     var showAccountDialog by remember { mutableStateOf(false) }
 
@@ -169,14 +169,14 @@ fun AccountScreen(
 
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
-                                text = "$remainingDays",
+                                text = remainingDays?.toString() ?: "—",
                                 color = AppColors.TextPrimary,
                                 fontSize = 64.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = (-3).sp
                             )
                             Text(
-                                text = " дня",
+                                text = if (remainingDays == null) "" else " дн.",
                                 color = Color(0xFF6EDBB0),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
@@ -185,7 +185,7 @@ fun AccountScreen(
                         }
 
                         Text(
-                            text = "до окончания доступа",
+                            text = if (remainingDays == null) "Срок доступа не подтверждён" else "до окончания доступа",
                             color = Color(0xFF9AB1A7),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
@@ -206,7 +206,7 @@ fun AccountScreen(
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = "$maxDevices устройства · 1 месяц",
+                                text = subscription?.planName?.takeIf { it.isNotBlank() } ?: "Не указан",
                                 color = Color(0xFFE5F3EC),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -292,7 +292,9 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isActive) "Мои устройства" else "Устройства",
-                        subtitle = if (devices.isNotEmpty()) "$activeDevicesCount из $maxDevices" else "Нет подтверждённого списка устройств",
+                        subtitle = if (devices.isNotEmpty()) {
+                            maxDevices?.let { "$activeDevicesCount из $it" } ?: "$activeDevicesCount устройств"
+                        } else "Нет подтверждённого списка устройств",
                         icon = { DevicesMultiIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToDevices

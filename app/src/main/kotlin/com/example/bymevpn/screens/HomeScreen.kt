@@ -89,7 +89,7 @@ fun HomeScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
 
     val hasPlan = subscription?.isActive == true
-    val remainingDays = subscription?.daysRemaining ?: 0
+    val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
 
     var showServerSheet by remember { mutableStateOf(false) }
     var isAutoServerSelected by remember { mutableStateOf(true) }
@@ -487,7 +487,7 @@ private fun HomeDisconnectedContent(
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
-    remainingDays: Int
+    remainingDays: Long?
 ) {
     Column(
         modifier = Modifier
@@ -695,7 +695,7 @@ private fun HomeDisconnectedContent(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Осталось $remainingDays дней · 2 устройства",
+                        text = remainingDays?.let { "Осталось $it дней" } ?: "Срок подписки не подтверждён",
                         color = Color(0xFF8AA1A1),
                         fontSize = 11.sp
                     )
@@ -717,7 +717,7 @@ private fun HomeConnectedContent(
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
-    remainingDays: Int
+    remainingDays: Long?
 ) {
     val hours = connectedSeconds / 3600
     val minutes = (connectedSeconds % 3600) / 60
@@ -790,7 +790,7 @@ private fun HomeConnectedContent(
         ) {
             CheckmarkIcon(color = Color(0xFF3CDCAD), size = 22.dp)
             Text(
-                text = "VPN подключён",
+            text = "VPN запущен",
                 color = AppColors.TextPrimary,
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold
@@ -800,7 +800,7 @@ private fun HomeConnectedContent(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Соединение защищено",
+            text = "Соединение с сервером проверено",
             color = Color(0xFF859B9D),
             fontSize = 13.sp
         )
@@ -944,7 +944,7 @@ private fun HomeConnectedContent(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Осталось $remainingDays дней · 2 устройства",
+                        text = remainingDays?.let { "Осталось $it дней" } ?: "Срок подписки не подтверждён",
                         color = Color(0xFF8AA1A1),
                         fontSize = 11.sp
                     )

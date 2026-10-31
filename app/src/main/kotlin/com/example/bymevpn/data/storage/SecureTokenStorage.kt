@@ -123,6 +123,7 @@ class SecureTokenStorage private constructor(context: Context) {
             put("entitlement", sub.entitlement ?: "")
             put("server_time", sub.serverTime ?: "")
             put("last_fetched_at", sub.lastFetchedAt)
+            put("display_data_version", 1)
         }
         prefs.edit().putString(KEY_CACHED_SUB, obj.toString()).apply()
     }
@@ -131,17 +132,19 @@ class SecureTokenStorage private constructor(context: Context) {
         val raw = prefs.getString(KEY_CACHED_SUB, null) ?: return null
         return try {
             val obj = JSONObject(raw)
+            // Older clients stored invented duration and device counts for imported subscriptions.
+            val confirmedDisplayData = obj.optInt("display_data_version", 0) >= 1
             SubscriptionStatus(
                 status = obj.optString("status", "none"),
                 planCode = obj.optString("plan_code").ifEmpty { null },
                 planName = obj.optString("plan_name").ifEmpty { null },
                 expiresAt = obj.optString("expires_at").ifEmpty { null },
-                secondsRemaining = obj.optLong("seconds_remaining", 0L),
+                secondsRemaining = if (confirmedDisplayData) obj.optLong("seconds_remaining", 0L) else 0L,
                 // Older versions cached an invented value; only trust a fresh server response.
                 autoRenew = null,
                 trialAvailable = obj.optBoolean("trial_available", false),
-                maxDevices = obj.optInt("max_devices", 5),
-                activeDevices = obj.optInt("active_devices", 1),
+                maxDevices = if (confirmedDisplayData) obj.optInt("max_devices", 0) else 0,
+                activeDevices = if (confirmedDisplayData) obj.optInt("active_devices", 0) else 0,
                 entitlement = obj.optString("entitlement").ifEmpty { null },
                 serverTime = obj.optString("server_time").ifEmpty { null },
                 lastFetchedAt = obj.optLong("last_fetched_at", System.currentTimeMillis())

@@ -97,12 +97,9 @@ class SubscriptionManager private constructor(private val context: Context) {
                 storage.saveServerNodes(parsed.servers)
                 storage.setServerRefreshAttempt(System.currentTimeMillis())
                 val status = SubscriptionStatus(
-                    status = "active",
-                    planName = "ByMeVPN Cloud",
+                    status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
                     expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
-                    secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 86400L * 30,
-                    activeDevices = 1,
-                    maxDevices = 5,
+                    secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
                     lastFetchedAt = System.currentTimeMillis()
                 )
                 _subscriptionStatus.value = status
@@ -149,12 +146,9 @@ class SubscriptionManager private constructor(private val context: Context) {
             }
 
             val status = SubscriptionStatus(
-                status = "active",
-                planName = "ByMeVPN Cloud",
+                status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
                 expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
-                secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 86400L * 30,
-                activeDevices = 1,
-                maxDevices = 5,
+                secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
                 lastFetchedAt = System.currentTimeMillis()
             )
             _subscriptionStatus.value = status
