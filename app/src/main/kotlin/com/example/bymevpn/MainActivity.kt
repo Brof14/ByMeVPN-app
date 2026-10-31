@@ -97,10 +97,10 @@ class MainActivity : ComponentActivity() {
                     if (com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank() && AccountRepository.currentUser.value == null) {
                         AccountRepository.createLocalProfile(applicationContext, userName)
                     }
-                    Toast.makeText(applicationContext, "Подписка успешно подключена!", Toast.LENGTH_LONG).show()
+                    Toast.makeText(applicationContext, if (com.example.bymevpn.data.LocaleManager.isRussian()) "Подписка успешно подключена!" else "Subscription imported successfully!", Toast.LENGTH_LONG).show()
                     VpnManager.getInstance(applicationContext).loadServers()
                 } else {
-                    Toast.makeText(applicationContext, "Ошибка добавления подписки: ${result.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(applicationContext, (if (com.example.bymevpn.data.LocaleManager.isRussian()) "Ошибка добавления подписки: " else "Could not import subscription: ") + result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
                 }
             }
         }

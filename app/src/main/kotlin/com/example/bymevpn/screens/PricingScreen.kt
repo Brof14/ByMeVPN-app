@@ -461,7 +461,7 @@ fun PricingScreen(
                 }
 
                 Text(
-                    text = "Доступ на ${selectedPlan.totalMonths} ${if (selectedPlan.totalMonths == 1) "месяц" else "месяцев"} · до $selectedDeviceCount устройств",
+                    text = if (isRu) "Доступ на ${selectedPlan.totalMonths} ${if (selectedPlan.totalMonths == 1) "месяц" else "месяцев"} · до $selectedDeviceCount устройств" else "Access for ${selectedPlan.totalMonths} months · up to $selectedDeviceCount devices",
                     color = Color(0xFF8B9F9E),
                     fontSize = 11.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
@@ -470,10 +470,10 @@ fun PricingScreen(
                 // CTA Button
                 ByMePrimaryButton(
                     text = when {
-                        isPaying -> "Открываем оплату…"
-                        currentPrice > 0 -> "Оплатить · $currentPrice ₽"
-                        plansLoading -> "Загружаем тарифы…"
-                        else -> "Оплата пока недоступна"
+                        isPaying -> t("Открываем оплату…", "Opening checkout…")
+                        currentPrice > 0 -> t("Оплатить · $currentPrice ₽", "Pay · $currentPrice RUB")
+                        plansLoading -> t("Загружаем тарифы…", "Loading plans…")
+                        else -> t("Оплата пока недоступна", "Payment unavailable")
                     },
                     enabled = currentPlan != null && !isPaying,
                     onClick = {
@@ -484,7 +484,7 @@ fun PricingScreen(
                                 val success = YooKassaPaymentHandler.startPayment(
                                     context = context,
                                     planCode = confirmed.code,
-                                    planTitle = "${selectedPlan.title} ($selectedDeviceCount устройств)",
+                                    planTitle = if (isRu) "${selectedPlan.title} ($selectedDeviceCount устройств)" else "$selectedDeviceCount devices",
                                     amountRub = confirmed.priceRub,
                                     days = confirmed.days,
                                     devices = selectedDeviceCount,
