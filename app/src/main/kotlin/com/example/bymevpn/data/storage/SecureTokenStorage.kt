@@ -242,11 +242,11 @@ class SecureTokenStorage private constructor(context: Context) {
             val obj = array.getJSONObject(index)
             ServerNode(nodeCode = obj.getString("nodeCode"), country = obj.optString("country", ""),
                 countryCode = obj.optString("countryCode", ""), city = obj.optString("city", ""),
-                flag = obj.optString("flag", ""), pingMs = -1, loadPercent = 0,
+                flag = obj.optString("flag", ""), pingMs = -1, loadPercent = -1,
                 countryEn = obj.optString("countryEn", obj.optString("country", "")),
                 cityEn = obj.optString("cityEn", obj.optString("city", "")),
                 isPremium = obj.optBoolean("isPremium", false), remark = obj.optString("remark", ""),
-                protocol = obj.optString("protocol", "VLESS"), displayName = obj.optString("displayName", ""))
+                protocol = obj.optString("protocol", "VPN"), displayName = obj.optString("displayName", ""))
         }
     } catch (_: Exception) { emptyList() }
 

@@ -86,13 +86,13 @@ data class ServerNode(
     val country: String,
     val countryCode: String,
     val city: String = "",
-    val flag: String = "🇩🇪",
-    val pingMs: Int = 25,
-    val loadPercent: Int = 30,
+    val flag: String = "🌐",
+    val pingMs: Int = -1,
+    val loadPercent: Int = -1,
     val isPremium: Boolean = false,
     val countryEn: String = country,
     val cityEn: String = city,
-    val protocol: String = "VLESS Reality",
+    val protocol: String = "VPN",
     val remark: String = "",
     val displayName: String = "",
     val connectionCheck: Int = 0
@@ -200,7 +200,7 @@ object ApiJsonParsers {
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
             val code = obj.optString("code", obj.optString("node_code", "default"))
-            val cCode = obj.optString("country_code", "NL").uppercase()
+            val cCode = obj.optString("country_code", "").uppercase()
             val flagEmoji = when (cCode) {
                 "NL" -> "🇳🇱"
                 "DE" -> "🇩🇪"
@@ -229,25 +229,22 @@ object ApiJsonParsers {
             val cityRaw = obj.optString("city")
             val cityRu = when {
                 cityRaw.isNotBlank() && cityRaw != "Unknown" -> cityRaw
-                cCode == "NL" -> "Амстердам"
-                cCode == "DE" -> "Франкфурт"
-                else -> "Европа"
+                else -> ""
             }
             val cityEn = when {
                 obj.optString("city_en").isNotBlank() -> obj.optString("city_en")
                 cityRaw.isNotBlank() && cityRaw != "Unknown" -> cityRaw
-                cCode == "NL" -> "Amsterdam"
-                cCode == "DE" -> "Frankfurt"
-                else -> "Europe"
+                else -> ""
             }
-            val load = obj.optInt("load_pct", obj.optInt("load_percent", 15))
+            val load = obj.optInt("load_pct", obj.optInt("load_percent", -1))
             val proto = obj.optString("protocol").ifBlank {
                 val cfg = obj.optJSONObject("config")
-                val p = cfg?.optString("protocol", "vless") ?: "vless"
-                val sec = cfg?.optString("security", "reality") ?: "reality"
+                val p = cfg?.optString("protocol", "") ?: ""
+                val sec = cfg?.optString("security", "") ?: ""
                 if (p.equals("hysteria2", true) || p.equals("hy2", true)) "Hysteria 2"
-                else if (sec.equals("reality", true)) "VLESS Reality"
-                else "VLESS"
+                else if (p.equals("vless", true) && sec.equals("reality", true)) "VLESS Reality"
+                else if (p.equals("vless", true)) "VLESS"
+                else "VPN"
             }
             val remarkStr = obj.optString("remark", "")
             val displayNameStr = obj.optString("display_name", "")
@@ -259,8 +256,8 @@ object ApiJsonParsers {
                     countryCode = cCode.lowercase(),
                     city = cityRu,
                     flag = obj.optString("flag", flagEmoji),
-                    pingMs = obj.optInt("ping_ms", 25),
-                    loadPercent = if (load == 0) 18 else load,
+                    pingMs = -1,
+                    loadPercent = load,
                     isPremium = obj.optBoolean("is_premium", false),
                     countryEn = countryEn,
                     cityEn = cityEn,
