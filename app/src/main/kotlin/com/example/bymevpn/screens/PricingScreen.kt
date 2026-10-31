@@ -353,7 +353,7 @@ fun PricingScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(11.dp))
                             .background(if (selectedProvider == "yookassa") Color(0xFF43DDB1) else Color.Transparent)
-                            .clickable { selectedProvider = "yookassa" }
+                            
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
