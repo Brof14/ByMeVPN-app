@@ -297,29 +297,7 @@ fun AccountScreen(
                         } else "Нет подтверждённого списка устройств",
                         icon = { DevicesMultiIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToDevices
-                    )
-                    ByMeSettingRow(
-                        title = "Автопродление",
-                        subtitle = when (subscription?.autoRenew) { true -> "Включено"; false -> "Отключено"; null -> "Нет подтверждённых данных" },
-                        icon = { RefreshIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                if (subscription?.autoRenew == true) {
-                                    Text(
-                                        text = "Включено",
-                                        color = Color(0xFF40D5AD),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                                ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp)
-                            }
-                        },
-                        onClick = onNavigateToRenewal,
+                        onClick = onNavigateToDevices,
                         showBottomDivider = false
                     )
                 }
@@ -339,14 +317,7 @@ fun AccountScreen(
                         subtitle = null,
                         icon = { PersonProfileIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { showAccountDialog = true }
-                    )
-                    ByMeSettingRow(
-                        title = "Помощь",
-                        subtitle = null,
-                        icon = { QuestionHelpIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToSupport,
+                        onClick = { showAccountDialog = true },
                         showBottomDivider = false
                     )
                 }
@@ -379,7 +350,9 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text("Почта: ${currentUser?.email ?: "Не указана"}")
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text("ID: ${currentUser?.id ?: "local"}")
+                        Text("Автопродление: " + when (subscription?.autoRenew) { true -> "включено"; false -> "отключено"; null -> "нет подтверждённых данных" })
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text("Для изменения автопродления обратитесь в поддержку.")
                     }
                 },
                 confirmButton = {

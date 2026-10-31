@@ -41,18 +41,13 @@ class ByMeApiClient(private val context: Context) {
         storage.saveCachedUser(auth.user)
         auth.subscription?.let { storage.saveCachedSubscription(it) }
 
-        // Extract real subscription URL and sync nodes
+        // Save immediately; AccountRepository refreshes nodes in the background.
         val subUrl = auth.subscription?.subscriptionUrl
             ?: json.optString("subscription_url").ifBlank {
                 json.optJSONObject("subscription")?.optString("subscription_url") ?: ""
             }
         if (subUrl.isNotBlank()) {
             storage.saveSubscriptionUrl(subUrl)
-            try {
-                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context).applySubscriptionUrl(subUrl)
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to apply subscription URL: ${e.message}")
-            }
         }
 
         // Extract and persist real server configurations if present

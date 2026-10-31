@@ -266,7 +266,6 @@ fun ServerSelectionSheet(
 
                                 val pingColor = when {
                                     server.connectionCheck < 0 -> Color(0xFFFF8A65)
-                                    server.connectionCheck > 0 -> Color(0xFF3CDFAC)
                                     server.pingMs == -2 -> Color(0xFFFF8A65)
                                     server.pingMs <= 0 -> Color(0xFF89A6A0)
                                     server.pingMs <= 200 -> Color(0xFF3CDFAC)
@@ -282,9 +281,8 @@ fun ServerSelectionSheet(
                                 Text(
                                     text = when {
                                         server.connectionCheck < 0 -> if (isRu) "Не удалось подключиться" else "Connection failed"
-                                        server.connectionCheck > 0 -> if (isRu) "Подключение удалось" else "Connected before"
                                         server.pingMs == -2 -> if (isRu) "Нет ответа" else "No response"
-                                        server.pingMs > 0 -> "${server.pingMs} ms"
+                                        server.pingMs > 0 -> "${server.pingMs} ${if (isRu) "мс" else "ms"}"
                                         else -> if (isRu) "Не проверен" else "Not tested"
                                     },
                                     color = pingColor,

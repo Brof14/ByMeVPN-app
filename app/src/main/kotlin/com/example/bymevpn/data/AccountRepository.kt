@@ -13,6 +13,7 @@ import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,8 +35,14 @@ object AccountRepository {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    private val repoScope = CoroutineScope(Dispatchers.IO)
+    private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isInitialized = false
+
+    private fun refreshAfterLogin(context: Context) {
+        val appContext = context.applicationContext
+        repoScope.launch { com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers() }
+        repoScope.launch { refreshDevices(appContext) }
+    }
 
     fun init(context: Context) {
         if (isInitialized) return
@@ -64,8 +71,7 @@ object AccountRepository {
             val api = ByMeApiClient(context)
             val auth = api.login(trimmedEmail, pass)
             _currentUser.value = auth.user
-            refreshDevices(context)
-            SubscriptionManager.getInstance(context).refreshStatus()
+            refreshAfterLogin(context)
             Result.success(auth.user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -81,8 +87,7 @@ object AccountRepository {
             val displayName = name.ifBlank { email.substringBefore("@") }
             val auth = api.register(email, pass, displayName)
             _currentUser.value = auth.user
-            refreshDevices(context)
-            SubscriptionManager.getInstance(context).refreshStatus()
+            refreshAfterLogin(context)
             Result.success(auth.user)
         } catch (e: Exception) {
             Result.failure(e)
@@ -103,8 +108,7 @@ object AccountRepository {
                     val api = ByMeApiClient(context)
                     val auth = api.loginGoogle(authResult.idToken)
                     _currentUser.value = auth.user
-                    refreshDevices(context)
-                    SubscriptionManager.getInstance(context).refreshStatus()
+                    refreshAfterLogin(context)
                     Result.success(auth.user)
                 }
                 is GoogleAuthResult.Error -> {
@@ -137,8 +141,7 @@ object AccountRepository {
             val check = api.checkTelegramSession(token)
             if (check.status == "authenticated" && check.auth != null) {
                 _currentUser.value = check.auth.user
-                refreshDevices(context)
-                SubscriptionManager.getInstance(context).refreshStatus()
+                refreshAfterLogin(context)
                 Result.success(check.auth.user)
             } else if (check.status == "expired") {
                 Result.failure(Exception("Сессия авторизации истекла"))

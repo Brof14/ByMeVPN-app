@@ -91,6 +91,7 @@ class SubscriptionManager private constructor(private val context: Context) {
                 val elapsed = System.currentTimeMillis() - storage.getServerRefreshAttempt()
                 val cached = storage.getCachedSubscription()
                 if (elapsed in 0 until 6L * 60 * 60 * 1000 && cached != null && storage.getServerConfigs().isNotEmpty()) {
+                    _subscriptionStatus.value = cached
                     return@withLock Result.success(cached)
                 }
                 val parsed = fetchSubscriptionFromUrl(customSubUrl)

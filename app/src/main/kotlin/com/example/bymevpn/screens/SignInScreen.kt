@@ -71,6 +71,9 @@ import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
@@ -108,6 +111,7 @@ fun SignInScreen(
     var isEmailLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var isTelegramLoading by remember { mutableStateOf(false) }
+    var telegramLoginJob by remember { mutableStateOf<Job?>(null) }
     var telegramStatusText by remember { mutableStateOf<String?>(null) }
 
     fun submitLogin() {
@@ -143,6 +147,16 @@ fun SignInScreen(
                 }
             }
         }
+    }
+
+    if (isTelegramLoading) {
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = AppColors.BgCanvas,
+            title = { Text(if (isRu) "Вход через Telegram" else "Telegram sign-in", color = AppColors.TextPrimary) },
+            text = { Column { CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(24.dp)); Spacer(modifier = Modifier.height(12.dp)); Text(if (isRu) "Подтвердите вход в Telegram. После возвращения в приложение мы проверим подтверждение." else "Confirm sign-in in Telegram. We will check it when you return to the app.", color = AppColors.TextPrimary) } },
+            confirmButton = { TextButton(onClick = { telegramLoginJob?.cancel(); isTelegramLoading = false; telegramStatusText = null }) { Text(if (isRu) "Отмена" else "Cancel", color = AppColors.BrandGreen) } }
+        )
     }
 
     CosmicGlobeBackground(modifier = modifier) {
@@ -533,7 +547,7 @@ fun SignInScreen(
                                         isTelegramLoading = true
                                         authError = null
                                         telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
-                                        scope.launch {
+                                        telegramLoginJob = scope.launch {
                                             val sessionRes = AccountRepository.createTelegramAuthSession(context)
                                             if (sessionRes.isSuccess) {
                                                 val session = sessionRes.getOrThrow()
@@ -547,12 +561,12 @@ fun SignInScreen(
 
                                                 var confirmed = false
                                                 for (attempt in 1..40) {
-                                                    kotlinx.coroutines.delay(1500)
                                                     val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
                                                     if (checkRes.isSuccess && checkRes.getOrNull() != null) {
                                                         confirmed = true
                                                         break
                                                     }
+                                                    kotlinx.coroutines.delay(1500)
                                                 }
                                                 isTelegramLoading = false
                                                 telegramStatusText = null

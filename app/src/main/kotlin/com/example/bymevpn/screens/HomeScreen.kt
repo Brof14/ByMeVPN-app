@@ -517,47 +517,8 @@ private fun HomeDisconnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Giant Power Control (Off State)
-        Box(
-            modifier = Modifier
-                .size(235.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF102421),
-                        0.54f to Color(0xFF0F1A1A),
-                        0.70f to Color.Transparent
-                    )
-                )
-                .border(1.dp, Color(0xFF223739), CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onPowerClick
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(195.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0D181A))
-                    .border(2.dp, Color(0xFF2A4141), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(134.dp)
-                        .clip(CircleShape)
-                        .background(AppGradients.PowerButtonInactive),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PowerIcon(
-                        color = if (isConnecting) Color(0xFF40E4B2) else Color(0xFF7E9B9C),
-                        size = 45.dp
-                    )
-                }
-            }
+        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Включить VPN" else "Connect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
+            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = if (isConnecting) 0.9f else 0.35f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -753,44 +714,8 @@ private fun HomeConnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Giant Power Control (On State with Mint Glow Ring)
-        Box(
-            modifier = Modifier
-                .size(235.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF123C34),
-                        0.54f to Color(0xFF102620),
-                        0.70f to Color.Transparent
-                    )
-                )
-                .border(1.dp, Color(0xFF285A4C), CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onPowerClick
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(195.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0D181A))
-                    .border(3.dp, Color(0xFF39DFA8), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(134.dp)
-                        .clip(CircleShape)
-                        .background(AppGradients.PowerButtonActive),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PowerIcon(color = Color(0xFF40E4B2), size = 45.dp)
-                }
-            }
+        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Выключить VPN" else "Disconnect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
+            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = 1f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -997,39 +922,8 @@ private fun HomeConnectionErrorContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Power Control in Off State
-        Box(
-            modifier = Modifier
-                .size(235.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF102421),
-                        0.54f to Color(0xFF0F1A1A),
-                        0.70f to Color.Transparent
-                    )
-                )
-                .border(1.dp, Color(0xFF223739), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(195.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0D181A))
-                    .border(2.dp, Color(0xFF2A4141), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(134.dp)
-                        .clip(CircleShape)
-                        .background(AppGradients.PowerButtonInactive),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PowerIcon(color = Color(0xFF7E9B9C), size = 45.dp)
-                }
-            }
+        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Повторить подключение" else "Retry connection", onClick = onRetry), contentAlignment = Alignment.Center) {
+            ShieldLogo(size = 205.dp, isActive = false, glowAlpha = 0.2f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))

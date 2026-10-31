@@ -101,8 +101,20 @@ fun DevicesScreen(
                 )
 
                 if (devicesList.none { it.isCurrent }) {
-                    Text(if (isRu) "Этот телефон · ${android.os.Build.MODEL}" else "This phone · ${android.os.Build.MODEL}", color = AppColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(if (isRu) "Регистрация этого устройства на сервере не подтверждена." else "Server registration for this device is not confirmed.", color = Color(0xFF92A9A5), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp))
+                            .background(Color(0xFF12221F)).border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp)).padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(if (isRu) "Это устройство" else "This device", color = AppColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                            Text("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}", color = Color(0xFF88A09F), fontSize = 12.sp)
+                            Text(if (isRu) "Регистрация на сервере не подтверждена" else "Server registration not confirmed", color = Color(0xFF92A9A5), fontSize = 11.sp)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
                 }
 
                 // List of Devices
@@ -132,7 +144,7 @@ fun DevicesScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = if (dev.isCurrent) {
-                                        if (isRu) "Этот телефон (${dev.deviceModel})" else "This phone (${dev.deviceModel})"
+                                        if (isRu) "Это устройство" else "This device"
                                     } else dev.deviceModel,
                                     color = Color(0xFFEAF1EF),
                                     fontSize = 14.sp,
@@ -140,7 +152,7 @@ fun DevicesScreen(
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "${dev.platform} · ${dev.lastActive}",
+                                    text = if (dev.isCurrent) "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL} · Android ${android.os.Build.VERSION.RELEASE}" else "${dev.platform} · ${dev.lastActive}",
                                     color = Color(0xFF88A09F),
                                     fontSize = 11.5.sp
                                 )

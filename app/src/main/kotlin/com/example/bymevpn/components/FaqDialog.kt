@@ -49,49 +49,26 @@ data class FaqItem(
 )
 
 val FAQ_ITEMS = listOf(
-    FaqItem(
-        questionRu = "Что делать, если VPN не подключается?",
-        questionEn = "What to do if VPN won't connect?",
-        answerRu = "1. Проверьте подключение к Wi-Fi или мобильной сети.\n2. Попробуйте сменить сервер (переключитесь между Нидерландами и Германией).\n3. Убедитесь, что выдано системное разрешение на подключение VPN.\n4. Если соединение всё ещё не устанавливается, напишите в нашу поддержку @ByMeVPNSupportBot — мы поможем в течение нескольких минут.",
-        answerEn = "1. Check your Wi-Fi or mobile network connection.\n2. Try switching between Netherlands and Germany servers.\n3. Make sure the Android VPN permission is granted.\n4. If it still doesn't connect, tap the chat button in the top right to reach @ByMeVPNSupportBot.",
-        icon = "🛠️"
-    ),
-    FaqItem(
-        questionRu = "Будут ли работать Госуслуги, банки и доставка?",
-        questionEn = "Will local banks and gov services work?",
-        answerRu = "В настройках можно включить обход российских сайтов. Маршрут определяется базой доменов и IP; отдельные сервисы могут работать иначе.",
-        answerEn = "You can enable bypass for Russian sites in settings. Routing uses a domain and IP database; individual services may behave differently.",
-        icon = "🏦"
-    ),
-    FaqItem(
-        questionRu = "Как оформить или продлить подписку?",
-        questionEn = "How do I subscribe or renew?",
-        answerRu = "Откройте раздел «Аккаунт» и выберите тариф. Подписка активируется после подтверждения оплаты сервером.",
-        answerEn = "Open Account and choose a plan. The subscription activates after the server confirms payment.",
-        icon = "💎"
-    ),
-    FaqItem(
-        questionRu = "Безопасен ли ByMeVPN и сохраняются ли логи?",
-        questionEn = "Is ByMeVPN secure and are logs kept?",
-        answerRu = "Приложение использует шифрованное соединение с VPN-сервером. Данные о правилах хранения на сервере должны быть описаны в политике конфиденциальности сервиса.",
-        answerEn = "The app uses an encrypted connection to the VPN server. Server-side data handling should be described in the service privacy policy.",
-        icon = "🛡️"
-    )
+    FaqItem("VPN включён, но сайт не открывается", "VPN is on, but a site won't open", "Попробуйте другой сервер. Если проблема остаётся, проверьте интернет без VPN и обратитесь в поддержку, указав название сервера.", "Try another server. If the problem remains, check your connection without VPN and contact support with the server name.", ""),
+    FaqItem("Что означает задержка сервера?", "What does server latency mean?", "Задержка показывает время ответа в миллисекундах. Небольшое значение обычно лучше, но само по себе не гарантирует работу VPN.", "Latency is response time in milliseconds. Lower is usually better, but it does not guarantee VPN connectivity.", ""),
+    FaqItem("Почему устройство не подтверждено?", "Why isn't my device confirmed?", "Список устройств предоставляет сервер. Если он недоступен, телефон показан отдельно; это не подтверждает его регистрацию или свободное место в тарифе.", "The server provides the device list. If unavailable, this phone is shown separately; that does not confirm registration or an available slot.", ""),
+    FaqItem("Как узнать, включено ли автопродление?", "How can I check automatic renewal?", "Откройте аккаунт и его настройки. Если данных нет, статус не подтверждён; уточните его в поддержке.", "Open Account settings. If no data is shown, the status is unconfirmed; ask support.", ""),
+    FaqItem("Как вернуть доступ через Telegram?", "How do I recover access through Telegram?", "На экране входа выберите Telegram и подтвердите вход в боте. Вернитесь в приложение и дождитесь проверки.", "Choose Telegram on the sign-in screen and confirm in the bot. Return to the app and wait for verification.", "")
 )
 
 @Composable
 fun FaqDialog(onDismiss: () -> Unit) {
     val currentLanguage by LocaleManager.currentLanguage.collectAsState()
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
-    var expandedIndex by remember { mutableStateOf<Int?>(0) } // First one open by default
+    var expandedIndex by remember { mutableStateOf<Int?>(null) } // First one open by default
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF0C162A))
-                .border(1.2.dp, Color(0xFF1E355B), RoundedCornerShape(24.dp))
+                .background(Color(0xFF101E1B))
+                .border(1.2.dp, Color(0xFF28443C), RoundedCornerShape(24.dp))
                 .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -106,10 +83,10 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF00D4FF).copy(alpha = 0.15f)),
+                                .background(Color(0xFF62CBB0).copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("❓", fontSize = 18.sp)
+                            Text("?", color = Color(0xFF62CBB0), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
@@ -121,7 +98,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             )
                             Text(
                                 text = if (isRu) "Ответы и подсказки" else "Help & Answers",
-                                color = Color(0xFF94A3B8),
+                                color = Color(0xFF92A9A5),
                                 fontSize = 12.sp
                             )
                         }
@@ -131,11 +108,11 @@ fun FaqDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF162542))
+                            .background(Color(0xFF172A29))
                             .clickable { onDismiss() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✕", color = Color(0xFF94A3B8), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("✕", color = Color(0xFF92A9A5), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -153,10 +130,10 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isExpanded) Color(0xFF13223D) else Color(0xFF0A1222))
+                                .background(if (isExpanded) Color(0xFF18332B) else Color(0xFF12221F))
                                 .border(
                                     1.dp,
-                                    if (isExpanded) Color(0xFF00D4FF) else Color(0xFF162746),
+                                    if (isExpanded) Color(0xFF62CBB0) else Color(0xFF28443C),
                                     RoundedCornerShape(14.dp)
                                 )
                                 .clickable {
@@ -173,8 +150,6 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(item.icon, fontSize = 16.sp)
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = if (isRu) item.questionRu else item.questionEn,
                                         color = Color.White,
@@ -184,7 +159,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                 }
                                 Text(
                                     text = if (isExpanded) "▲" else "▼",
-                                    color = Color(0xFF00D4FF),
+                                    color = Color(0xFF62CBB0),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -201,7 +176,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(1.dp)
-                                            .background(Color(0xFF1E355B))
+                                            .background(Color(0xFF28443C))
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
@@ -222,14 +197,14 @@ fun FaqDialog(onDismiss: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF162542))
+                        .background(Color(0xFF172A29))
                         .clickable { onDismiss() }
                         .padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (isRu) "Понятно" else "Close",
-                        color = Color(0xFF00D4FF),
+                        color = Color(0xFF62CBB0),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
