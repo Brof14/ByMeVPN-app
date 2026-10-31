@@ -1,6 +1,9 @@
 package com.example.bymevpn.screens
 
 import android.widget.Toast
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -51,6 +54,8 @@ import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
 import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.settings.SettingsRepository
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
@@ -69,6 +74,10 @@ fun AccountScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
+    val t: (String, String) -> String = { ru, en -> if (isRu) ru else en }
+    val settingsRepo = remember { SettingsRepository.getInstance(context) }
     val scrollState = rememberScrollState()
 
     val currentUser by AccountRepository.currentUser.collectAsState()
@@ -80,6 +89,7 @@ fun AccountScreen(
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.size
+    val effectiveDevicesText = maxDevices?.let { "$activeDevicesCount / $it" } ?: t("Лимит уточняется", "Limit pending")
 
     var showAccountDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -93,7 +103,7 @@ fun AccountScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ByMeTopBar(
-                title = "Аккаунт",
+                title = t("Аккаунт", "Account"),
                 onBackClick = onBackClick,
                 onMoreClick = null
             )
@@ -125,14 +135,14 @@ fun AccountScreen(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = currentUser?.displayName ?: "Ваш аккаунт",
+                            text = currentUser?.displayName ?: t("Ваш аккаунт", "Your account"),
                             color = AppColors.TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: "Локальная подписка",
+                            text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: t("Локальная подписка", "Local subscription"),
                             color = Color(0xFF8CA5A2),
                             fontSize = 11.5.sp
                         )
@@ -145,7 +155,7 @@ fun AccountScreen(
                             .padding(horizontal = 9.dp, vertical = 7.dp)
                     ) {
                         Text(
-                            text = if (isActive) "Активен" else "Без подписки",
+                            text = if (isActive) t("Активен", "Active") else t("Без подписки", "No subscription"),
                             color = if (isActive) Color(0xFF8CDECA) else Color(0xFFE3A29A),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
@@ -165,7 +175,7 @@ fun AccountScreen(
                             .padding(21.dp)
                     ) {
                         Text(
-                            text = "ПОДПИСКА BYMEVPN",
+                            text = t("ПОДПИСКА BYMEVPN", "BYMEVPN SUBSCRIPTION"),
                             color = Color(0xFF8FBBCA),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -183,7 +193,7 @@ fun AccountScreen(
                                 letterSpacing = (-3).sp
                             )
                             Text(
-                                text = if (remainingDays == null) "" else " дн.",
+                                text = if (remainingDays == null) "" else t(" дн.", " days"),
                                 color = Color(0xFF80D3C6),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
@@ -192,7 +202,7 @@ fun AccountScreen(
                         }
 
                         Text(
-                            text = if (remainingDays == null) "Срок доступа не подтверждён" else "до окончания доступа",
+                            text = if (remainingDays == null) t("Срок доступа не подтверждён", "Access expiry not confirmed") else t("до окончания доступа", "until access expires"),
                             color = Color(0xFF9AB1A7),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
@@ -208,12 +218,12 @@ fun AccountScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Ваш тариф",
+                                text = t("Ваш тариф", "Your plan"),
                                 color = Color(0xFF99B3A8),
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = subscription?.planName?.takeIf { it.isNotBlank() } ?: "Не указан",
+                                text = subscription?.planName?.takeIf { it.isNotBlank() } ?: t("Не указан", "Not specified"),
                                 color = Color(0xFFE5F3EC),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -223,7 +233,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(18.dp))
 
                         ByMeSecondaryButton(
-                            text = "Продлить подписку",
+                            text = t("Продлить подписку", "Renew subscription"),
                             onClick = onNavigateToPricing
                         )
                     }
@@ -238,7 +248,7 @@ fun AccountScreen(
                             .padding(21.dp)
                     ) {
                         Text(
-                            text = "ВАШ ДОСТУП",
+                            text = t("ВАШ ДОСТУП", "YOUR ACCESS"),
                             color = Color(0xFF8FBBCA),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -248,7 +258,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = "Подписка не активна",
+                            text = t("Подписка не активна", "Subscription inactive"),
                             color = AppColors.TextPrimary,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold
@@ -257,7 +267,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = "Оформите подписку, чтобы подключаться к серверам ByMeVPN.",
+                            text = t("Оформите подписку, чтобы подключаться к серверам ByMeVPN.", "Choose a plan to connect to ByMeVPN servers."),
                             color = Color(0xFF96B0A6),
                             fontSize = 12.5.sp,
                             lineHeight = 18.sp
@@ -266,7 +276,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(20.dp))
 
                         ByMePrimaryButton(
-                            text = "3 дня бесплатно",
+                            text = t("3 дня бесплатно", "3 days free"),
                             onClick = onNavigateToTrial,
                             height = 50.dp
                         )
@@ -274,7 +284,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Text(
-                            text = "Посмотреть тарифы",
+                            text = t("Посмотреть тарифы", "View plans"),
                             color = Color(0xFF90CFCE),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -289,7 +299,7 @@ fun AccountScreen(
 
                 // Section: Управление
                 Text(
-                    text = "Управление",
+                    text = t("Управление", "Management"),
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -298,10 +308,10 @@ fun AccountScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = if (isActive) "Мои устройства" else "Устройства",
+                        title = t("Мои устройства", "My devices"),
                         subtitle = if (devices.isNotEmpty()) {
-                            maxDevices?.let { "$activeDevicesCount из $it" } ?: "$activeDevicesCount устройств"
-                        } else "Нет подтверждённого списка устройств",
+                            effectiveDevicesText
+                        } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Лимит уточняется сервером", "Device limit pending"),
                         icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToDevices,
@@ -311,7 +321,7 @@ fun AccountScreen(
 
                 // Section: Аккаунт
                 Text(
-                    text = "Аккаунт",
+                    text = t("Аккаунт", "Account"),
                     color = Color(0xFF8BA3A4),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -320,8 +330,8 @@ fun AccountScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = "Настройки аккаунта",
-                        subtitle = "Имя, почта и автопродление",
+                        title = t("Настройки аккаунта", "Account settings"),
+                        subtitle = t("Профиль, устройства, подписка", "Profile, devices, subscription"),
                         icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showAccountDialog = true },
@@ -347,86 +357,85 @@ fun AccountScreen(
         if (showAccountDialog) {
             AlertDialog(
                 onDismissRequest = { showAccountDialog = false },
-                containerColor = Color(0xFF121C2B),
+                containerColor = AppColors.CardBg,
                 titleContentColor = AppColors.TextPrimary,
-                textContentColor = Color(0xFF8CA5A2),
-                title = { Text("Настройки аккаунта") },
+                title = { Text(t("Настройки аккаунта", "Account settings")) },
                 text = {
-                    Column {
-                        AccountInfoLine("Имя", currentUser?.displayName.orEmpty().ifBlank { "Не указано" })
-                        Spacer(modifier = Modifier.height(10.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        AccountInfoLine(t("Имя", "Name"), currentUser?.displayName.orEmpty().ifBlank { t("Не указано", "Not specified") })
                         AccountInfoLine(
-                            "Почта",
-                            currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: "Не указана"
+                            "Email",
+                            currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" }
+                                ?: t("Не указан", "Not specified")
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(Color(0xFF2B4050))
+                        AccountInfoLine(t("ID аккаунта", "Account ID"), currentUser?.id ?: "—")
+                        TextButton(
+                            enabled = currentUser?.id?.isNotBlank() == true,
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("ByMeVPN account ID", currentUser?.id.orEmpty()))
+                                Toast.makeText(context, t("ID скопирован", "ID copied"), Toast.LENGTH_SHORT).show()
+                            }
+                        ) { Text(t("Скопировать ID", "Copy ID"), color = AppColors.BrandMint) }
+
+                        AccountInfoLine(t("Устройства", "Devices"), effectiveDevicesText)
+                        TextButton(onClick = {
+                            showAccountDialog = false
+                            onNavigateToDevices()
+                        }) { Text(t("Управление устройствами", "Manage devices"), color = AppColors.BrandMint) }
+
+                        AccountInfoLine(
+                            t("Подписка", "Subscription"),
+                            if (isActive) t("Активна", "Active") else t("Не активна", "Inactive")
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("Автопродление", color = Color(0xFFEAF1EF), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                                Text("Статус, подтверждённый сервером", color = Color(0xFF8CA5A2), fontSize = 11.sp)
+                        AccountInfoLine(
+                            t("Автопродление", "Auto-renewal"),
+                            when (subscription?.autoRenew) {
+                                true -> t("Включено", "Enabled")
+                                false -> t("Отключено", "Disabled")
+                                null -> t("Не подтверждено сервером", "Not confirmed by server")
                             }
-                            val renewLabel = when (subscription?.autoRenew) {
-                                true -> "Включено"
-                                false -> "Отключено"
-                                null -> "Нет данных"
-                            }
-                            val renewColor = when (subscription?.autoRenew) {
-                                true -> Color(0xFF8CDECA)
-                                false -> Color(0xFFE3B26A)
-                                null -> Color(0xFF8CA5A2)
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF182A3B))
-                                    .padding(horizontal = 9.dp, vertical = 5.dp)
-                            ) {
-                                Text(renewLabel, color = renewColor, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
-                        Text(
-                            "Переключатель появится, когда сервер начнёт возвращать управление автопродлением. Сейчас приложение показывает только подтверждённый статус.",
-                            color = Color(0xFF8CA5A2),
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp
                         )
-                        Spacer(modifier = Modifier.height(14.dp))
-                        AccountInfoLine("Версия приложения", "1.0.0")
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(
-                            text = "Удалить аккаунт и данные",
-                            color = Color(0xFFFF8A8A),
-                            fontSize = 12.sp,
-                            modifier = Modifier.clickable {
-                                showAccountDialog = false
-                                showDeleteDialog = true
-                            }.padding(vertical = 10.dp)
-                        )
+                        TextButton(onClick = {
+                            showAccountDialog = false
+                            onNavigateToRenewal()
+                        }) { Text(t("Подробнее об автопродлении", "Auto-renewal details"), color = AppColors.BrandMint) }
+
+                        TextButton(onClick = {
+                            showAccountDialog = false
+                            onNavigateToPricing()
+                        }) { Text(t("Тарифы и продление", "Plans and renewal"), color = AppColors.BrandMint) }
+
+                        TextButton(onClick = {
+                            showAccountDialog = false
+                            onNavigateToSupport()
+                        }) { Text(t("Связаться с поддержкой", "Contact support"), color = AppColors.BrandMint) }
+
+                        TextButton(onClick = {
+                            showAccountDialog = false
+                            onNavigateToSettings()
+                        }) { Text(t("Настройки приложения и язык", "App settings and language"), color = AppColors.BrandMint) }
+
+                        TextButton(onClick = {
+                            showAccountDialog = false
+                            showDeleteDialog = true
+                        }) { Text(t("Удаление аккаунта и данных", "Account and data deletion"), color = Color(0xFFFF8A8A)) }
                     }
                 },
                 confirmButton = {
                     TextButton(onClick = {
                         showAccountDialog = false
                         onLogOut()
-                    }) {
-                        Text("Выйти из аккаунта", color = Color(0xFFFF5353))
-                    }
+                    }) { Text(t("Выйти", "Sign out"), color = Color(0xFFFF7373)) }
                 },
                 dismissButton = {
                     TextButton(onClick = { showAccountDialog = false }) {
-                        Text("Закрыть", color = Color(0xFF8CDECA))
+                        Text(t("Закрыть", "Close"), color = AppColors.BrandMint)
                     }
                 }
             )
@@ -434,8 +443,8 @@ fun AccountScreen(
         if (showDeleteDialog) {
             AlertDialog(
                 onDismissRequest = { if (!deletingAccount) showDeleteDialog = false },
-                title = { Text("Удалить аккаунт навсегда?") },
-                text = { Text("Это действие удалит аккаунт на сервере и приведёт к потере доступа к подписке. Отменить удаление невозможно.") },
+                title = { Text(t("Удалить аккаунт навсегда?", "Delete account permanently?")) },
+                text = { Text(t("Это действие удалит аккаунт на сервере и приведёт к потере доступа к подписке. Отменить удаление невозможно.", "This will delete your account and subscription access from the server. This cannot be undone.")) },
                 confirmButton = {
                     TextButton(enabled = !deletingAccount, onClick = {
                         deletingAccount = true
@@ -446,13 +455,13 @@ fun AccountScreen(
                                 showDeleteDialog = false
                                 onLogOut()
                             } else {
-                                Toast.makeText(context, "Удаление через приложение пока недоступно. Напишите в @ByMeVPNSupportBot.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, t("Удаление через приложение пока недоступно. Напишите в @ByMeVPNSupportBot.", "In-app deletion is not available yet. Contact @ByMeVPNSupportBot."), Toast.LENGTH_LONG).show()
                             }
                         }
-                    }) { Text("Удалить навсегда", color = Color(0xFFFF7373)) }
+                    }) { Text(t("Удалить навсегда", "Delete permanently"), color = Color(0xFFFF7373)) }
                 },
                 dismissButton = {
-                    TextButton(enabled = !deletingAccount, onClick = { showDeleteDialog = false }) { Text("Отмена") }
+                    TextButton(enabled = !deletingAccount, onClick = { showDeleteDialog = false }) { Text(t("Отмена", "Cancel")) }
                 }
             )
         }
