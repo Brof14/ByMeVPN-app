@@ -1,9 +1,5 @@
 package com.example.bymevpn.screens
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -541,11 +537,11 @@ fun SignInScreen(
                                             val sessionRes = AccountRepository.createTelegramAuthSession(context)
                                             if (sessionRes.isSuccess) {
                                                 val session = sessionRes.getOrThrow()
-                                                try {
-                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(session.botUrl))
-                                                    context.startActivity(intent)
-                                                } catch (_: Exception) {
-                                                    Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
+                                                if (!com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, session.botUrl)) {
+                                                    isTelegramLoading = false
+                                                    telegramStatusText = null
+                                                    authError = if (isRu) "Не удалось открыть Telegram. Попробуйте ещё раз." else "Could not open Telegram. Please try again."
+                                                    return@launch
                                                 }
                                                 telegramStatusText = if (isRu) "Ожидание подтверждения в боте..." else "Waiting for confirmation..."
 
@@ -568,7 +564,7 @@ fun SignInScreen(
                                             } else {
                                                 isTelegramLoading = false
                                                 telegramStatusText = null
-                                                openTelegram(context, "start=login")
+                                                authError = if (isRu) "Не удалось начать вход через Telegram. Проверьте интернет и попробуйте снова." else "Could not start Telegram sign-in. Check your connection and try again."
                                             }
                                         }
                                     }
@@ -725,11 +721,3 @@ private fun ExactInputField(
     }
 }
 
-private fun openTelegram(context: Context, param: String) {
-    try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNBot?$param"))
-        context.startActivity(intent)
-    } catch (_: Exception) {
-        Toast.makeText(context, "Telegram не установлен", Toast.LENGTH_SHORT).show()
-    }
-}

@@ -418,15 +418,7 @@ fun SignUpScreen(
                                 )
                             )
                             .clickable {
-                                try {
-                                    val tgIntent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
-                                    )
-                                    context.startActivity(tgIntent)
-                                } catch (_: Exception) {
-                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                                onSignInClick()
                             },
                         contentAlignment = Alignment.Center
                     ) {
