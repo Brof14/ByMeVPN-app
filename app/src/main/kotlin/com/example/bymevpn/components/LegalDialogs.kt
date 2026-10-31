@@ -85,25 +85,25 @@ fun PrivacyPolicyDialog(
                     LegalSection(
                         title = if (isRussian) "2. Какие данные мы обрабатываем" else "2. Data Processed",
                         body = if (isRussian)
-                            "• Учетная запись: адрес электронной почты (или Google ID) для входа и восстановления доступа.\n• Подписка: срок действия и количество активных устройств (до 5).\n• Платежи: обрабатываются сертифицированными провайдерами (ЮKassa / Google Play). Мы не имеем доступа к данным ваших банковских карт."
+                            "• Учетная запись: адрес электронной почты (или Google ID) для входа и восстановления доступа.\n• Подписка: срок действия и количество активных устройств по условиям выбранного тарифа.\n• Платежи: обрабатываются ЮKassa. Приложение не хранит реквизиты банковских карт."
                         else
-                            "• Account: email address (or Google ID) for login and account recovery.\n• Subscription: validity period and registered device slots (up to 5).\n• Payments: processed by certified payment providers (YooKassa / Google Play). We do not store or process card numbers."
+                            "• Account: email address (or Google ID) for login and account recovery.\n• Subscription: validity period and registered device limits according to the selected plan.\n• Payments: processed by YooKassa. The app does not store card numbers."
                     )
 
                     LegalSection(
                         title = if (isRussian) "3. Безопасность и шифрование" else "3. Encryption & Security",
                         body = if (isRussian)
-                            "Для защиты соединения применяются современные алгоритмы сквозного шифрования (VLESS Reality, XTLS, TLS 1.3, AES-256-GCM / ChaCha20-Poly1305), исключающие перехват данных провайдерами или в открытых сетях."
+                            "VPN-туннель использует шифрованные соединения для защиты трафика. Отдельные сайты могут открываться напрямую при включении обхода VPN в настройках. Абсолютная анонимность не гарантируется."
                         else
-                            "Network tunnels utilize state-of-the-art encryption algorithms (VLESS Reality, XTLS, TLS 1.3, AES-256-GCM / ChaCha20-Poly1305), preventing interception by ISPs or untrusted networks."
+                            "VPN tunnels use encrypted connections to help protect traffic. Sites may be routed directly when VPN bypass is enabled. Absolute anonymity is not guaranteed."
                     )
 
                     LegalSection(
                         title = if (isRussian) "4. Право на удаление данных" else "4. Right to Deletion",
                         body = if (isRussian)
-                            "Вы можете полностью удалить свой аккаунт и связанные данные в любое время в разделе «Аккаунт» приложения или отправив запрос на сайте https://bymevpn.com/delete-account."
+                            "Для запроса удаления аккаунта и связанных данных обратитесь в поддержку @ByMeVPNSupportBot. Автоматическое удаление в приложении станет доступным после поддержки на сервере."
                         else
-                            "You may permanently delete your account and all associated data at any time from the app's Account tab or by requesting deletion at https://bymevpn.com/delete-account."
+                            "To request deletion of your account and associated data, contact @ByMeVPNSupportBot. In-app deletion will become available after the backend implements it."
                     )
                 }
 

@@ -446,7 +446,7 @@ fun AccountScreen(
                                 showDeleteDialog = false
                                 onLogOut()
                             } else {
-                                Toast.makeText(context, "Не удалось удалить аккаунт. Попробуйте позже.", Toast.LENGTH_LONG).show()
+                                Toast.makeText(context, "Удаление через приложение пока недоступно. Напишите в @ByMeVPNSupportBot.", Toast.LENGTH_LONG).show()
                             }
                         }
                     }) { Text("Удалить навсегда", color = Color(0xFFFF7373)) }
