@@ -71,6 +71,12 @@ private fun PlanDuration.apiCode(): String = when (this) {
 }
 
 /** Preview only. Checkout must use the server-confirmed /plans price. */
+internal fun PlanDuration.matchesConfirmedPlan(plan: PlanItem, devices: Int): Boolean =
+    plan.code == apiCode() &&
+        plan.devices == devices &&
+        plan.days == totalDays &&
+        plan.priceRub > 0
+
 internal fun PlanDuration.referencePriceRub(devices: Int): Int {
     require(devices in setOf(2, 5, 10))
     val months = when (this) {
@@ -118,10 +124,7 @@ fun PricingScreen(
     }
 
     // Only a server-confirmed exact plan is eligible for actual checkout.
-    val currentPlan = serverPlans.firstOrNull {
-        it.code == selectedPlan.apiCode() &&
-            it.devices == selectedDeviceCount && it.days == selectedPlan.totalDays && it.priceRub > 0
-    }
+    val currentPlan = serverPlans.firstOrNull { selectedPlan.matchesConfirmedPlan(it, selectedDeviceCount) }
     val currentPrice = currentPlan?.priceRub ?: 0
     val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽"
         else "≈ ${selectedPlan.referencePriceRub(selectedDeviceCount)} ₽"
@@ -269,9 +272,8 @@ fun PricingScreen(
                 // 4 Plan options
                 PlanDuration.values().forEach { plan ->
                     val verifiedPrice = serverPlans.firstOrNull {
-                        it.code == plan.apiCode() &&
-                            it.devices == selectedDeviceCount && it.days == plan.totalDays
-                    }?.priceRub?.takeIf { it > 0 }
+                        plan.matchesConfirmedPlan(it, selectedDeviceCount)
+                    }?.priceRub
                     val priceForPlan = verifiedPrice ?: plan.referencePriceRub(selectedDeviceCount)
 
                     val monthlyRate = when (plan) {
