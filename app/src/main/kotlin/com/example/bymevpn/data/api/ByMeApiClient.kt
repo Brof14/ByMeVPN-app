@@ -127,14 +127,16 @@ class ByMeApiClient(private val context: Context) {
         if (status == "authenticated") {
             val accessToken = json.optString("access_token").ifBlank { json.optString("access") }
             val refreshToken = json.optString("refresh_token").ifBlank { json.optString("refresh") }
-            if (accessToken.isBlank() || refreshToken.isBlank()) {
-                throw ApiError("INVALID_AUTH_RESPONSE", "Telegram authentication did not return both access and refresh tokens")
+            if (accessToken.isBlank()) {
+                throw ApiError("INVALID_AUTH_RESPONSE", "Telegram authentication did not return an access token")
             }
             val user = ApiJsonParsers.parseUserProfile(json.optJSONObject("user") ?: JSONObject())
             val sub = json.optJSONObject("subscription")?.let { ApiJsonParsers.parseSubscriptionStatus(it) }
             val auth = AuthResponse(
                 access = accessToken,
-                refresh = refreshToken,
+                // Legacy backend contract: /auth/refresh accepts ref_<signed access JWT>.
+                // Prefer a server-provided refresh token when present.
+                refresh = refreshToken.ifBlank { "ref_$accessToken" },
                 user = user,
                 subscription = sub
             )
@@ -194,8 +196,9 @@ class ByMeApiClient(private val context: Context) {
         return sub
     }
 
-    suspend fun getPlans(): List<PlanItem> {
-        val json = request("GET", "/plans", null, requiresAuth = false)
+    suspend fun getPlans(devices: Int = 2): List<PlanItem> {
+        require(devices in setOf(2, 5, 10)) { "Unsupported device limit" }
+        val json = request("GET", "/plans?devices=$devices", null, requiresAuth = false)
         val array = if (json.has("raw_array")) {
             json.getJSONArray("raw_array")
         } else if (json.has("plans")) {
@@ -237,7 +240,10 @@ class ByMeApiClient(private val context: Context) {
                     price = price,
                     period = period,
                     isPopular = code == "half_year" || code == "quarter" || p.optBoolean("is_popular", false),
-                    discountPercent = discount
+                    discountPercent = discount,
+                    priceRub = priceRub,
+                    days = days,
+                    devices = p.optInt("devices", 2)
                 )
             )
         }

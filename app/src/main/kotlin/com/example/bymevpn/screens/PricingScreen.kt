@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +43,8 @@ import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronLeftIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
+import com.example.bymevpn.data.api.ByMeApiClient
+import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
@@ -59,6 +62,13 @@ enum class PlanDuration(
     Month15("12 + 3 месяца", "· 3 мес. в подарок", 15, 450, isPopular = true)
 }
 
+private fun PlanDuration.apiCode(): String = when (this) {
+    PlanDuration.Month1 -> "1m"
+    PlanDuration.Month4 -> "3m"
+    PlanDuration.Month8 -> "6m"
+    PlanDuration.Month15 -> "12m"
+}
+
 @Composable
 fun PricingScreen(
     onBackClick: () -> Unit,
@@ -70,32 +80,27 @@ fun PricingScreen(
 
     var selectedDeviceCount by remember { mutableIntStateOf(2) } // 2, 5, 10
     var selectedPlan by remember { mutableStateOf(PlanDuration.Month15) }
-    var selectedProvider by remember { mutableStateOf("yookassa") }
-
-    // Price calculation aligned with bot constants.py:
-    // 2 devices: 89, 316, 552, 885
-    // 5 devices: 109, 396, 712, 1185
-    // 10 devices: 129, 476, 872, 1485
-    val currentPrice = when (selectedDeviceCount) {
-        5 -> when (selectedPlan) {
-            PlanDuration.Month1 -> 109
-            PlanDuration.Month4 -> 396
-            PlanDuration.Month8 -> 712
-            PlanDuration.Month15 -> 1185
-        }
-        10 -> when (selectedPlan) {
-            PlanDuration.Month1 -> 129
-            PlanDuration.Month4 -> 476
-            PlanDuration.Month8 -> 872
-            PlanDuration.Month15 -> 1485
-        }
-        else -> when (selectedPlan) {
-            PlanDuration.Month1 -> 89
-            PlanDuration.Month4 -> 316
-            PlanDuration.Month8 -> 552
-            PlanDuration.Month15 -> 885
+    val selectedProvider = "yookassa" // Only payment method accepted by the current backend.
+    var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
+    var plansLoading by remember { mutableStateOf(true) }
+    LaunchedEffect(selectedDeviceCount) {
+        serverPlans = emptyList()
+        plansLoading = true
+        try {
+            serverPlans = ByMeApiClient(context).getPlans(selectedDeviceCount)
+        } catch (_: Exception) {
+            serverPlans = emptyList()
+        } finally {
+            plansLoading = false
         }
     }
+
+    // Only show prices and enable checkout for the exact device limit confirmed by /plans.
+    val currentPlan = serverPlans.firstOrNull {
+        it.code == selectedPlan.apiCode() && it.devices == selectedDeviceCount && it.priceRub > 0
+    }
+    val currentPrice = currentPlan?.priceRub ?: 0
+    val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽" else "—"
 
     val perMonthPrice = when (selectedPlan) {
         PlanDuration.Month1 -> currentPrice
@@ -217,26 +222,9 @@ fun PricingScreen(
 
                 // 4 Plan options
                 PlanDuration.values().forEach { plan ->
-                    val priceForPlan = when (selectedDeviceCount) {
-                        5 -> when (plan) {
-                            PlanDuration.Month1 -> 109
-                            PlanDuration.Month4 -> 396
-                            PlanDuration.Month8 -> 712
-                            PlanDuration.Month15 -> 1185
-                        }
-                        10 -> when (plan) {
-                            PlanDuration.Month1 -> 129
-                            PlanDuration.Month4 -> 476
-                            PlanDuration.Month8 -> 872
-                            PlanDuration.Month15 -> 1485
-                        }
-                        else -> when (plan) {
-                            PlanDuration.Month1 -> 89
-                            PlanDuration.Month4 -> 316
-                            PlanDuration.Month8 -> 552
-                            PlanDuration.Month15 -> 885
-                        }
-                    }
+                    val priceForPlan = serverPlans.firstOrNull {
+                        it.code == plan.apiCode() && it.devices == selectedDeviceCount
+                    }?.priceRub?.takeIf { it > 0 } ?: 0
 
                     val monthlyRate = when (plan) {
                         PlanDuration.Month1 -> priceForPlan
@@ -282,7 +270,7 @@ fun PricingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (plan == PlanDuration.Month1) "$monthlyRate ₽ за месяц" else "$monthlyRate ₽ / месяц ${plan.bonusSubtitle}",
+                                    text = if (priceForPlan == 0) "Тариф пока недоступен" else if (plan == PlanDuration.Month1) "$monthlyRate ₽ за месяц" else "$monthlyRate ₽ / месяц ${plan.bonusSubtitle}",
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )
@@ -293,7 +281,7 @@ fun PricingScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Text(
-                                    text = "$priceForPlan ₽",
+                                    text = if (priceForPlan > 0) "$priceForPlan ₽" else "—",
                                     color = AppColors.TextPrimary,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,
@@ -381,16 +369,14 @@ fun PricingScreen(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(if (selectedProvider == "crypto") Color(0xFF43DDB1) else Color.Transparent)
-                            .clickable { selectedProvider = "crypto" }
+                            .background(Color.Transparent)
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "💎 Криптовалюта",
-                            color = if (selectedProvider == "crypto") Color(0xFF10241E) else Color(0xFF829C9A),
-                            fontSize = 12.sp,
-                            fontWeight = if (selectedProvider == "crypto") FontWeight.Bold else FontWeight.Medium
+                            text = "Криптовалюта недоступна",
+                            color = Color(0xFF829C9A),
+                            fontSize = 11.sp
                         )
                     }
                 }
@@ -412,7 +398,7 @@ fun PricingScreen(
                         fontSize = 13.sp
                     )
                     Text(
-                        text = "$currentPrice ₽",
+                        text = currentPriceLabel,
                         color = AppColors.TextPrimary,
                         fontSize = 25.sp,
                         fontWeight = FontWeight.Bold
@@ -428,22 +414,26 @@ fun PricingScreen(
 
                 // CTA Button
                 ByMePrimaryButton(
-                    text = "Продолжить · $currentPrice ₽",
+                    text = if (currentPrice > 0) "Продолжить · $currentPrice ₽" else if (plansLoading) "Загружаем тарифы…" else "Тариф недоступен",
                     onClick = {
+                        val confirmed = currentPlan
+                        if (confirmed == null || confirmed.days <= 0) {
+                            Toast.makeText(context, "Этот тариф не подтверждён сервером. Выберите другой или попробуйте позже.", Toast.LENGTH_LONG).show()
+                        } else {
                         scope.launch {
-                            Toast.makeText(context, "Инициализация безопасной оплаты $currentPrice ₽...", Toast.LENGTH_SHORT).show()
                             val success = YooKassaPaymentHandler.startPayment(
                                 context = context,
-                                planCode = "plan_${selectedPlan.name.lowercase()}_${selectedDeviceCount}dev",
+                                planCode = confirmed.code,
                                 planTitle = "${selectedPlan.title} ($selectedDeviceCount устройств)",
-                                amountRub = currentPrice,
-                                days = selectedPlan.totalDays,
+                                amountRub = confirmed.priceRub,
+                                days = confirmed.days,
                                 devices = selectedDeviceCount,
                                 provider = selectedProvider
                             )
                             if (!success) {
                                 Toast.makeText(context, "Не удалось открыть форму оплаты. Попробуйте снова.", Toast.LENGTH_LONG).show()
                             }
+                        }
                         }
                     }
                 )

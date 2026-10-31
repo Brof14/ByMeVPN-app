@@ -80,7 +80,10 @@ data class PlanItem(
     val price: String,
     val period: String,
     val isPopular: Boolean = false,
-    val discountPercent: Int = 0
+    val discountPercent: Int = 0,
+    val priceRub: Int = 0,
+    val days: Int = 0,
+    val devices: Int = 2
 )
 
 data class ServerNode(
