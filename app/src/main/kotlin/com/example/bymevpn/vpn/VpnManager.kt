@@ -25,6 +25,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -100,6 +102,7 @@ class VpnManager private constructor(private val context: Context) {
     private var reconnectJob: Job? = null
     private var connectionJob: Job? = null
     @Volatile private var connectionRequested = false
+    private val serverLoadMutex = Mutex()
 
     init {
         scope.launch {
@@ -171,7 +174,8 @@ class VpnManager private constructor(private val context: Context) {
         val pings = com.example.bymevpn.data.PingTester.measureAllConcurrent(targets, timeoutMs = 1500)
         if (pings.isNotEmpty()) {
             withContext(Dispatchers.Main) {
-                val updated = servers.map { node ->
+                // The server list may have changed while the probes were in flight.
+                val updated = _availableServers.value.map { node ->
                     val p = pings[node.nodeCode]
                     if (p != null) node.copy(pingMs = if (p > 0) p else -2) else node
                 }
@@ -203,7 +207,11 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
-    suspend fun loadServers(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
+    suspend fun loadServers(): Result<List<ServerNode>> = serverLoadMutex.withLock {
+        loadServersLocked()
+    }
+
+    private suspend fun loadServersLocked(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
         try {
             // 1. Load from subscription URL if set
             val subUrl = storage.getSubscriptionUrl()
@@ -218,15 +226,37 @@ class VpnManager private constructor(private val context: Context) {
                 }
             }
 
+            // API-only accounts also need an offline list, scoped to the signed-in account.
+            val ownerId = storage.getCachedUser()?.id.orEmpty()
+            val apiCache = storage.getApiServerCache(ownerId)
+            if (apiCache != null) {
+                setServers(apiCache.nodes)
+                if (subUrl.isNullOrBlank() && isServerCacheFresh(apiCache.savedAt, System.currentTimeMillis())) {
+                    return@withContext Result.success(apiCache.nodes)
+                }
+            }
+
             // 2. Fetch directly from backend API
             val servers = try {
                 apiClient.getServers()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 emptyList()
             }
+            if (ownerId.isNotBlank() && storage.getCachedUser()?.id != ownerId) {
+                return@withContext Result.failure(IllegalStateException("Account changed while loading servers"))
+            }
             if (servers.isNotEmpty()) {
+                if (ownerId.isNotBlank() && storage.getCachedUser()?.id == ownerId) {
+                    storage.saveApiServerCache(ownerId, servers, System.currentTimeMillis())
+                }
                 setServers(servers)
                 return@withContext Result.success(servers)
+            }
+
+            if (apiCache != null && storage.getCachedUser()?.id == ownerId) {
+                return@withContext Result.success(apiCache.nodes)
             }
 
             // 3. Fallback to existing valid cached configs in local storage
@@ -258,6 +288,8 @@ class VpnManager private constructor(private val context: Context) {
             _availableServers.value = emptyList()
             _currentServer.value = null
             Result.failure(Exception("Нет доступных серверов. Активируйте подписку или войдите через Telegram-бота."))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Failed to load servers: ${e.message}")
             Result.failure(e)
@@ -407,7 +439,7 @@ class VpnManager private constructor(private val context: Context) {
     /** A live tunnel failed its periodic end-to-end check. Retry briefly when enabled. */
     fun onTunnelConnectivityLost(server: ServerNode?) {
         scope.launch(Dispatchers.Main) {
-            if (_state.value != VpnConnectionState.CONNECTED) return@launch
+            if (!connectionRequested || _state.value != VpnConnectionState.CONNECTED) return@launch
 
             server?.let { _currentServer.value = it }
             stopTimer()
