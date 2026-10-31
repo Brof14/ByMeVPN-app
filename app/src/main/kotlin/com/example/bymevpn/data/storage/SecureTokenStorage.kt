@@ -80,6 +80,23 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove(KEY_CACHED_USER)
             .remove(KEY_CACHED_SUB)
             .remove(KEY_API_SERVER_CACHE)
+            .remove(KEY_SUBSCRIPTION_URL)
+            .remove(KEY_CUSTOM_CONFIGS)
+            .remove(KEY_SERVER_NODES)
+            .remove("server_refresh_attempt")
+            .remove("registered_devices_json")
+            .remove("favorite_servers")
+            .remove("dismissed_clipboard_key")
+            .remove("pending_payment_plan")
+            .remove("pending_payment_days")
+            .remove("pending_payment_invoice")
+            .remove("pending_payment_provider")
+            .remove("pending_payment_time")
+            .remove("payment_request_id")
+            .remove("payment_request_plan")
+            .remove("payment_request_provider")
+            .remove("payment_request_devices")
+            .remove("payment_request_amount")
             .apply()
     }
 
@@ -425,16 +442,20 @@ class SecureTokenStorage private constructor(context: Context) {
             .apply()
     }
 
-    fun getOrCreatePaymentRequestId(planCode: String, provider: String): String {
+    fun getOrCreatePaymentRequestId(planCode: String, provider: String, devices: Int = 2, amountRub: Int = 0): String {
         val existing = prefs.getString("payment_request_id", null)
         val existingPlan = prefs.getString("payment_request_plan", null)
         val existingProvider = prefs.getString("payment_request_provider", null)
-        if (!existing.isNullOrBlank() && existingPlan == planCode && existingProvider == provider) return existing
+        val existingDevices = prefs.getInt("payment_request_devices", -1)
+        val existingAmount = prefs.getInt("payment_request_amount", -1)
+        if (!existing.isNullOrBlank() && existingPlan == planCode && existingProvider == provider && existingDevices == devices && existingAmount == amountRub) return existing
         val created = UUID.randomUUID().toString()
         prefs.edit()
             .putString("payment_request_id", created)
             .putString("payment_request_plan", planCode)
             .putString("payment_request_provider", provider)
+            .putInt("payment_request_devices", devices)
+            .putInt("payment_request_amount", amountRub)
             .apply()
         return created
     }
@@ -462,6 +483,8 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove("payment_request_id")
             .remove("payment_request_plan")
             .remove("payment_request_provider")
+            .remove("payment_request_devices")
+            .remove("payment_request_amount")
             .remove("pending_payment_time")
             .apply()
     }

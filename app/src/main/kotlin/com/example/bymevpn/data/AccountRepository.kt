@@ -194,17 +194,22 @@ object AccountRepository {
     }
 
     fun logout(context: Context) {
-        repoScope.launch {
-            try {
-                val api = ByMeApiClient(context)
-                api.logout()
-            } catch (e: Exception) {
-                // Ignored
-            } finally {
-                SecureTokenStorage.getInstance(context).clearTokens()
-                SubscriptionManager.getInstance(context).clear()
-                _currentUser.value = null
-                _userDevices.value = emptyList()
+        val appContext = context.applicationContext
+        val storage = SecureTokenStorage.getInstance(appContext)
+        val tokenToRevoke = storage.getAccessToken()
+        // Revoke local access immediately; network logout must not race the next login.
+        storage.clearTokens()
+        SubscriptionManager.getInstance(appContext).clear()
+        _currentUser.value = null
+        _userDevices.value = emptyList()
+        com.example.bymevpn.vpn.VpnManager.getInstance(appContext).disconnect()
+        if (!tokenToRevoke.isNullOrBlank()) {
+            repoScope.launch {
+                try {
+                    ByMeApiClient(appContext).revokeSession(tokenToRevoke)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Remote logout request could not be completed")
+                }
             }
         }
     }

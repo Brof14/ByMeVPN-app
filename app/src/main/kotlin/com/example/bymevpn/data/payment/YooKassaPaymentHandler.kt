@@ -15,6 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 data class PlanTariff(
     val code: String,
@@ -92,6 +94,8 @@ object YooKassaPaymentHandler {
         context: Context,
         tariff: PlanTariff,
         provider: String = "yookassa",
+        devices: Int = 2,
+        onCheckoutFailed: () -> Unit = {},
         onCheckoutLaunched: () -> Unit = {}
     ) {
         val storage = SecureTokenStorage.getInstance(context)
@@ -105,9 +109,9 @@ object YooKassaPaymentHandler {
                     planCode = tariff.code,
                     amountRub = tariff.priceRub,
                     days = tariff.days,
-                    devices = 2,
+                    devices = devices,
                     provider = provider,
-                    requestId = storage.getOrCreatePaymentRequestId(tariff.code, provider)
+                    requestId = storage.getOrCreatePaymentRequestId(tariff.code, provider, devices, tariff.priceRub)
                 )
             }
             if (res.paymentUrl.isBlank() || res.invoiceId.isNullOrBlank()) {
@@ -117,12 +121,14 @@ object YooKassaPaymentHandler {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create in-app payment")
             Toast.makeText(context, "Оплата временно недоступна. Попробуйте позже.", Toast.LENGTH_LONG).show()
+            onCheckoutFailed()
             return@launch
         }
 
         val paymentUrl = createResult.paymentUrl
         if (!Uri.parse(paymentUrl).scheme.equals("https", ignoreCase = true)) {
             Toast.makeText(context, "Не удалось открыть безопасную страницу оплаты.", Toast.LENGTH_LONG).show()
+            onCheckoutFailed()
             return@launch
         }
         storage.savePendingPayment(tariff.code, tariff.days, createResult.invoiceId!!, createResult.provider)
@@ -143,6 +149,7 @@ object YooKassaPaymentHandler {
                 onCheckoutLaunched()
             } catch (ex: Exception) {
                 Toast.makeText(context, "Не удалось открыть страницу оплаты", Toast.LENGTH_SHORT).show()
+                onCheckoutFailed()
             }
         }
         }
@@ -151,7 +158,7 @@ object YooKassaPaymentHandler {
     /**
      * Start payment with dynamic plan parameters.
      */
-    fun startPayment(
+    suspend fun startPayment(
         context: Context,
         planCode: String,
         planTitle: String,
@@ -170,8 +177,16 @@ object YooKassaPaymentHandler {
             isBestValue = false,
             days = days
         )
-        openCheckout(context, tariff, provider)
-        return true
+        return suspendCancellableCoroutine { continuation ->
+            openCheckout(
+                context = context,
+                tariff = tariff,
+                provider = provider,
+                devices = devices,
+                onCheckoutFailed = { if (continuation.isActive) continuation.resume(false) },
+                onCheckoutLaunched = { if (continuation.isActive) continuation.resume(true) }
+            )
+        }
     }
 
     /**
@@ -192,13 +207,14 @@ object YooKassaPaymentHandler {
         if (!payment.isActive || payment.status.lowercase() !in setOf("succeeded", "paid", "completed")) {
             return Result.failure(IllegalStateException("Payment has not been confirmed by the server"))
         }
-        val result = SubscriptionManager.getInstance(context).refreshStatus()
-        if (result.isSuccess) {
+        val result = SubscriptionManager.getInstance(context).refreshStatus(forceBackend = true)
+        if (result.getOrNull()?.isUsable == true) {
             val storage = SecureTokenStorage.getInstance(context)
             storage.clearPendingPayment()
             VpnManager.getInstance(context).loadServers()
         }
-        return result
+        return if (result.getOrNull()?.isUsable == true) result
+        else Result.failure(result.exceptionOrNull() ?: IllegalStateException("Payment has not activated an account subscription"))
     }
 
     /**

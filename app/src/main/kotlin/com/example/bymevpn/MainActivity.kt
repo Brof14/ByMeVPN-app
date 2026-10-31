@@ -94,7 +94,9 @@ class MainActivity : ComponentActivity() {
             CoroutineScope(Dispatchers.Main).launch {
                 val result = SubscriptionManager.getInstance(applicationContext).applySubscriptionUrl(subUrl)
                 if (result.isSuccess) {
-                    AccountRepository.createLocalProfile(applicationContext, userName)
+                    if (com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank() && AccountRepository.currentUser.value == null) {
+                        AccountRepository.createLocalProfile(applicationContext, userName)
+                    }
                     Toast.makeText(applicationContext, "Подписка успешно подключена!", Toast.LENGTH_LONG).show()
                     VpnManager.getInstance(applicationContext).loadServers()
                 } else {

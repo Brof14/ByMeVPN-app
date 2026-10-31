@@ -83,11 +83,11 @@ class SubscriptionManager private constructor(private val context: Context) {
         return true
     }
 
-    suspend fun refreshStatus(): Result<SubscriptionStatus> = refreshMutex.withLock {
+    suspend fun refreshStatus(forceBackend: Boolean = false): Result<SubscriptionStatus> = refreshMutex.withLock {
         _isSyncing.value = true
         try {
             val customSubUrl = storage.getSubscriptionUrl()
-            if (!customSubUrl.isNullOrBlank()) {
+            if (!forceBackend && !customSubUrl.isNullOrBlank()) {
                 val elapsed = System.currentTimeMillis() - storage.getServerRefreshAttempt()
                 val cached = storage.getCachedSubscription()
                 if (elapsed in 0 until 6L * 60 * 60 * 1000 && cached != null && storage.getServerConfigs().isNotEmpty()) {

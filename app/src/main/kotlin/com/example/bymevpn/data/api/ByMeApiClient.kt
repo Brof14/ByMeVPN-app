@@ -30,16 +30,19 @@ class ByMeApiClient(private val context: Context) {
     companion object {
         private const val TAG = "ByMeApiClient"
         private const val TIMEOUT_MS = 15000
+        // Shared across instances to serialize refresh-token rotation.
+        private val refreshMutex = Mutex()
     }
 
     private val storage = SecureTokenStorage.getInstance(context)
-    private val refreshMutex = Mutex()
 
     // -------------------------------------------------------------
     // AUTHENTICATION ENDPOINTS
     // -------------------------------------------------------------
 
     private suspend fun processAuthPayload(json: JSONObject, auth: AuthResponse) {
+        // New logins must not reuse another account's servers or pending payments.
+        storage.clearTokens()
         storage.saveTokens(auth.access, auth.refresh)
         storage.saveCachedUser(auth.user)
         auth.subscription?.let { storage.saveCachedSubscription(it) }
@@ -121,12 +124,16 @@ class ByMeApiClient(private val context: Context) {
         val json = request("GET", "/auth/telegram/check-session?token=$token", null, requiresAuth = false)
         val status = json.optString("status", "pending")
         if (status == "authenticated") {
-            val accessToken = json.optString("access_token")
+            val accessToken = json.optString("access_token").ifBlank { json.optString("access") }
+            val refreshToken = json.optString("refresh_token").ifBlank { json.optString("refresh") }
+            if (accessToken.isBlank() || refreshToken.isBlank()) {
+                throw ApiError("INVALID_AUTH_RESPONSE", "Telegram authentication did not return both access and refresh tokens")
+            }
             val user = ApiJsonParsers.parseUserProfile(json.optJSONObject("user") ?: JSONObject())
             val sub = json.optJSONObject("subscription")?.let { ApiJsonParsers.parseSubscriptionStatus(it) }
             val auth = AuthResponse(
                 access = accessToken,
-                refresh = "ref_$accessToken",
+                refresh = refreshToken,
                 user = user,
                 subscription = sub
             )
@@ -134,6 +141,12 @@ class ByMeApiClient(private val context: Context) {
             return TelegramCheckResult(status = "authenticated", auth = auth)
         }
         return TelegramCheckResult(status = status, auth = null)
+    }
+
+    /** Revokes a previous session without changing the current local account. */
+    suspend fun revokeSession(accessToken: String) {
+        if (accessToken.isBlank()) return
+        request("POST", "/auth/logout", JSONObject(), requiresAuth = false, authTokenOverride = accessToken)
     }
 
     suspend fun logout() {
@@ -364,7 +377,8 @@ class ByMeApiClient(private val context: Context) {
         endpoint: String,
         body: JSONObject?,
         requiresAuth: Boolean,
-        isRetry: Boolean = false
+        isRetry: Boolean = false,
+        authTokenOverride: String? = null
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
         if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
@@ -393,8 +407,8 @@ class ByMeApiClient(private val context: Context) {
                     storage.getDeviceModel().ifBlank { "Android device" }
                 )
 
-                if (requiresAuth) {
-                    val token = storage.getAccessToken()
+                if (requiresAuth || authTokenOverride != null) {
+                    val token = authTokenOverride ?: storage.getAccessToken()
                     if (!token.isNullOrBlank()) {
                         setRequestProperty("Authorization", "Bearer $token")
                     }
