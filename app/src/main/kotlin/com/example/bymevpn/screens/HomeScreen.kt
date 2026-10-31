@@ -52,6 +52,9 @@ import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronRightIcon
 import com.example.bymevpn.components.CountryFlagView
 import com.example.bymevpn.components.FaqDialog
+import com.example.bymevpn.components.VpnDisclosureDialog
+import com.example.bymevpn.components.PrivacyPolicyDialog
+import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.components.PowerIcon
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
@@ -99,6 +102,9 @@ fun HomeScreen(
     var showServerSheet by remember { mutableStateOf(false) }
     var isAutoServerSelected by remember { mutableStateOf(true) }
     var showFaqDialog by remember { mutableStateOf(false) }
+    val secureStorage = remember { SecureTokenStorage.getInstance(context) }
+    var showVpnDisclosure by remember { mutableStateOf(false) }
+    var showPrivacyPolicy by remember { mutableStateOf(false) }
     val updateInfo by AppUpdateManager.updateInfo.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -135,6 +141,15 @@ fun HomeScreen(
         }
     }
 
+    fun prepareAndStartVpn() {
+        val prepareIntent = VpnService.prepare(context)
+        if (prepareIntent != null) {
+            vpnPrepareLauncher.launch(prepareIntent)
+        } else {
+            VpnManager.startVpn(context, currentServer)
+        }
+    }
+
     fun toggleVpn() {
         if (!hasPlan) {
             onNavigateToTrial()
@@ -149,14 +164,26 @@ fun HomeScreen(
                 VpnManager.stopVpn(context)
             }
             else -> {
-                val prepareIntent = VpnService.prepare(context)
-                if (prepareIntent != null) {
-                    vpnPrepareLauncher.launch(prepareIntent)
-                } else {
-                    VpnManager.startVpn(context, currentServer)
-                }
+                if (!secureStorage.isVpnDisclosureAccepted()) showVpnDisclosure = true
+                else prepareAndStartVpn()
             }
         }
+    }
+
+    if (showVpnDisclosure) {
+        VpnDisclosureDialog(
+            isRussian = isRu,
+            onAccept = {
+                secureStorage.setVpnDisclosureAccepted(true)
+                showVpnDisclosure = false
+                prepareAndStartVpn()
+            },
+            onDecline = { showVpnDisclosure = false },
+            onOpenPrivacyPolicy = { showPrivacyPolicy = true }
+        )
+    }
+    if (showPrivacyPolicy) {
+        PrivacyPolicyDialog(isRussian = isRu, onDismiss = { showPrivacyPolicy = false })
     }
 
     Box(

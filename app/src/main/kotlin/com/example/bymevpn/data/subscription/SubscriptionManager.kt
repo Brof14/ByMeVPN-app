@@ -174,6 +174,7 @@ class SubscriptionManager private constructor(private val context: Context) {
         require(url.protocol.equals("https", ignoreCase = true)) { "Subscription URL must use HTTPS" }
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
+            instanceFollowRedirects = false
             connectTimeout = 15000
             readTimeout = 15000
             setRequestProperty("User-Agent", "ByMeVPN/1.0 (Android; v2rayNG; Happ)")
@@ -185,18 +186,22 @@ class SubscriptionManager private constructor(private val context: Context) {
             setRequestProperty("X-Device-Model", storage.getDeviceModel())
         }
 
-        val code = conn.responseCode
-        if (code !in 200..299) {
-            Log.w(TAG, "Subscription endpoint returned HTTP $code")
-            throw IllegalStateException("Ошибка сервера подписки (HTTP $code)")
-        }
+        try {
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                Log.w(TAG, "Subscription endpoint returned HTTP $code")
+                throw IllegalStateException("Ошибка сервера подписки (HTTP $code)")
+            }
 
-        val userInfoHeader = conn.getHeaderField("Subscription-Userinfo")
-            ?: conn.getHeaderField("subscription-userinfo")
-        val body = conn.inputStream.bufferedReader().use { it.readText() }
-        val parsed = XraySubscriptionParser.parse(body, userInfoHeader)
-        Log.d(TAG, "Subscription fetched: servers=${parsed.servers.size}, configs=${parsed.configs.size}")
-        parsed
+            val userInfoHeader = conn.getHeaderField("Subscription-Userinfo")
+                ?: conn.getHeaderField("subscription-userinfo")
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val parsed = XraySubscriptionParser.parse(body, userInfoHeader)
+            Log.d(TAG, "Subscription fetched: servers=${parsed.servers.size}, configs=${parsed.configs.size}")
+            parsed
+        } finally {
+            conn.disconnect()
+        }
     }
 
     suspend fun activateTrial(): Result<SubscriptionStatus> {

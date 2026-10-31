@@ -53,6 +53,8 @@ class VpnManager private constructor(private val context: Context) {
         fun getVpnPrepareIntent(context: Context): Intent? = VpnService.prepare(context)
 
         fun startVpn(context: Context, server: ServerNode? = null) {
+            // Require a user-accepted prominent disclosure even from tiles/boot receivers.
+            if (!SecureTokenStorage.getInstance(context).isVpnDisclosureAccepted()) return
             val manager = getInstance(context)
             server?.let { manager.selectServer(it) }
             manager.connect()

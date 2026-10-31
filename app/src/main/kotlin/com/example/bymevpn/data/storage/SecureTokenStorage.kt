@@ -3,7 +3,6 @@ package com.example.bymevpn.data.storage
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
-import android.provider.Settings
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.bymevpn.data.api.DeviceItem
@@ -62,6 +61,7 @@ class SecureTokenStorage private constructor(context: Context) {
         throw IllegalStateException("Secure storage is unavailable", e)
     }
 
+    @Synchronized
     fun saveTokens(accessToken: String, refreshToken: String) {
         prefs.edit()
             .putString(KEY_ACCESS_TOKEN, accessToken)
@@ -73,6 +73,7 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
+    @Synchronized
     fun clearTokens() {
         prefs.edit()
             .remove(KEY_ACCESS_TOKEN)
@@ -178,12 +179,9 @@ class SecureTokenStorage private constructor(context: Context) {
     fun getInstallId(context: Context): String {
         var id = prefs.getString(KEY_INSTALL_ID, null)
         if (id.isNullOrBlank()) {
-            val androidId = try {
-                Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-            } catch (e: Exception) {
-                null
-            }
-            id = androidId?.ifBlank { null } ?: UUID.randomUUID().toString()
+            // App-scoped pseudonymous identifier, not the cross-app Android hardware ID.
+            // Existing saved IDs remain unchanged to avoid unexpectedly re-registering devices.
+            id = UUID.randomUUID().toString()
             prefs.edit().putString(KEY_INSTALL_ID, id).apply()
         }
         return id
