@@ -375,7 +375,7 @@ class ByMeVpnService : VpnService() {
             isServiceRunning = false
             activeServer = null
             pendingSessionConfig = null
-            VpnManager.getInstance(applicationContext).onTunnelDisconnected()
+            VpnManager.getInstance(applicationContext).onTunnelPermissionRevoked()
           }
         }
         super.onRevoke()

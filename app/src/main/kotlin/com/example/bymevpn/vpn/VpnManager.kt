@@ -13,7 +13,10 @@ import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +24,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.coroutineContext
 
 /**
  * High-level VPN facade coordinating UI states, server selection, and Xray VLESS+Reality lifecycle.
@@ -56,7 +61,7 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
-    private val scope = CoroutineScope(Dispatchers.Main + Job())
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val apiClient = ByMeApiClient(context)
     private val storage = SecureTokenStorage.getInstance(context)
     private val subscriptionManager = SubscriptionManager.getInstance(context)
@@ -93,6 +98,8 @@ class VpnManager private constructor(private val context: Context) {
     private var timerJob: Job? = null
     private var engineObserverJob: Job? = null
     private var reconnectJob: Job? = null
+    private var connectionJob: Job? = null
+    @Volatile private var connectionRequested = false
 
     init {
         scope.launch {
@@ -280,14 +287,16 @@ class VpnManager private constructor(private val context: Context) {
             return
         }
 
-        scope.launch {
-            _state.value = VpnConnectionState.CONNECTING
-            _errorMessage.value = null
+        connectionRequested = true
+        _state.value = VpnConnectionState.CONNECTING
+        _errorMessage.value = null
+        connectionJob = scope.launch {
 
             try {
                 // 1. Verify subscription entitlement
                 if (!subscriptionManager.canConnect()) {
                     subscriptionManager.refreshStatus()
+                    coroutineContext.ensureActive()
                     if (!subscriptionManager.canConnect()) {
                         _state.value = VpnConnectionState.ERROR
                         _errorMessage.value = "SUBSCRIPTION_REQUIRED"
@@ -312,7 +321,10 @@ class VpnManager private constructor(private val context: Context) {
                 // 3. Obtain VLESS+Reality session configuration from backend or local subscription store
                 val sessionConfig = storage.getServerConfig(targetServer.nodeCode) ?: try {
                     apiClient.createVpnSession(targetServer.nodeCode)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    coroutineContext.ensureActive()
                     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
                     val rawMsg = e.message ?: ""
                     val msg = when {
@@ -335,13 +347,17 @@ class VpnManager private constructor(private val context: Context) {
                 }
 
                 // 4. Start foreground Android VpnService which builds TUN and launches native Xray-core
+                coroutineContext.ensureActive()
                 ByMeVpnService.start(
                     context = context,
                     server = targetServer,
                     sessionConfig = sessionConfig
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                coroutineContext.ensureActive()
                 Log.e(TAG, "Connect failed: ${e.message}", e)
                 ByMeVpnService.stop(context)
                 _state.value = VpnConnectionState.ERROR
@@ -355,6 +371,10 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelConnected(server: ServerNode?) {
         scope.launch(Dispatchers.Main) {
+            if (!connectionRequested) {
+                ByMeVpnService.stop(context)
+                return@launch
+            }
             reconnectJob?.cancel()
             reconnectJob = null
             if (server != null) {
@@ -373,6 +393,7 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelFailed(error: String) {
         scope.launch(Dispatchers.Main) {
+            if (!connectionRequested) return@launch
             _currentServer.value?.let { failed ->
                 _currentServer.value = failed.copy(connectionCheck = -1)
                 _availableServers.value = _availableServers.value.map { if (it.nodeCode == failed.nodeCode) it.copy(connectionCheck = -1) else it }
@@ -391,18 +412,17 @@ class VpnManager private constructor(private val context: Context) {
             server?.let { _currentServer.value = it }
             stopTimer()
             reconnectJob?.cancel()
-
-            val settings = settingsRepo.settingsFlow.first()
-            if (!settings.autoReconnect) {
-                _state.value = VpnConnectionState.ERROR
-                _errorMessage.value = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
-                    "Связь с VPN потеряна. Проверьте интернет и подключитесь снова."
-                else "VPN connection was lost. Check your internet and reconnect."
-                return@launch
-            }
-
+            _state.value = VpnConnectionState.CONNECTING
             reconnectJob = scope.launch(Dispatchers.Main) {
                 val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                val settings = settingsRepo.settingsFlow.first()
+                if (!settings.autoReconnect) {
+                    _state.value = VpnConnectionState.ERROR
+                    _errorMessage.value = if (isRu)
+                        "Связь с VPN потеряна. Проверьте интернет и подключитесь снова."
+                    else "VPN connection was lost. Check your internet and reconnect."
+                    return@launch
+                }
                 val retryDelaysSeconds = longArrayOf(2, 4, 8, 16, 30)
                 for (waitSeconds in retryDelaysSeconds) {
                     if (!isNetworkAvailable()) {
@@ -417,10 +437,16 @@ class VpnManager private constructor(private val context: Context) {
 
                     _state.value = VpnConnectionState.DISCONNECTED
                     connect()
-                    for (poll in 0 until 40) {
-                        delay(500)
-                        if (_state.value == VpnConnectionState.CONNECTED) return@launch
-                        if (_state.value == VpnConnectionState.ERROR) break
+                    val outcome = withTimeoutOrNull(90_000) {
+                        state.first { it == VpnConnectionState.CONNECTED || it == VpnConnectionState.ERROR }
+                    }
+                    if (outcome == VpnConnectionState.CONNECTED) return@launch
+                    if (outcome == null) {
+                        // Never start another tunnel while the previous start is still pending.
+                        connectionRequested = false
+                        connectionJob?.cancel()
+                        ByMeVpnService.stop(context)
+                        break
                     }
                 }
 
@@ -447,8 +473,23 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelDisconnected() {
         scope.launch(Dispatchers.Main) {
-            _state.value = VpnConnectionState.DISCONNECTED
+            if (!connectionRequested && _state.value != VpnConnectionState.ERROR) {
+                _state.value = VpnConnectionState.DISCONNECTED
+                stopTimer()
+            }
+        }
+    }
+
+    fun onTunnelPermissionRevoked() {
+        connectionRequested = false
+        connectionJob?.cancel()
+        reconnectJob?.cancel()
+        scope.launch(Dispatchers.Main) {
             stopTimer()
+            _state.value = VpnConnectionState.ERROR
+            _errorMessage.value = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                "Разрешение VPN отозвано. Подключитесь снова и разрешите VPN."
+            else "VPN permission was revoked. Reconnect and allow VPN access."
         }
     }
 
@@ -472,6 +513,9 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun disconnect() {
+        connectionRequested = false
+        connectionJob?.cancel()
+        connectionJob = null
         reconnectJob?.cancel()
         reconnectJob = null
         if (_state.value == VpnConnectionState.DISCONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
