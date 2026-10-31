@@ -467,8 +467,12 @@ class ByMeApiClient(private val context: Context) {
         }
 
         if (responseCode !in 200..299) {
-            throw if (responseString.isBlank()) ApiError("HTTP_$responseCode", "Backend returned HTTP $responseCode")
-            else ApiError.fromJson(responseString)
+            val apiError = if (responseString.isBlank()) {
+                ApiError("HTTP_$responseCode", "Backend returned HTTP $responseCode")
+            } else {
+                ApiError.fromJson(responseString)
+            }
+            throw apiError.copy(httpStatusCode = responseCode)
         }
 
         if (responseString.isBlank()) {

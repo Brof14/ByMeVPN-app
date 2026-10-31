@@ -274,11 +274,13 @@ class VpnManager private constructor(private val context: Context) {
             }
 
             // 2. Fetch directly from backend API
+            var serverRequestError: Throwable? = null
             val servers = try {
                 apiClient.getServers()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                serverRequestError = e
                 Log.w(TAG, "Server list request failed: ${e.javaClass.simpleName}")
                 emptyList()
             }
@@ -328,9 +330,10 @@ class VpnManager private constructor(private val context: Context) {
             }
 
             val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
-            val message = if (isRu)
-                "Сервис не вернул список серверов. Повторите попытку позже."
-            else "The service returned no servers. Try again a little later."
+            val message = serverRequestError?.let { VpnConnectionErrorMapper.deviceLimitMessage(it, isRu) }
+                ?: if (isRu)
+                    "Серверы не загрузились. Если доступа нет, проверьте лимит устройств: «Аккаунт» → «Мои устройства»."
+                else "Servers could not be loaded. If access is unavailable, check your device limit: Account → My devices."
             serverLoadFailure(message)
         } catch (e: CancellationException) {
             throw e
@@ -408,7 +411,9 @@ class VpnManager private constructor(private val context: Context) {
                     coroutineContext.ensureActive()
                     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
                     val rawMsg = e.message ?: ""
+                    val deviceLimitMessage = VpnConnectionErrorMapper.deviceLimitMessage(e, isRu)
                     val msg = when {
+                        deviceLimitMessage != null -> deviceLimitMessage
                         rawMsg.contains("NODE_PROVISIONING_NOT_CONFIGURED", ignoreCase = true) ||
                         rawMsg.contains("not configured", ignoreCase = true) -> {
                             if (isRu) "VPN-узлы сейчас настраиваются на сервере (VPN недоступен)"
