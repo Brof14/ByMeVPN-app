@@ -221,6 +221,7 @@ fun SignInScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    if (com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
                     // 4. Primary 1-Tap Google Sign-In Button
                     Box(
                         modifier = Modifier
@@ -315,6 +316,7 @@ fun SignInScreen(
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
+                    }
 
                     // 6. Email Input Field
                     ExactInputField(
