@@ -593,7 +593,7 @@ private fun HomeDisconnectedContent(
         Spacer(modifier = Modifier.height(26.dp))
 
         Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Включить VPN" else "Connect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
-            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = if (isConnecting) 0.9f else 0.35f)
+            ShieldLogo(size = 205.dp, isActive = isConnecting, glowAlpha = 0.35f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
