@@ -3,7 +3,6 @@ package com.example.bymevpn.data.storage
 import android.content.Context
 import android.content.SharedPreferences
 import android.os.Build
-import android.provider.Settings
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.bymevpn.data.api.DeviceItem
@@ -62,6 +61,7 @@ class SecureTokenStorage private constructor(context: Context) {
         throw IllegalStateException("Secure storage is unavailable", e)
     }
 
+    @Synchronized
     fun saveTokens(accessToken: String, refreshToken: String) {
         prefs.edit()
             .putString(KEY_ACCESS_TOKEN, accessToken)
@@ -73,6 +73,7 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
+    @Synchronized
     fun clearTokens() {
         prefs.edit()
             .remove(KEY_ACCESS_TOKEN)
@@ -80,6 +81,23 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove(KEY_CACHED_USER)
             .remove(KEY_CACHED_SUB)
             .remove(KEY_API_SERVER_CACHE)
+            .remove(KEY_SUBSCRIPTION_URL)
+            .remove(KEY_CUSTOM_CONFIGS)
+            .remove(KEY_SERVER_NODES)
+            .remove("server_refresh_attempt")
+            .remove("registered_devices_json")
+            .remove("favorite_servers")
+            .remove("dismissed_clipboard_key")
+            .remove("pending_payment_plan")
+            .remove("pending_payment_days")
+            .remove("pending_payment_invoice")
+            .remove("pending_payment_provider")
+            .remove("pending_payment_time")
+            .remove("payment_request_id")
+            .remove("payment_request_plan")
+            .remove("payment_request_provider")
+            .remove("payment_request_devices")
+            .remove("payment_request_amount")
             .apply()
     }
 
@@ -161,12 +179,9 @@ class SecureTokenStorage private constructor(context: Context) {
     fun getInstallId(context: Context): String {
         var id = prefs.getString(KEY_INSTALL_ID, null)
         if (id.isNullOrBlank()) {
-            val androidId = try {
-                Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-            } catch (e: Exception) {
-                null
-            }
-            id = androidId?.ifBlank { null } ?: UUID.randomUUID().toString()
+            // App-scoped pseudonymous identifier, not the cross-app Android hardware ID.
+            // Existing saved IDs remain unchanged to avoid unexpectedly re-registering devices.
+            id = UUID.randomUUID().toString()
             prefs.edit().putString(KEY_INSTALL_ID, id).apply()
         }
         return id
@@ -425,16 +440,20 @@ class SecureTokenStorage private constructor(context: Context) {
             .apply()
     }
 
-    fun getOrCreatePaymentRequestId(planCode: String, provider: String): String {
+    fun getOrCreatePaymentRequestId(planCode: String, provider: String, devices: Int = 2, amountRub: Int = 0): String {
         val existing = prefs.getString("payment_request_id", null)
         val existingPlan = prefs.getString("payment_request_plan", null)
         val existingProvider = prefs.getString("payment_request_provider", null)
-        if (!existing.isNullOrBlank() && existingPlan == planCode && existingProvider == provider) return existing
+        val existingDevices = prefs.getInt("payment_request_devices", -1)
+        val existingAmount = prefs.getInt("payment_request_amount", -1)
+        if (!existing.isNullOrBlank() && existingPlan == planCode && existingProvider == provider && existingDevices == devices && existingAmount == amountRub) return existing
         val created = UUID.randomUUID().toString()
         prefs.edit()
             .putString("payment_request_id", created)
             .putString("payment_request_plan", planCode)
             .putString("payment_request_provider", provider)
+            .putInt("payment_request_devices", devices)
+            .putInt("payment_request_amount", amountRub)
             .apply()
         return created
     }
@@ -462,6 +481,8 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove("payment_request_id")
             .remove("payment_request_plan")
             .remove("payment_request_provider")
+            .remove("payment_request_devices")
+            .remove("payment_request_amount")
             .remove("pending_payment_time")
             .apply()
     }

@@ -29,6 +29,18 @@ class XrayConfigGeneratorTest {
     }
 
     @Test
+    fun udp443IsNotGloballyBlocked() {
+        val config = VpnSessionConfig(server = "example.org", port = 443, uuid = "test", serverName = "example.org", publicKey = "test")
+        val rules = XrayConfigGenerator.generateJson(config).getJSONObject("routing").getJSONArray("rules")
+        for (i in 0 until rules.length()) {
+            val rule = rules.getJSONObject(i)
+            org.junit.Assert.assertFalse(
+                rule.optString("port") == "443" && rule.optString("network") == "udp" && rule.optString("outboundTag") == "block"
+            )
+        }
+    }
+
+    @Test
     fun russianBypassRulesFollowSetting() {
         val config = VpnSessionConfig(server = "example.org", port = 443, uuid = "test", serverName = "example.org", publicKey = "test")
         val enabled = XrayConfigGenerator.generateJson(config, bypassRussianTraffic = true).getJSONObject("routing").getJSONArray("rules").toString()

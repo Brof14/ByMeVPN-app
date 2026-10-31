@@ -260,13 +260,7 @@ object XrayConfigGenerator {
                 put("outboundTag", "dns-out")
             })
 
-            // Rule 2: Block UDP 443 (QUIC) so browsers instantly fall back cleanly to HTTP/2 over TLS (prevents QUIC protocol stall)
-            put(JSONObject().apply {
-                put("type", "field")
-                put("port", "443")
-                put("network", "udp")
-                put("outboundTag", "block")
-            })
+            // Do not block UDP/443 globally: some applications require QUIC and have no TCP fallback.
 
             if (bypassRussianTraffic) {
                 put(JSONObject().apply {

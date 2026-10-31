@@ -307,9 +307,12 @@ fun PaywallSheet(
                         )
                         .clickable(enabled = !isProcessingPayment) {
                             isProcessingPayment = true
-                            YooKassaPaymentHandler.openCheckout(context, selectedPlan) {
-                                isProcessingPayment = false
-                            }
+                            YooKassaPaymentHandler.openCheckout(
+                                context = context,
+                                tariff = selectedPlan,
+                                onCheckoutFailed = { isProcessingPayment = false },
+                                onCheckoutLaunched = { isProcessingPayment = false }
+                            )
                         },
                     contentAlignment = Alignment.Center
                 ) {

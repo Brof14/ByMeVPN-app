@@ -44,6 +44,8 @@ class ByMeVpnService : VpnService() {
 
         const val EXTRA_SERVER_NAME = "extra_server_name"
         const val EXTRA_SERVER_COUNTRY = "extra_server_country"
+        private const val EXTRA_CONNECT_EPOCH = "extra_connect_epoch"
+        @Volatile private var requestEpoch = 0L
 
         const val NOTIFICATION_ID = 2024
         const val CHANNEL_ID = "bymevpn_active_tunnel"
@@ -61,10 +63,15 @@ class ByMeVpnService : VpnService() {
         var pendingSessionConfig: VpnSessionConfig? = null
 
         fun start(context: Context, server: ServerNode, sessionConfig: VpnSessionConfig) {
-            activeServer = server
-            pendingSessionConfig = sessionConfig
+            val epoch = synchronized(this) {
+                requestEpoch += 1
+                activeServer = server
+                pendingSessionConfig = sessionConfig
+                requestEpoch
+            }
             val intent = Intent(context, ByMeVpnService::class.java).apply {
                 action = ACTION_CONNECT
+                putExtra(EXTRA_CONNECT_EPOCH, epoch)
                 putExtra(EXTRA_SERVER_NAME, server.city.ifEmpty { server.country })
                 putExtra(EXTRA_SERVER_COUNTRY, server.country)
             }
@@ -81,6 +88,7 @@ class ByMeVpnService : VpnService() {
         }
 
         fun stop(context: Context) {
+            synchronized(this) { requestEpoch += 1 }
             val intent = Intent(context, ByMeVpnService::class.java).apply {
                 action = ACTION_DISCONNECT
             }
@@ -106,6 +114,8 @@ class ByMeVpnService : VpnService() {
 
         when (action) {
             ACTION_CONNECT -> {
+                val connectEpoch = intent.getLongExtra(EXTRA_CONNECT_EPOCH, -1L)
+                if (connectEpoch != requestEpoch) return START_NOT_STICKY
                 val serverName = intent.getStringExtra(EXTRA_SERVER_NAME) ?: "Global"
                 val serverCountry = intent.getStringExtra(EXTRA_SERVER_COUNTRY) ?: ""
 
@@ -132,6 +142,8 @@ class ByMeVpnService : VpnService() {
 
                 serviceScope.launch {
                   lifecycleMutex.withLock {
+                    // A disconnect or newer connect supersedes queued, obsolete start requests.
+                    if (connectEpoch != requestEpoch) return@withLock
                     val config = pendingSessionConfig
                     if (config == null) {
                         Log.e(TAG, "No pending session configuration provided")
@@ -158,6 +170,14 @@ class ByMeVpnService : VpnService() {
 
                     val engine = XrayVpnEngine.getInstance(applicationContext)
                     val result = engine.startTunnel(config, tunFd, bypassRussianTraffic = settings.bypassRussianTraffic, dnsMode = settings.dnsMode)
+
+                    if (connectEpoch != requestEpoch) {
+                        // A stop was requested while the core was starting; never expose a stale tunnel.
+                        try { engine.disconnect() } catch (_: Exception) {}
+                        tearDownTunInterface()
+                        isServiceRunning = false
+                        return@withLock
+                    }
 
                     if (result.isSuccess) {
                         isServiceRunning = true
@@ -237,6 +257,10 @@ class ByMeVpnService : VpnService() {
                 .setMtu(1500)
                 .addAddress("26.26.26.1", 24)
                 .addRoute("0.0.0.0", 0)
+                // Include IPv6 in the TUN: otherwise devices may send IPv6 traffic outside VPN.
+                // Whether IPv6 destinations work end-to-end must still be verified on real devices.
+                .addAddress("fd00:26:26::1", 126)
+                .addRoute("::", 0)
                 .setBlocking(false)
 
             // DNS: Direct queries to real public DNS servers; TUN captures UDP:53 and Xray intercepts via dns-out

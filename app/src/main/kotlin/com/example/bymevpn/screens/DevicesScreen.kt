@@ -2,6 +2,7 @@ package com.example.bymevpn.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,10 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +39,8 @@ import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.components.SmartphoneIcon
 import com.example.bymevpn.data.AccountRepository
+import kotlinx.coroutines.launch
+import android.widget.Toast
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
@@ -51,6 +59,9 @@ fun DevicesScreen(
     val devicesList by AccountRepository.userDevices.collectAsState()
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
+    val scope = rememberCoroutineScope()
+    var pendingRemoveId by remember { mutableStateOf<String?>(null) }
+    var isRemoving by remember { mutableStateOf(false) }
 
     val effectiveMax = subscription?.maxDevices?.takeIf { it > 0 }
     val effectiveConnected = devicesList.size
@@ -215,6 +226,12 @@ fun DevicesScreen(
                                     fontSize = 11.5.sp
                                 )
                             }
+                            Text(
+                                text = if (isRu) "Удалить" else "Remove",
+                                color = Color(0xFFFF8A8A),
+                                fontSize = 11.sp,
+                                modifier = Modifier.clickable { pendingRemoveId = dev.id }.padding(6.dp)
+                            )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                     }
@@ -264,6 +281,28 @@ fun DevicesScreen(
                         BottomNavTab.Settings -> onNavigateToSettings()
                         BottomNavTab.Account -> onNavigateToAccount()
                     }
+                }
+            )
+        }
+        val targetId = pendingRemoveId
+        if (targetId != null) {
+            AlertDialog(
+                onDismissRequest = { if (!isRemoving) pendingRemoveId = null },
+                title = { Text(if (isRu) "Удалить устройство?" else "Remove device?") },
+                text = { Text(if (isRu) "Устройство потеряет доступ к VPN. Продолжить?" else "This device will lose VPN access. Continue?") },
+                confirmButton = {
+                    TextButton(enabled = !isRemoving, onClick = {
+                        isRemoving = true
+                        scope.launch {
+                            val result = AccountRepository.removeDevice(context, targetId)
+                            isRemoving = false
+                            if (result.isSuccess) pendingRemoveId = null
+                            else Toast.makeText(context, if (isRu) "Не удалось удалить устройство" else "Could not remove device", Toast.LENGTH_LONG).show()
+                        }
+                    }) { Text(if (isRu) "Удалить" else "Remove", color = Color(0xFFFF7373)) }
+                },
+                dismissButton = {
+                    TextButton(enabled = !isRemoving, onClick = { pendingRemoveId = null }) { Text(if (isRu) "Отмена" else "Cancel") }
                 }
             )
         }

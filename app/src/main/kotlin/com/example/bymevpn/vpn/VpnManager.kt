@@ -53,6 +53,8 @@ class VpnManager private constructor(private val context: Context) {
         fun getVpnPrepareIntent(context: Context): Intent? = VpnService.prepare(context)
 
         fun startVpn(context: Context, server: ServerNode? = null) {
+            // Require a user-accepted prominent disclosure even from tiles/boot receivers.
+            if (!SecureTokenStorage.getInstance(context).isVpnDisclosureAccepted()) return
             val manager = getInstance(context)
             server?.let { manager.selectServer(it) }
             manager.connect()
@@ -108,6 +110,8 @@ class VpnManager private constructor(private val context: Context) {
     private var engineObserverJob: Job? = null
     private var reconnectJob: Job? = null
     private var connectionJob: Job? = null
+    private var switchJob: Job? = null
+    private var disconnectJob: Job? = null
     @Volatile private var connectionRequested = false
     private val serverLoadMutex = Mutex()
 
@@ -344,12 +348,13 @@ class VpnManager private constructor(private val context: Context) {
         val prevServer = _currentServer.value
         _currentServer.value = server
 
-        // If currently connected, reconnect to the newly selected server seamlessly
-        if (_state.value == VpnConnectionState.CONNECTED && prevServer?.nodeCode != server.nodeCode) {
-            scope.launch {
-                disconnect()
-                delay(500)
-                connect()
+        // Serialize the switch after actual teardown rather than guessing a 500 ms delay.
+        if (_state.value in setOf(VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING) && prevServer?.nodeCode != server.nodeCode) {
+            switchJob?.cancel()
+            switchJob = scope.launch {
+                disconnectInternal()
+                disconnectJob?.join()
+                if (_currentServer.value?.nodeCode == server.nodeCode) connect()
             }
         }
     }
@@ -359,7 +364,7 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun connect() {
-        if (_state.value == VpnConnectionState.CONNECTING || _state.value == VpnConnectionState.CONNECTED) {
+        if (_state.value == VpnConnectionState.CONNECTING || _state.value == VpnConnectionState.CONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
             return
         }
 
@@ -589,33 +594,46 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun disconnect() {
+        switchJob?.cancel()
+        switchJob = null
+        disconnectInternal()
+    }
+
+    private fun disconnectInternal() {
         connectionRequested = false
         connectionJob?.cancel()
         connectionJob = null
         reconnectJob?.cancel()
         reconnectJob = null
-        if (_state.value == VpnConnectionState.DISCONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
-            return
-        }
+        if (_state.value == VpnConnectionState.DISCONNECTING) return
+        if (_state.value == VpnConnectionState.DISCONNECTED && !ByMeVpnService.isServiceRunning && !engine.isRunning) return
 
-        scope.launch {
-            _state.value = VpnConnectionState.DISCONNECTING
+        _state.value = VpnConnectionState.DISCONNECTING
+        disconnectJob = scope.launch {
             try {
                 ByMeVpnService.stop(context)
+                val stopped = withTimeoutOrNull(15_000L) {
+                    while (ByMeVpnService.isServiceRunning || engine.isRunning) delay(50L)
+                    true
+                } ?: false
+                if (!stopped) Log.w(TAG, "VPN tunnel did not report teardown within timeout")
                 apiClient.deleteVpnSession()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Disconnect cleanup warning: ${e.message}")
             } finally {
-                _state.value = VpnConnectionState.DISCONNECTED
+                if (!connectionRequested) _state.value = VpnConnectionState.DISCONNECTED
                 stopTimer()
             }
         }
     }
 
     fun reconnect() {
-        scope.launch {
-            disconnect()
-            delay(500)
+        switchJob?.cancel()
+        switchJob = scope.launch {
+            disconnectInternal()
+            disconnectJob?.join()
             connect()
         }
     }

@@ -58,7 +58,7 @@ fun SettingsScreen(
     val settingsRepo = remember { SettingsRepository.getInstance(context) }
 
     val autoConnect by settingsRepo.autoConnectOnLaunch.collectAsState(initial = false)
-    val bypassRuSites by settingsRepo.bypassRussianSites.collectAsState(initial = true)
+    val bypassRuSites by settingsRepo.bypassRussianSites.collectAsState(initial = false)
 
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)

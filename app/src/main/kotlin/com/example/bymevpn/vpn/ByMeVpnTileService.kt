@@ -40,7 +40,8 @@ class ByMeVpnTileService : TileService() {
             VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR, VpnConnectionState.DISCONNECTING -> {
                 if (VpnManager.isVpnPrepared(applicationContext)) {
                     VpnManager.startVpn(applicationContext)
-                    updateTileState(Tile.STATE_ACTIVE)
+                    // The tile reflects tunnel callbacks, not an optimistic connection attempt.
+                    updateTileState(Tile.STATE_INACTIVE)
                 } else {
                     // Open main activity to request system VPN permission
                     val intent = Intent(applicationContext, MainActivity::class.java).apply {

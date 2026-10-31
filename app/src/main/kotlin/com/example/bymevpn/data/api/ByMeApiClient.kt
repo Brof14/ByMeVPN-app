@@ -15,6 +15,7 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
+import java.net.URLEncoder
 import java.net.URL
 import java.util.UUID
 
@@ -30,16 +31,19 @@ class ByMeApiClient(private val context: Context) {
     companion object {
         private const val TAG = "ByMeApiClient"
         private const val TIMEOUT_MS = 15000
+        // Shared across instances to serialize refresh-token rotation.
+        private val refreshMutex = Mutex()
     }
 
     private val storage = SecureTokenStorage.getInstance(context)
-    private val refreshMutex = Mutex()
 
     // -------------------------------------------------------------
     // AUTHENTICATION ENDPOINTS
     // -------------------------------------------------------------
 
     private suspend fun processAuthPayload(json: JSONObject, auth: AuthResponse) {
+        // New logins must not reuse another account's servers or pending payments.
+        storage.clearTokens()
         storage.saveTokens(auth.access, auth.refresh)
         storage.saveCachedUser(auth.user)
         auth.subscription?.let { storage.saveCachedSubscription(it) }
@@ -118,15 +122,21 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun checkTelegramSession(token: String): TelegramCheckResult {
-        val json = request("GET", "/auth/telegram/check-session?token=$token", null, requiresAuth = false)
+        val json = request("GET", "/auth/telegram/check-session?token=${URLEncoder.encode(token, "UTF-8")}", null, requiresAuth = false)
         val status = json.optString("status", "pending")
         if (status == "authenticated") {
-            val accessToken = json.optString("access_token")
+            val accessToken = json.optString("access_token").ifBlank { json.optString("access") }
+            val refreshToken = json.optString("refresh_token").ifBlank { json.optString("refresh") }
+            if (accessToken.isBlank()) {
+                throw ApiError("INVALID_AUTH_RESPONSE", "Telegram authentication did not return an access token")
+            }
             val user = ApiJsonParsers.parseUserProfile(json.optJSONObject("user") ?: JSONObject())
             val sub = json.optJSONObject("subscription")?.let { ApiJsonParsers.parseSubscriptionStatus(it) }
             val auth = AuthResponse(
                 access = accessToken,
-                refresh = "ref_$accessToken",
+                // Legacy backend contract: /auth/refresh accepts ref_<signed access JWT>.
+                // Prefer a server-provided refresh token when present.
+                refresh = refreshToken.ifBlank { "ref_$accessToken" },
                 user = user,
                 subscription = sub
             )
@@ -134,6 +144,12 @@ class ByMeApiClient(private val context: Context) {
             return TelegramCheckResult(status = "authenticated", auth = auth)
         }
         return TelegramCheckResult(status = status, auth = null)
+    }
+
+    /** Revokes a previous session without changing the current local account. */
+    suspend fun revokeSession(accessToken: String) {
+        if (accessToken.isBlank()) return
+        request("POST", "/auth/logout", JSONObject(), requiresAuth = false, authTokenOverride = accessToken)
     }
 
     suspend fun logout() {
@@ -180,8 +196,9 @@ class ByMeApiClient(private val context: Context) {
         return sub
     }
 
-    suspend fun getPlans(): List<PlanItem> {
-        val json = request("GET", "/plans", null, requiresAuth = false)
+    suspend fun getPlans(devices: Int = 2): List<PlanItem> {
+        require(devices in setOf(2, 5, 10)) { "Unsupported device limit" }
+        val json = request("GET", "/plans?devices=$devices", null, requiresAuth = false)
         val array = if (json.has("raw_array")) {
             json.getJSONArray("raw_array")
         } else if (json.has("plans")) {
@@ -223,7 +240,10 @@ class ByMeApiClient(private val context: Context) {
                     price = price,
                     period = period,
                     isPopular = code == "half_year" || code == "quarter" || p.optBoolean("is_popular", false),
-                    discountPercent = discount
+                    discountPercent = discount,
+                    priceRub = priceRub,
+                    days = days,
+                    devices = p.optInt("devices", 2)
                 )
             )
         }
@@ -364,13 +384,15 @@ class ByMeApiClient(private val context: Context) {
         endpoint: String,
         body: JSONObject?,
         requiresAuth: Boolean,
-        isRetry: Boolean = false
+        isRetry: Boolean = false,
+        authTokenOverride: String? = null
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
         if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
             throw ApiError("INSECURE_BACKEND", "Backend HTTPS is required before account requests can be sent")
         }
 
+        val tokenAtRequest = if (requiresAuth) storage.getAccessToken() else null
         val connection = try {
             (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -393,8 +415,8 @@ class ByMeApiClient(private val context: Context) {
                     storage.getDeviceModel().ifBlank { "Android device" }
                 )
 
-                if (requiresAuth) {
-                    val token = storage.getAccessToken()
+                if (requiresAuth || authTokenOverride != null) {
+                    val token = authTokenOverride ?: tokenAtRequest
                     if (!token.isNullOrBlank()) {
                         setRequestProperty("Authorization", "Bearer $token")
                     }
@@ -404,6 +426,7 @@ class ByMeApiClient(private val context: Context) {
             throw ApiError("NETWORK_ERROR", e.localizedMessage ?: "Failed to open connection")
         }
 
+        try {
         if (body != null && (method == "POST" || method == "PUT" || method == "PATCH")) {
             connection.doOutput = true
             try {
@@ -424,25 +447,28 @@ class ByMeApiClient(private val context: Context) {
 
         // Handle 401 Unauthorized -> try refresh token once
         if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED && requiresAuth && !isRetry) {
-            val refreshSuccess = refreshAccessToken()
+            // Another client may have already rotated the token while this request was in flight.
+            val newerTokenAvailable = tokenAtRequest != storage.getAccessToken() && !storage.getAccessToken().isNullOrBlank()
+            val refreshSuccess = newerTokenAvailable || refreshAccessToken()
             if (refreshSuccess) {
                 return@withContext request(method, endpoint, body, requiresAuth, isRetry = true)
             } else {
-                storage.clearTokens()
+                if (storage.getAccessToken() == tokenAtRequest) storage.clearTokens()
                 throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")
             }
         }
 
-        val inputStream = if (responseCode in 200..299) {
-            connection.inputStream
-        } else {
-            connection.errorStream ?: connection.inputStream
+        val responseString = try {
+            val inputStream = if (responseCode in 200..299) connection.inputStream else connection.errorStream
+            inputStream?.bufferedReader()?.use(BufferedReader::readText).orEmpty()
+        } catch (e: Exception) {
+            if (responseCode in 200..299) throw ApiError("NETWORK_ERROR", "Failed to read backend response")
+            else ""
         }
 
-        val responseString = inputStream?.bufferedReader()?.use(BufferedReader::readText) ?: ""
-
         if (responseCode !in 200..299) {
-            throw ApiError.fromJson(responseString)
+            throw if (responseString.isBlank()) ApiError("HTTP_$responseCode", "Backend returned HTTP $responseCode")
+            else ApiError.fromJson(responseString)
         }
 
         if (responseString.isBlank()) {
@@ -461,6 +487,9 @@ class ByMeApiClient(private val context: Context) {
                     JSONObject().apply { put("raw", trimmed) }
                 }
             }
+        }
+        } finally {
+            connection.disconnect()
         }
     }
 
@@ -487,6 +516,7 @@ class ByMeApiClient(private val context: Context) {
                     setRequestProperty("Accept", "application/json")
                 }
 
+                try {
                 val body = JSONObject().apply { put("refresh", refreshToken) }
                 OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
                     it.write(body.toString())
@@ -499,13 +529,21 @@ class ByMeApiClient(private val context: Context) {
                     val newAccess = json.optString("access", json.optString("access_token", ""))
                     val newRefresh = json.optString("refresh", json.optString("refresh_token", refreshToken))
                     if (newAccess.isNotBlank()) {
-                        storage.saveTokens(newAccess, newRefresh)
-                        true
+                        synchronized(storage) {
+                            if (storage.getRefreshToken() != refreshToken) false
+                            else {
+                                storage.saveTokens(newAccess, newRefresh)
+                                true
+                            }
+                        }
                     } else {
                         false
                     }
                 } else {
                     false
+                }
+                } finally {
+                    connection.disconnect()
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Refresh token error: ${e.message}")
