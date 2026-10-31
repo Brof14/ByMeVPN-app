@@ -288,9 +288,8 @@ fun HomeScreen(
                 onRefresh = { scope.launch { vpnManager.loadServers() } },
                 onSelectAuto = {
                     isAutoServerSelected = true
-                    if (availableServers.isNotEmpty()) {
-                        vpnManager.selectServer(availableServers.first())
-                    }
+                    // "Automatic" must measure latency, not silently take the first row.
+                    scope.launch { vpnManager.autoSelectFastestServer() }
                 },
                 onSelectServer = { server ->
                     isAutoServerSelected = false
@@ -670,7 +669,7 @@ private fun HomeDisconnectedContent(
                             )
                         }
                         Text(
-                            text = if (isRu) "Выбрано автоматически" else "Selected automatically",
+                            text = if (isRu) "Текущий сервер" else "Current server",
                             color = Color(0xFF81999B),
                             fontSize = 11.sp
                         )
@@ -1190,7 +1189,7 @@ private fun HomeConnectionErrorContent(
                             )
                         }
                         Text(
-                            text = if (isRu) "Выбрано автоматически" else "Selected automatically",
+                            text = if (isRu) "Текущий сервер" else "Current server",
                             color = Color(0xFF81999B),
                             fontSize = 11.sp
                         )
