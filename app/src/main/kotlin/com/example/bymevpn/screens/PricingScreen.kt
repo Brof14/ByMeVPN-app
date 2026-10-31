@@ -72,25 +72,12 @@ private fun PlanDuration.apiCode(): String = when (this) {
     PlanDuration.Month15 -> "12m"
 }
 
-/** Preview only. Checkout must use the server-confirmed /plans price. */
+/** Only a server-confirmed v2 plan with an exact device tier can be purchased. */
 internal fun PlanDuration.matchesConfirmedPlan(plan: PlanItem, devices: Int): Boolean =
-    plan.code == apiCode() &&
+    plan.code == "${apiCode()}_d$devices" &&
         plan.devices == devices &&
         plan.days == totalDays &&
         plan.priceRub > 0
-
-internal fun PlanDuration.referencePriceRub(devices: Int): Int {
-    require(devices in setOf(2, 5, 10))
-    val months = when (this) {
-        PlanDuration.Month1 -> 1
-        PlanDuration.Month4 -> 3
-        PlanDuration.Month8 -> 6
-        PlanDuration.Month15 -> 12
-    }
-    val baseMonthly = when (months) { 1 -> 89; 3 -> 79; 6 -> 69; else -> 59 }
-    val extraMonthly = when (devices) { 5 -> 20; 10 -> 40; else -> 0 }
-    return (baseMonthly + extraMonthly) * (totalDays / 30)
-}
 
 @Composable
 fun PricingScreen(
@@ -131,8 +118,7 @@ fun PricingScreen(
     // Only a server-confirmed exact plan is eligible for actual checkout.
     val currentPlan = serverPlans.firstOrNull { selectedPlan.matchesConfirmedPlan(it, selectedDeviceCount) }
     val currentPrice = currentPlan?.priceRub ?: 0
-    val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽"
-        else "≈ ${selectedPlan.referencePriceRub(selectedDeviceCount)} ₽"
+    val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽" else t("Цена не подтверждена", "Price not confirmed")
 
     val perMonthPrice = when (selectedPlan) {
         PlanDuration.Month1 -> currentPrice
@@ -279,7 +265,7 @@ fun PricingScreen(
                     val verifiedPrice = serverPlans.firstOrNull {
                         plan.matchesConfirmedPlan(it, selectedDeviceCount)
                     }?.priceRub
-                    val priceForPlan = verifiedPrice ?: plan.referencePriceRub(selectedDeviceCount)
+                    val priceForPlan = verifiedPrice ?: 0
 
                     val monthlyRate = when (plan) {
                         PlanDuration.Month1 -> priceForPlan
@@ -325,7 +311,7 @@ fun PricingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (verifiedPrice == null) t("Предварительно · $monthlyRate ₽/мес.", "Estimate · $monthlyRate RUB/month") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
+                                text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )
@@ -336,7 +322,7 @@ fun PricingScreen(
                                 horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
                                 Text(
-                                    text = if (verifiedPrice != null) "$priceForPlan ₽" else "≈ $priceForPlan ₽",
+                                    text = if (verifiedPrice != null) "$priceForPlan ₽" else "—",
                                     color = AppColors.TextPrimary,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Bold,

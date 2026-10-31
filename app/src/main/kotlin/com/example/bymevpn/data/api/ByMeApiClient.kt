@@ -198,7 +198,7 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun getPlans(devices: Int = 2): List<PlanItem> {
         require(devices in setOf(2, 5, 10)) { "Unsupported device limit" }
-        val json = request("GET", "/plans?devices=$devices", null, requiresAuth = false)
+        val json = request("GET", "/mobile/v2/plans?devices=$devices", null, requiresAuth = true)
         val array = if (json.has("raw_array")) {
             json.getJSONArray("raw_array")
         } else if (json.has("plans")) {
@@ -222,24 +222,19 @@ class ByMeApiClient(private val context: Context) {
             val days = p.optInt("days", 30)
             val period = when {
                 days <= 30 -> "1 месяц"
-                days <= 90 -> "3 месяца"
-                days <= 180 -> "6 месяцев"
-                days <= 365 -> "1 год"
+                days <= 120 -> "4 месяца"
+                days <= 240 -> "8 месяцев"
+                days <= 450 -> "15 месяцев"
                 else -> "$days дней"
             }
-            val discount = when (code) {
-                "quarter" -> 15
-                "half_year" -> 30
-                "year" -> 45
-                else -> p.optInt("discount_percent", 0)
-            }
+            val discount = p.optInt("discount_percent", 0)
             list.add(
                 PlanItem(
                     code = code,
                     name = name,
                     price = price,
                     period = period,
-                    isPopular = code == "half_year" || code == "quarter" || p.optBoolean("is_popular", false),
+                    isPopular = p.optBoolean("is_popular", false),
                     discountPercent = discount,
                     priceRub = priceRub,
                     days = days,
@@ -338,21 +333,15 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun createPayment(
         planCode: String,
-        amountRub: Int,
-        days: Int,
-        devices: Int = 2,
         provider: String = "yookassa",
         requestId: String = UUID.randomUUID().toString()
     ): PaymentCreateResponse {
         val body = JSONObject().apply {
             put("plan_code", planCode)
             put("request_id", requestId)
-            put("amount_rub", amountRub)
-            put("days", days)
-            put("devices", devices)
             put("provider", provider)
         }
-        val json = request("POST", "/payment/create", body, requiresAuth = true)
+        val json = request("POST", "/mobile/v2/payment/create", body, requiresAuth = true)
         return PaymentCreateResponse(
             paymentUrl = json.optString("payment_url"),
             provider = json.optString("provider", provider),
@@ -363,7 +352,7 @@ class ByMeApiClient(private val context: Context) {
     suspend fun checkPayment(invoiceId: String, provider: String): PaymentCheckResult {
         val encodedInvoiceId = java.net.URLEncoder.encode(invoiceId, "UTF-8")
         val encodedProvider = java.net.URLEncoder.encode(provider, "UTF-8")
-        val json = request("GET", "/payment/check?invoice_id=$encodedInvoiceId&provider=$encodedProvider", null, requiresAuth = true)
+        val json = request("GET", "/mobile/v2/payment/check?invoice_id=$encodedInvoiceId&provider=$encodedProvider", null, requiresAuth = true)
         val status = json.optString("status", "none")
         val isActive = json.optBoolean("is_active", false)
         val subObj = json.optJSONObject("subscription")
