@@ -16,6 +16,7 @@ import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.UUID
 
 /**
  * Production-ready HTTP client communicating directly with the ByMeVPN backend.
@@ -320,10 +321,12 @@ class ByMeApiClient(private val context: Context) {
         amountRub: Int,
         days: Int,
         devices: Int = 2,
-        provider: String = "yookassa"
+        provider: String = "yookassa",
+        requestId: String = UUID.randomUUID().toString()
     ): PaymentCreateResponse {
         val body = JSONObject().apply {
             put("plan_code", planCode)
+            put("request_id", requestId)
             put("amount_rub", amountRub)
             put("days", days)
             put("devices", devices)
@@ -337,8 +340,10 @@ class ByMeApiClient(private val context: Context) {
         )
     }
 
-    suspend fun checkPayment(): PaymentCheckResult {
-        val json = request("GET", "/payment/check", null, requiresAuth = true)
+    suspend fun checkPayment(invoiceId: String, provider: String): PaymentCheckResult {
+        val encodedInvoiceId = java.net.URLEncoder.encode(invoiceId, "UTF-8")
+        val encodedProvider = java.net.URLEncoder.encode(provider, "UTF-8")
+        val json = request("GET", "/payment/check?invoice_id=$encodedInvoiceId&provider=$encodedProvider", null, requiresAuth = true)
         val status = json.optString("status", "none")
         val isActive = json.optBoolean("is_active", false)
         val subObj = json.optJSONObject("subscription")
@@ -374,6 +379,19 @@ class ByMeApiClient(private val context: Context) {
                 doInput = true
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
+                val installId = storage.getInstallId(context)
+                if (installId.isNotBlank()) {
+                    setRequestProperty("X-HWID", installId)
+                }
+                setRequestProperty("X-Device-OS", "Android")
+                setRequestProperty(
+                    "X-Ver-OS",
+                    android.os.Build.VERSION.RELEASE?.ifBlank { "unknown" } ?: "unknown"
+                )
+                setRequestProperty(
+                    "X-Device-Model",
+                    storage.getDeviceModel().ifBlank { "Android device" }
+                )
 
                 if (requiresAuth) {
                     val token = storage.getAccessToken()

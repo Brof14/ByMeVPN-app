@@ -306,11 +306,8 @@ object ApiJsonParsers {
             }
             val platform = obj.optString("platform", "Android")
             val lastActive = obj.optString("last_seen_at", obj.optString("last_active", "Just now"))
-            val isCurrent = if (!currentInstallId.isNullOrBlank()) {
-                installId == currentInstallId
-            } else {
-                obj.optBoolean("is_current", obj.optBoolean("is_active", false))
-            }
+            val isCurrent = obj.optBoolean("is_current", false) || obj.optBoolean("is_active", false) ||
+                (!currentInstallId.isNullOrBlank() && installId == currentInstallId)
             list.add(
                 DeviceItem(
                     id = idStr,
