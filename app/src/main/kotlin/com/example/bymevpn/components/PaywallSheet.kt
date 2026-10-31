@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.payment.PlanTariff
@@ -71,6 +72,7 @@ fun PaywallSheet(
     var selectedPlan by remember { mutableStateOf<PlanTariff?>(null) }
     var plansLoading by remember { mutableStateOf(true) }
     var plansUnavailable by remember { mutableStateOf(false) }
+    var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
     var isActivatingTrial by remember { mutableStateOf(false) }
     var isProcessingPayment by remember { mutableStateOf(false) }
 
@@ -78,8 +80,9 @@ fun PaywallSheet(
         try {
             serverPlans = ByMeApiClient(context).getPlans(devices = 2)
             plansUnavailable = serverPlans.isEmpty()
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             plansUnavailable = true
+            mobileCatalogNotDeployed = (e as? ApiError)?.httpStatusCode == 404
         } finally {
             plansLoading = false
         }
@@ -316,7 +319,11 @@ fun PaywallSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                 } else if (plansUnavailable || tariffOptions.isEmpty()) {
                     Text(
-                        text = if (isRu) "Тарифы временно недоступны. Попробуйте позже." else "Plans are temporarily unavailable. Please try again later.",
+                        text = if (mobileCatalogNotDeployed) {
+                            if (isRu) "Сервер тарифов ещё не обновлён. Оплата пока недоступна." else "The server has not enabled mobile plans yet. Checkout is unavailable."
+                        } else {
+                            if (isRu) "Тарифы временно недоступны. Попробуйте позже." else "Plans are temporarily unavailable. Please try again later."
+                        },
                         color = AppColors.TextSecondary,
                         fontSize = 12.sp,
                         modifier = Modifier.fillMaxWidth()
