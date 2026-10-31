@@ -33,6 +33,7 @@ import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.components.SmartphoneIcon
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 
@@ -48,6 +49,8 @@ fun DevicesScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
     val devicesList by AccountRepository.userDevices.collectAsState()
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
 
     val effectiveMax = subscription?.maxDevices?.takeIf { it > 0 }
     val effectiveConnected = devicesList.size
@@ -59,7 +62,7 @@ fun DevicesScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ByMeTopBar(
-                title = "Мои устройства",
+                title = if (isRu) "Мои устройства" else "My devices",
                 onBackClick = onBackClick,
                 onMoreClick = null
             )
@@ -80,7 +83,7 @@ fun DevicesScreen(
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = effectiveMax?.let { " из $it" } ?: "",
+                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
                         color = Color(0xFF6EDBB0),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -89,15 +92,17 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = if (devicesList.isEmpty()) "Данные об устройствах недоступны" else "Устройств в ответе сервера",
+                    text = if (devicesList.isEmpty()) {
+                        if (isRu) "Данные об устройствах недоступны" else "Device information unavailable"
+                    } else if (isRu) "Устройств в ответе сервера" else "Devices reported by the server",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
 
                 if (devicesList.none { it.isCurrent }) {
-                    Text("Этот телефон · ${android.os.Build.MODEL}", color = AppColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Текущее устройство. Регистрация на сервере не подтверждена.", color = Color(0xFF92A9A5), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                    Text(if (isRu) "Этот телефон · ${android.os.Build.MODEL}" else "This phone · ${android.os.Build.MODEL}", color = AppColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (isRu) "Регистрация этого устройства на сервере не подтверждена." else "Server registration for this device is not confirmed.", color = Color(0xFF92A9A5), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
                 }
 
                 // List of Devices
@@ -126,7 +131,9 @@ fun DevicesScreen(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (dev.isCurrent) "Этот телефон (${dev.deviceModel})" else dev.deviceModel,
+                                    text = if (dev.isCurrent) {
+                                        if (isRu) "Этот телефон (${dev.deviceModel})" else "This phone (${dev.deviceModel})"
+                                    } else dev.deviceModel,
                                     color = Color(0xFFEAF1EF),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -147,7 +154,7 @@ fun DevicesScreen(
                                         .padding(horizontal = 9.dp, vertical = 6.dp)
                                 ) {
                                     Text(
-                                        text = "Вы здесь",
+                                        text = if (isRu) "Вы здесь" else "This device",
                                         color = Color(0xFF65E3B1),
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Medium
@@ -158,7 +165,7 @@ fun DevicesScreen(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 } else {
-                    Text("Список устройств не подтверждён сервером.", color = AppColors.TextPrimary, fontSize = 14.sp)
+                    Text(if (isRu) "Список устройств не подтверждён сервером." else "The device list is not confirmed by the server.", color = AppColors.TextPrimary, fontSize = 14.sp)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -173,7 +180,7 @@ fun DevicesScreen(
                         .padding(18.dp)
                 ) {
                     Text(
-                        text = "ДОБАВИТЬ УСТРОЙСТВО",
+                        text = if (isRu) "ДОБАВИТЬ УСТРОЙСТВО" else "ADD A DEVICE",
                         color = Color(0xFF68B8A7),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -181,7 +188,8 @@ fun DevicesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь после регистрации на сервере.",
+                        text = if (isRu) "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь после регистрации на сервере."
+                            else "Sign in to ByMeVPN on another device with the same account. It will appear here once registered with the server.",
                         color = Color(0xFF9DB6AC),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp
