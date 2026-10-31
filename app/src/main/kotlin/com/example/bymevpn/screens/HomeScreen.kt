@@ -107,9 +107,16 @@ fun HomeScreen(
     }
 
     // Servers must be ready before the user taps "connect", not after it.
+    // A temporary API failure is retried with a small backoff instead of leaving
+    // the screen empty until the user finds the refresh button.
     LaunchedEffect(hasPlan, availableServers.isEmpty()) {
-        if (hasPlan && availableServers.isEmpty()) {
+        if (!hasPlan || availableServers.isNotEmpty()) return@LaunchedEffect
+        var attempt = 0
+        while (attempt < 3 && vpnManager.availableServers.value.isEmpty()) {
             vpnManager.loadServers()
+            if (vpnManager.availableServers.value.isNotEmpty()) break
+            attempt++
+            if (attempt < 3) kotlinx.coroutines.delay(if (attempt == 1) 8_000L else 30_000L)
         }
     }
 
@@ -604,7 +611,7 @@ private fun HomeDisconnectedContent(
                     .clip(RoundedCornerShape(20.dp))
                     .background(Color(0xFF111B1E))
                     .border(1.dp, Color(0xFF263E41), RoundedCornerShape(20.dp))
-                    .clickable(onClick = onServerSelectClick)
+                    .clickable(onClick = if (currentServer == null) onRefreshServers else onServerSelectClick)
                     .padding(horizontal = 19.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -669,7 +676,11 @@ private fun HomeDisconnectedContent(
                             )
                         }
                         Text(
-                            text = if (isRu) "Текущий сервер" else "Current server",
+                            text = when {
+                                currentServer == null -> serversError ?: if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
+                                isRu -> "Текущий сервер"
+                                else -> "Current server"
+                            },
                             color = Color(0xFF81999B),
                             fontSize = 11.sp
                         )
@@ -685,15 +696,6 @@ private fun HomeDisconnectedContent(
                 ) {
                     ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
                 }
-            }
-
-            if (currentServer == null) {
-                ServerLoadStatusRow(
-                    isRu = isRu,
-                    error = serversError,
-                    isLoading = isLoadingServers,
-                    onRefresh = onRefreshServers
-                )
             }
 
             // Subscription access strip
@@ -913,15 +915,6 @@ private fun HomeConnectedContent(
                 ) {
                     ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
                 }
-            }
-
-            if (currentServer == null) {
-                ServerLoadStatusRow(
-                    isRu = isRu,
-                    error = serversError,
-                    isLoading = isLoadingServers,
-                    onRefresh = onRefreshServers
-                )
             }
 
             // Subscription access strip

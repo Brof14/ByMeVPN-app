@@ -62,8 +62,10 @@ data class SubscriptionStatus(
     val isActive: Boolean
         get() = isUsable
     fun daysRemainingAt(nowMillis: Long): Long? {
-        if (secondsRemaining <= 0 || nowMillis < lastFetchedAt) return null
-        val elapsedSeconds = (nowMillis - lastFetchedAt) / 1000
+        if (secondsRemaining <= 0) return null
+        // A slightly slower wall clock right after a fetch must not hide the remaining
+        // duration: treat a negative elapsed time as "just synced".
+        val elapsedSeconds = ((nowMillis - lastFetchedAt).coerceAtLeast(0L)) / 1000
         val remaining = (secondsRemaining - elapsedSeconds).coerceAtLeast(0)
         return if (remaining > 0) (remaining - 1) / 86400 + 1 else null
     }
