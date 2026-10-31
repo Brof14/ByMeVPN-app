@@ -16,6 +16,8 @@ class SubscriptionStatusTest {
         assertEquals(2L, sub.daysRemainingAt(1_000))
         assertEquals(1L, sub.daysRemainingAt(2_000))
         assertNull(sub.daysRemainingAt(86_402_000))
+        assertFalse(sub.knownExpiryReached(86_401_999))
+        assertTrue(sub.knownExpiryReached(86_402_000))
         assertNull(sub.daysRemainingAt(999))
         assertNull(SubscriptionStatus(status = "active").daysRemainingAt(System.currentTimeMillis()))
     }

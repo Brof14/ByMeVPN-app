@@ -67,6 +67,9 @@ data class SubscriptionStatus(
         val remaining = (secondsRemaining - elapsedSeconds).coerceAtLeast(0)
         return if (remaining > 0) (remaining - 1) / 86400 + 1 else null
     }
+    fun knownExpiryReached(nowMillis: Long): Boolean =
+        secondsRemaining > 0 && nowMillis >= lastFetchedAt &&
+            (nowMillis - lastFetchedAt) / 1000 >= secondsRemaining
 }
 
 data class PlanItem(

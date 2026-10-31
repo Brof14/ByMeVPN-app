@@ -62,11 +62,13 @@ class SubscriptionManager private constructor(private val context: Context) {
         val current = _subscriptionStatus.value ?: storage.getCachedSubscription() ?: return false
         if (!current.isUsable) return false
 
-        val elapsedSinceSync = System.currentTimeMillis() - current.lastFetchedAt
-        if (elapsedSinceSync > ApiConfig.MAX_OFFLINE_DURATION_MS) {
-            Log.w(TAG, "Offline limit of 72 hours exceeded. Requires online sync.")
+        val now = System.currentTimeMillis()
+        val elapsedSinceSync = now - current.lastFetchedAt
+        if (elapsedSinceSync < 0 || elapsedSinceSync > ApiConfig.MAX_OFFLINE_DURATION_MS) {
+            Log.w(TAG, "Offline entitlement requires an online sync.")
             return false
         }
+        if (current.knownExpiryReached(now)) return false
 
         // Verify ES256 JWT entitlement if present
         val token = current.entitlement
