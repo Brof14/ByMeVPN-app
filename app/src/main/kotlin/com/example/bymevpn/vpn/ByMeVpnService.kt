@@ -269,12 +269,9 @@ class ByMeVpnService : VpnService() {
                 }
             }
 
-            // Exclude self package from VPN tunnel to prevent network loops
-            try {
-                builder.addDisallowedApplication(packageName)
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not disallow self package: ${e.message}")
-            }
+            // The core opens sockets from this package. Without this exclusion they
+            // would enter their own TUN, so failure must abort tunnel creation.
+            builder.addDisallowedApplication(packageName)
 
             tunInterface?.close()
             val fd = builder.establish()
