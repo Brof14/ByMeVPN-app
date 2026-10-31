@@ -97,7 +97,8 @@ fun PaywallSheet(
             pricePerMonthRub = if (plan.days > 0) plan.priceRub * 30 / plan.days else plan.priceRub,
             discountPercent = plan.discountPercent,
             isBestValue = plan.isPopular,
-            days = plan.days
+            days = plan.days,
+            checkoutEnabled = plan.purchaseEnabled
         )
     }
     LaunchedEffect(serverPlans) {
@@ -359,7 +360,7 @@ fun PaywallSheet(
                                 listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
                             )
                         )
-                        .clickable(enabled = !isProcessingPayment && !plansLoading && selectedPlan != null) {
+                        .clickable(enabled = !isProcessingPayment && !plansLoading && selectedPlan?.checkoutEnabled == true) {
                             isProcessingPayment = true
                             YooKassaPaymentHandler.openCheckout(
                                 context = context,
@@ -377,7 +378,11 @@ fun PaywallSheet(
                             Text("⚡", fontSize = 16.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isRu) "Оплатить через ЮKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}" else "Pay via YooKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}",
+                                text = if (selectedPlan?.checkoutEnabled == true) {
+                                    if (isRu) "Оплатить через ЮKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}" else "Pay via YooKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}"
+                                } else {
+                                    if (isRu) "Оплата временно недоступна" else "Checkout temporarily unavailable"
+                                },
                                 color = AppColors.DarkText,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.ExtraBold

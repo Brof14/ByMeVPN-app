@@ -461,11 +461,12 @@ fun PricingScreen(
                 ByMePrimaryButton(
                     text = when {
                         isPaying -> t("Открываем оплату…", "Opening checkout…")
-                        currentPrice > 0 -> t("Оплатить · $currentPrice ₽", "Pay · $currentPrice RUB")
+                        currentPrice > 0 && currentPlan?.purchaseEnabled == true -> t("Оплатить · $currentPrice ₽", "Pay · $currentPrice RUB")
+                        currentPrice > 0 -> t("Оплата временно недоступна", "Checkout temporarily unavailable")
                         plansLoading -> t("Загружаем тарифы…", "Loading plans…")
                         else -> t("Оплата пока недоступна", "Payment unavailable")
                     },
-                    enabled = currentPlan != null && !isPaying,
+                    enabled = currentPlan != null && currentPlan.purchaseEnabled && !isPaying,
                     onClick = {
                         val confirmed = currentPlan ?: return@ByMePrimaryButton
                         isPaying = true

@@ -32,4 +32,29 @@ class PaymentPlanValidationTest {
         assertFalse(PlanDuration.Month15.matchesConfirmedPlan(verified.copy(code = "unknown"), 5))
         assertFalse(PlanDuration.Month15.matchesConfirmedPlan(verified.copy(code = "12m_d10"), 5))
     }
+
+    @Test
+    fun planParserKeepsPricesVisibleButRequiresExplicitCheckoutCapability() {
+        val disabled = ApiJsonParsers.parsePlans(org.json.JSONObject("""
+            {"payment_enabled":false,"plans":[{"code":"12m_d5","name":"12+3","price_rub":1185,"days":450,"devices":5}]}
+        """.trimIndent())).single()
+        assertEquals(1185, disabled.priceRub)
+        assertFalse(disabled.purchaseEnabled)
+        assertTrue(PlanDuration.Month15.matchesConfirmedPlan(disabled, 5))
+
+        val enabled = ApiJsonParsers.parsePlans(org.json.JSONObject("""
+            {"payment_enabled":true,"plans":[{"code":"12m_d5","name":"12+3","price_rub":1185,"days":450,"devices":5}]}
+        """.trimIndent())).single()
+        assertTrue(enabled.purchaseEnabled)
+        assertTrue(PlanDuration.Month15.matchesConfirmedPlan(enabled, 5))
+    }
+
+    @Test
+    fun missingCheckoutCapabilityDefaultsToDisabled() {
+        val plan = ApiJsonParsers.parsePlans(org.json.JSONObject("""
+            {"plans":[{"code":"12m_d5","name":"12+3","price_rub":1185,"days":450,"devices":5}]}
+        """.trimIndent())).single()
+        assertEquals(1185, plan.priceRub)
+        assertFalse(plan.purchaseEnabled)
+    }
 }

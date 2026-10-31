@@ -199,50 +199,7 @@ class ByMeApiClient(private val context: Context) {
     suspend fun getPlans(devices: Int = 2): List<PlanItem> {
         require(devices in setOf(2, 5, 10)) { "Unsupported device limit" }
         val json = request("GET", "/mobile/v2/plans?devices=$devices", null, requiresAuth = true)
-        val array = if (json.has("raw_array")) {
-            json.getJSONArray("raw_array")
-        } else if (json.has("plans")) {
-            json.getJSONArray("plans")
-        } else {
-            try {
-                val rawStr = json.optString("raw")
-                if (rawStr.isNotBlank()) JSONArray(rawStr) else JSONArray()
-            } catch (e: Exception) {
-                JSONArray()
-            }
-        }
-
-        val list = mutableListOf<PlanItem>()
-        for (i in 0 until array.length()) {
-            val p = array.getJSONObject(i)
-            val code = p.optString("code", "")
-            val name = p.optString("name", code)
-            val priceRub = p.optInt("price_rub", 0)
-            val price = if (priceRub > 0) "$priceRub ₽" else p.optString("price", "89 ₽")
-            val days = p.optInt("days", 30)
-            val period = when {
-                days <= 30 -> "1 месяц"
-                days <= 120 -> "4 месяца"
-                days <= 240 -> "8 месяцев"
-                days <= 450 -> "15 месяцев"
-                else -> "$days дней"
-            }
-            val discount = p.optInt("discount_percent", 0)
-            list.add(
-                PlanItem(
-                    code = code,
-                    name = name,
-                    price = price,
-                    period = period,
-                    isPopular = p.optBoolean("is_popular", false),
-                    discountPercent = discount,
-                    priceRub = priceRub,
-                    days = days,
-                    devices = p.optInt("devices", 2)
-                )
-            )
-        }
-        return list
+        return ApiJsonParsers.parsePlans(json)
     }
 
     // -------------------------------------------------------------
