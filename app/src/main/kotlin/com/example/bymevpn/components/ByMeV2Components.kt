@@ -274,7 +274,7 @@ fun ByMePrimaryButton(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(17.dp))
-            .background(AppGradients.PrimaryButton)
+            .background(if (enabled) AppGradients.PrimaryButton else androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFF25364A), Color(0xFF253B4D))))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(horizontal = 20.dp)
             .testTag("primary_button"),
@@ -282,14 +282,14 @@ fun ByMePrimaryButton(
     ) {
         Text(
             text = text,
-            color = AppColors.BrandMintDark,
+            color = if (enabled) AppColors.BrandMintDark else AppColors.TextSecondary,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.2).sp
         )
         if (showArrow) {
             Box(modifier = Modifier.align(Alignment.CenterEnd)) {
-                ChevronRightIcon(color = AppColors.BrandMintDark, size = 18.dp)
+                ChevronRightIcon(color = if (enabled) AppColors.BrandMintDark else AppColors.TextMuted, size = 18.dp)
             }
         }
     }
