@@ -90,7 +90,7 @@ fun HomeScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
 
-    val hasPlan = subscription?.isActive == true
+    val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
 
     var showServerSheet by remember { mutableStateOf(false) }

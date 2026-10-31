@@ -72,7 +72,7 @@ fun AccountScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
     val devices by AccountRepository.userDevices.collectAsState()
 
-    val isActive = subscription?.isActive == true
+    val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.size
