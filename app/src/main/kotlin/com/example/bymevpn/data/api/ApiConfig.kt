@@ -41,7 +41,8 @@ MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbymevpnServerPublicKeyPlaceholderPlaceholder
  */
 data class ApiError(
     val code: String,
-    override val message: String
+    override val message: String,
+    val httpStatusCode: Int? = null
 ) : Exception("[$code] $message") {
     companion object {
         fun fromJson(jsonStr: String): ApiError {
