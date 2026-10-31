@@ -87,14 +87,14 @@ fun DevicesScreen(
                 // Large device count display matching mockup 15_devices
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = if (devicesList.isEmpty()) "—" else "$effectiveConnected",
+                        text = "$effectiveConnected",
                         color = AppColors.TextPrimary,
                         fontSize = 60.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
+                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: (if (isRu) " / ?" else " / ?"),
                         color = Color(0xFF80D3C6),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -103,13 +103,23 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = if (devicesList.isEmpty()) {
-                        if (isRu) "Данные об устройствах недоступны" else "Device information unavailable"
-                    } else if (isRu) "Устройств в ответе сервера" else "Devices reported by the server",
+                    text = if (effectiveMax == null) {
+                        if (isRu) "Лимит подписки пока не подтверждён сервером" else "Subscription device limit not yet confirmed by the server"
+                    } else if (isRu) "Зарегистрировано устройств · лимит $effectiveMax" else "Registered devices · limit $effectiveMax",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
+
+                if (effectiveMax != null) {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { (effectiveConnected.toFloat() / effectiveMax).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(4.dp),
+                        color = AppColors.BrandMint,
+                        trackColor = AppColors.CardBorder
+                    )
+                    Spacer(Modifier.height(20.dp))
+                }
 
                 val currentDevice = devicesList.firstOrNull { it.isCurrent }
                 val localModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
