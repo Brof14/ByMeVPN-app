@@ -325,8 +325,8 @@ class VpnManager private constructor(private val context: Context) {
 
             val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
             val message = if (isRu)
-                "Серверы не получены. Проверьте интернет и обновите список."
-            else "No servers received. Check your connection and refresh the list."
+                "Сервис не вернул список серверов. Повторите попытку позже."
+            else "The service returned no servers. Try again a little later."
             serverLoadFailure(message)
         } catch (e: CancellationException) {
             throw e

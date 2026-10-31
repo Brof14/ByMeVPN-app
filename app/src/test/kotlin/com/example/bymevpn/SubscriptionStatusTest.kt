@@ -18,7 +18,8 @@ class SubscriptionStatusTest {
         assertNull(sub.daysRemainingAt(86_402_000))
         assertFalse(sub.knownExpiryReached(86_401_999))
         assertTrue(sub.knownExpiryReached(86_402_000))
-        assertNull(sub.daysRemainingAt(999))
+        // A clock slightly behind the last sync must still show the full remaining days.
+        assertEquals(2L, sub.daysRemainingAt(999))
         assertNull(SubscriptionStatus(status = "active").daysRemainingAt(System.currentTimeMillis()))
     }
 
