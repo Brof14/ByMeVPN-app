@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +42,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.api.ByMeApiClient
+import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.payment.PlanTariff
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.theme.AppColors
@@ -64,9 +67,41 @@ fun PaywallSheet(
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
 
-    var selectedPlan by remember { mutableStateOf(YooKassaPaymentHandler.TARIFFS.first()) }
+    var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
+    var selectedPlan by remember { mutableStateOf<PlanTariff?>(null) }
+    var plansLoading by remember { mutableStateOf(true) }
+    var plansUnavailable by remember { mutableStateOf(false) }
     var isActivatingTrial by remember { mutableStateOf(false) }
     var isProcessingPayment by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        try {
+            serverPlans = ByMeApiClient(context).getPlans(devices = 2)
+            plansUnavailable = serverPlans.isEmpty()
+        } catch (_: Exception) {
+            plansUnavailable = true
+        } finally {
+            plansLoading = false
+        }
+    }
+
+    val tariffOptions = serverPlans.map { plan ->
+        PlanTariff(
+            code = plan.code,
+            name = plan.name,
+            period = plan.period,
+            priceRub = plan.priceRub,
+            pricePerMonthRub = if (plan.days > 0) plan.priceRub * 30 / plan.days else plan.priceRub,
+            discountPercent = plan.discountPercent,
+            isBestValue = plan.isPopular,
+            days = plan.days
+        )
+    }
+    LaunchedEffect(serverPlans) {
+        if (selectedPlan == null || tariffOptions.none { it.code == selectedPlan?.code }) {
+            selectedPlan = tariffOptions.firstOrNull()
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismissRequest,
@@ -265,8 +300,8 @@ fun PaywallSheet(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 // Plans list
-                YooKassaPaymentHandler.TARIFFS.forEach { plan ->
-                    val isSelected = selectedPlan.code == plan.code
+                tariffOptions.forEach { plan ->
+                    val isSelected = selectedPlan?.code == plan.code
                     PlanCard(
                         plan = plan,
                         isSelected = isSelected,
@@ -274,6 +309,18 @@ fun PaywallSheet(
                         onClick = { selectedPlan = plan }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (plansLoading) {
+                    CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
+                } else if (plansUnavailable || tariffOptions.isEmpty()) {
+                    Text(
+                        text = if (isRu) "Тарифы временно недоступны. Попробуйте позже." else "Plans are temporarily unavailable. Please try again later.",
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -305,11 +352,11 @@ fun PaywallSheet(
                                 listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
                             )
                         )
-                        .clickable(enabled = !isProcessingPayment) {
+                        .clickable(enabled = !isProcessingPayment && !plansLoading && selectedPlan != null) {
                             isProcessingPayment = true
                             YooKassaPaymentHandler.openCheckout(
                                 context = context,
-                                tariff = selectedPlan,
+                                tariff = selectedPlan!!,
                                 onCheckoutFailed = { isProcessingPayment = false },
                                 onCheckoutLaunched = { isProcessingPayment = false }
                             )
@@ -323,7 +370,7 @@ fun PaywallSheet(
                             Text("⚡", fontSize = 16.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isRu) "Оплатить через ЮKassa • ${selectedPlan.priceRub} ₽" else "Pay via YooKassa • ${selectedPlan.priceRub} ₽",
+                                text = if (isRu) "Оплатить через ЮKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}" else "Pay via YooKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}",
                                 color = AppColors.DarkText,
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.ExtraBold

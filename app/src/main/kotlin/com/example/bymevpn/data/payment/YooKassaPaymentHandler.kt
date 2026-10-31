@@ -42,51 +42,6 @@ object YooKassaPaymentHandler {
 
     private const val TAG = "YooKassaPaymentHandler"
 
-    val TARIFFS = listOf(
-        PlanTariff(
-            code = "12m",
-            name = "15 месяцев (12+3)",
-            period = "15 месяцев",
-            priceRub = 885,
-            pricePerMonthRub = 59,
-            discountPercent = 34,
-            isBestValue = true,
-            days = 450,
-            badge = "ЛУЧШАЯ ЦЕНА · 59 ₽/мес."
-        ),
-        PlanTariff(
-            code = "6m",
-            name = "8 месяцев (6+2)",
-            period = "8 месяцев",
-            priceRub = 552,
-            pricePerMonthRub = 69,
-            discountPercent = 22,
-            isBestValue = false,
-            days = 240,
-            badge = "ВЫГОДНО"
-        ),
-        PlanTariff(
-            code = "3m",
-            name = "4 месяца (3+1)",
-            period = "4 месяца",
-            priceRub = 316,
-            pricePerMonthRub = 79,
-            discountPercent = 11,
-            isBestValue = false,
-            days = 120
-        ),
-        PlanTariff(
-            code = "1m",
-            name = "1 месяц",
-            period = "1 месяц",
-            priceRub = 89,
-            pricePerMonthRub = 89,
-            discountPercent = 0,
-            isBestValue = false,
-            days = 30
-        )
-    )
-
     /**
      * Launches the YooKassa checkout flow via Chrome Custom Tabs or browser.
      */
@@ -107,9 +62,6 @@ object YooKassaPaymentHandler {
             val res = withContext(Dispatchers.IO) {
                 api.createPayment(
                     planCode = tariff.code,
-                    amountRub = tariff.priceRub,
-                    days = tariff.days,
-                    devices = devices,
                     provider = provider,
                     requestId = storage.getOrCreatePaymentRequestId(tariff.code, provider, devices, tariff.priceRub)
                 )
