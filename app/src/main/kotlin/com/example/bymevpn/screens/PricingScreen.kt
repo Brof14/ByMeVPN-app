@@ -325,7 +325,7 @@ fun PricingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (verifiedPrice == null) t("Предварительно · $monthlyRate ₽/мес.", "Estimate · $monthlyRate RUB/month") else if (plan == PlanDuration.Month1) "$monthlyRate ₽ за месяц" else "$monthlyRate ₽ / месяц ${plan.bonusSubtitle}",
+                                    text = if (verifiedPrice == null) t("Предварительно · $monthlyRate ₽/мес.", "Estimate · $monthlyRate RUB/month") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )
