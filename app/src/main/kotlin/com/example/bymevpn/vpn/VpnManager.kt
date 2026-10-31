@@ -13,7 +13,10 @@ import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +24,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlin.coroutines.coroutineContext
 
 /**
  * High-level VPN facade coordinating UI states, server selection, and Xray VLESS+Reality lifecycle.
@@ -56,7 +63,7 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
-    private val scope = CoroutineScope(Dispatchers.Main + Job())
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private val apiClient = ByMeApiClient(context)
     private val storage = SecureTokenStorage.getInstance(context)
     private val subscriptionManager = SubscriptionManager.getInstance(context)
@@ -75,6 +82,13 @@ class VpnManager private constructor(private val context: Context) {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    /** Human-readable reason why the server list could not be refreshed. */
+    private val _serversError = MutableStateFlow<String?>(null)
+    val serversError: StateFlow<String?> = _serversError.asStateFlow()
+
+    private val _isLoadingServers = MutableStateFlow(false)
+    val isLoadingServers: StateFlow<Boolean> = _isLoadingServers.asStateFlow()
+
     private val _bytesIn = MutableStateFlow(0L)
     val bytesIn: StateFlow<Long> = _bytesIn.asStateFlow()
 
@@ -92,6 +106,10 @@ class VpnManager private constructor(private val context: Context) {
 
     private var timerJob: Job? = null
     private var engineObserverJob: Job? = null
+    private var reconnectJob: Job? = null
+    private var connectionJob: Job? = null
+    @Volatile private var connectionRequested = false
+    private val serverLoadMutex = Mutex()
 
     init {
         scope.launch {
@@ -163,7 +181,8 @@ class VpnManager private constructor(private val context: Context) {
         val pings = com.example.bymevpn.data.PingTester.measureAllConcurrent(targets, timeoutMs = 1500)
         if (pings.isNotEmpty()) {
             withContext(Dispatchers.Main) {
-                val updated = servers.map { node ->
+                // The server list may have changed while the probes were in flight.
+                val updated = _availableServers.value.map { node ->
                     val p = pings[node.nodeCode]
                     if (p != null) node.copy(pingMs = if (p > 0) p else -2) else node
                 }
@@ -195,30 +214,86 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
-    suspend fun loadServers(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
+    suspend fun loadServers(): Result<List<ServerNode>> = serverLoadMutex.withLock {
+        _isLoadingServers.value = true
         try {
-            // 1. Load from subscription URL if set
+            loadServersLocked()
+        } finally {
+            _isLoadingServers.value = false
+        }
+    }
+
+    private fun serverLoadFailure(message: String, cause: Throwable? = null): Result<List<ServerNode>> {
+        _serversError.value = message
+        // Keep a previously delivered list: a failed refresh must not erase known servers.
+        if (_availableServers.value.isEmpty()) {
+            _currentServer.value = null
+        }
+        return Result.failure(cause ?: IllegalStateException(message))
+    }
+
+    private suspend fun loadServersLocked(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
+        try {
+            // 1. Show the last saved subscription list immediately, then refresh it in the background.
             val subUrl = storage.getSubscriptionUrl()
             if (!subUrl.isNullOrBlank()) {
                 val saved = storage.getServerNodes()
-                if (saved.isNotEmpty()) setServers(saved)
-                subscriptionManager.refreshStatus()
-                val refreshed = storage.getServerNodes()
-                if (refreshed.isNotEmpty()) {
-                    setServers(refreshed)
-                    return@withContext Result.success(refreshed)
+                if (saved.isNotEmpty()) {
+                    setServers(saved)
+                    _serversError.value = null
+                    scope.launch {
+                        if (subscriptionManager.refreshStatus().isSuccess) {
+                            val refreshed = storage.getServerNodes()
+                            if (refreshed.isNotEmpty()) {
+                                setServers(refreshed)
+                                _serversError.value = null
+                            }
+                        }
+                    }
+                    Log.d(TAG, "Serving saved subscription list (${saved.size} nodes)")
+                    return@withContext Result.success(saved)
+                }
+                // Nothing saved yet: refresh in the background so it cannot delay the API request below.
+                scope.launch { subscriptionManager.refreshStatus() }
+            }
+
+            // API-only accounts also need an offline list, scoped to the signed-in account.
+            val ownerId = storage.getCachedUser()?.id.orEmpty()
+            val apiCache = storage.getApiServerCache(ownerId)
+            if (apiCache != null) {
+                setServers(apiCache.nodes)
+                _serversError.value = null
+                if (subUrl.isNullOrBlank() && isServerCacheFresh(apiCache.savedAt, System.currentTimeMillis())) {
+                    Log.d(TAG, "Serving fresh cached API list (${apiCache.nodes.size} nodes)")
+                    return@withContext Result.success(apiCache.nodes)
                 }
             }
 
             // 2. Fetch directly from backend API
             val servers = try {
                 apiClient.getServers()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                Log.w(TAG, "Server list request failed: ${e.javaClass.simpleName}")
                 emptyList()
             }
+            if (ownerId.isNotBlank() && storage.getCachedUser()?.id != ownerId) {
+                return@withContext Result.failure(IllegalStateException("Account changed while loading servers"))
+            }
             if (servers.isNotEmpty()) {
+                if (ownerId.isNotBlank() && storage.getCachedUser()?.id == ownerId) {
+                    storage.saveApiServerCache(ownerId, servers, System.currentTimeMillis())
+                }
                 setServers(servers)
+                _serversError.value = null
+                Log.d(TAG, "Loaded ${servers.size} servers from the API")
                 return@withContext Result.success(servers)
+            }
+
+            if (apiCache != null && storage.getCachedUser()?.id == ownerId) {
+                Log.d(TAG, "API returned no servers; keeping cached list (${apiCache.nodes.size} nodes)")
+                return@withContext Result.success(apiCache.nodes)
             }
 
             // 3. Fallback to existing valid cached configs in local storage
@@ -244,15 +319,24 @@ class VpnManager private constructor(private val context: Context) {
                     }
                 }
                 setServers(localNodes)
+                _serversError.value = null
                 return@withContext Result.success(localNodes)
             }
 
-            _availableServers.value = emptyList()
-            _currentServer.value = null
-            Result.failure(Exception("Нет доступных серверов. Активируйте подписку или войдите через Telegram-бота."))
+            val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+            val message = if (isRu)
+                "Серверы не получены. Проверьте интернет и обновите список."
+            else "No servers received. Check your connection and refresh the list."
+            serverLoadFailure(message)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load servers: ${e.message}")
-            Result.failure(e)
+            Log.w(TAG, "Failed to load servers: ${e.javaClass.simpleName}")
+            val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+            serverLoadFailure(
+                if (isRu) "Не удалось обновить список серверов" else "Could not refresh the server list",
+                e
+            )
         }
     }
 
@@ -279,14 +363,16 @@ class VpnManager private constructor(private val context: Context) {
             return
         }
 
-        scope.launch {
-            _state.value = VpnConnectionState.CONNECTING
-            _errorMessage.value = null
+        connectionRequested = true
+        _state.value = VpnConnectionState.CONNECTING
+        _errorMessage.value = null
+        connectionJob = scope.launch {
 
             try {
                 // 1. Verify subscription entitlement
                 if (!subscriptionManager.canConnect()) {
                     subscriptionManager.refreshStatus()
+                    coroutineContext.ensureActive()
                     if (!subscriptionManager.canConnect()) {
                         _state.value = VpnConnectionState.ERROR
                         _errorMessage.value = "SUBSCRIPTION_REQUIRED"
@@ -311,7 +397,10 @@ class VpnManager private constructor(private val context: Context) {
                 // 3. Obtain VLESS+Reality session configuration from backend or local subscription store
                 val sessionConfig = storage.getServerConfig(targetServer.nodeCode) ?: try {
                     apiClient.createVpnSession(targetServer.nodeCode)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
+                    coroutineContext.ensureActive()
                     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
                     val rawMsg = e.message ?: ""
                     val msg = when {
@@ -334,13 +423,17 @@ class VpnManager private constructor(private val context: Context) {
                 }
 
                 // 4. Start foreground Android VpnService which builds TUN and launches native Xray-core
+                coroutineContext.ensureActive()
                 ByMeVpnService.start(
                     context = context,
                     server = targetServer,
                     sessionConfig = sessionConfig
                 )
 
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                coroutineContext.ensureActive()
                 Log.e(TAG, "Connect failed: ${e.message}", e)
                 ByMeVpnService.stop(context)
                 _state.value = VpnConnectionState.ERROR
@@ -354,6 +447,12 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelConnected(server: ServerNode?) {
         scope.launch(Dispatchers.Main) {
+            if (!connectionRequested) {
+                ByMeVpnService.stop(context)
+                return@launch
+            }
+            reconnectJob?.cancel()
+            reconnectJob = null
             if (server != null) {
                 val checked = server.copy(connectionCheck = 1)
                 _currentServer.value = checked
@@ -370,6 +469,7 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelFailed(error: String) {
         scope.launch(Dispatchers.Main) {
+            if (!connectionRequested) return@launch
             _currentServer.value?.let { failed ->
                 _currentServer.value = failed.copy(connectionCheck = -1)
                 _availableServers.value = _availableServers.value.map { if (it.nodeCode == failed.nodeCode) it.copy(connectionCheck = -1) else it }
@@ -380,13 +480,92 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
+    /** A live tunnel failed its periodic end-to-end check. Retry briefly when enabled. */
+    fun onTunnelConnectivityLost(server: ServerNode?) {
+        scope.launch(Dispatchers.Main) {
+            if (!connectionRequested || _state.value != VpnConnectionState.CONNECTED) return@launch
+
+            server?.let { _currentServer.value = it }
+            stopTimer()
+            reconnectJob?.cancel()
+            _state.value = VpnConnectionState.CONNECTING
+            reconnectJob = scope.launch(Dispatchers.Main) {
+                val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                val settings = settingsRepo.settingsFlow.first()
+                if (!settings.autoReconnect) {
+                    _state.value = VpnConnectionState.ERROR
+                    _errorMessage.value = if (isRu)
+                        "Связь с VPN потеряна. Проверьте интернет и подключитесь снова."
+                    else "VPN connection was lost. Check your internet and reconnect."
+                    return@launch
+                }
+                val retryDelaysSeconds = longArrayOf(2, 4, 8, 16, 30)
+                for (waitSeconds in retryDelaysSeconds) {
+                    if (!isNetworkAvailable()) {
+                        _state.value = VpnConnectionState.CONNECTING
+                        _errorMessage.value = if (isRu) "Ждём восстановления интернета…" else "Waiting for internet…"
+                    } else {
+                        _state.value = VpnConnectionState.CONNECTING
+                        _errorMessage.value = if (isRu) "Восстанавливаем VPN-соединение…" else "Reconnecting VPN…"
+                    }
+                    delay(waitSeconds * 1000)
+                    if (_state.value == VpnConnectionState.CONNECTED) return@launch
+
+                    _state.value = VpnConnectionState.DISCONNECTED
+                    connect()
+                    val outcome = withTimeoutOrNull(90_000) {
+                        state.first { it == VpnConnectionState.CONNECTED || it == VpnConnectionState.ERROR }
+                    }
+                    if (outcome == VpnConnectionState.CONNECTED) return@launch
+                    if (outcome == null) {
+                        // Never start another tunnel while the previous start is still pending.
+                        connectionRequested = false
+                        connectionJob?.cancel()
+                        ByMeVpnService.stop(context)
+                        break
+                    }
+                }
+
+                if (_state.value != VpnConnectionState.CONNECTED) {
+                    _state.value = VpnConnectionState.ERROR
+                    _errorMessage.value = if (isRu)
+                        "Не удалось восстановить VPN. Проверьте интернет или выберите другой сервер."
+                    else "Could not restore the VPN. Check your internet or choose another server."
+                }
+            }
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            ?: return false
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
     /**
      * Callback from ByMeVpnService when tunnel is disconnected.
      */
     fun onTunnelDisconnected() {
         scope.launch(Dispatchers.Main) {
-            _state.value = VpnConnectionState.DISCONNECTED
+            if (!connectionRequested && _state.value != VpnConnectionState.ERROR) {
+                _state.value = VpnConnectionState.DISCONNECTED
+                stopTimer()
+            }
+        }
+    }
+
+    fun onTunnelPermissionRevoked() {
+        connectionRequested = false
+        connectionJob?.cancel()
+        reconnectJob?.cancel()
+        scope.launch(Dispatchers.Main) {
             stopTimer()
+            _state.value = VpnConnectionState.ERROR
+            _errorMessage.value = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                "Разрешение VPN отозвано. Подключитесь снова и разрешите VPN."
+            else "VPN permission was revoked. Reconnect and allow VPN access."
         }
     }
 
@@ -410,6 +589,11 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun disconnect() {
+        connectionRequested = false
+        connectionJob?.cancel()
+        connectionJob = null
+        reconnectJob?.cancel()
+        reconnectJob = null
         if (_state.value == VpnConnectionState.DISCONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
             return
         }

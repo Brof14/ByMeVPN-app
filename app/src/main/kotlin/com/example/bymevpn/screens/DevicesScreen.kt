@@ -33,6 +33,7 @@ import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.components.SmartphoneIcon
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 
@@ -42,17 +43,17 @@ fun DevicesScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
-    connectedDevicesCount: Int = 1,
-    maxDevicesCount: Int = 5,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
     val devicesList by AccountRepository.userDevices.collectAsState()
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = LocaleManager.isRussian(language = language)
 
-    val effectiveMax = subscription?.maxDevices ?: maxDevicesCount
-    val effectiveConnected = if (devicesList.isNotEmpty()) devicesList.size else connectedDevicesCount
+    val effectiveMax = subscription?.maxDevices?.takeIf { it > 0 }
+    val effectiveConnected = devicesList.size
 
     Box(
         modifier = modifier
@@ -61,7 +62,7 @@ fun DevicesScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             ByMeTopBar(
-                title = "Мои устройства",
+                title = if (isRu) "Мои устройства" else "My devices",
                 onBackClick = onBackClick,
                 onMoreClick = null
             )
@@ -82,7 +83,7 @@ fun DevicesScreen(
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = " из $effectiveMax",
+                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
                         color = Color(0xFF6EDBB0),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -91,20 +92,94 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = if (devicesList.isEmpty()) "Данные об устройствах недоступны" else "Устройств в ответе сервера",
+                    text = if (devicesList.isEmpty()) {
+                        if (isRu) "Данные об устройствах недоступны" else "Device information unavailable"
+                    } else if (isRu) "Устройств в ответе сервера" else "Devices reported by the server",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
 
-                if (devicesList.none { it.isCurrent }) {
-                    Text("Этот телефон · ${android.os.Build.MODEL}", color = AppColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Текущее устройство. Регистрация на сервере не подтверждена.", color = Color(0xFF92A9A5), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp, bottom = 18.dp))
+                val currentDevice = devicesList.firstOrNull { it.isCurrent }
+                val localModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
+                    .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+                val localOs = "Android ${android.os.Build.VERSION.RELEASE}"
+
+                // The phone in your hand is always shown with its OS and model, even when
+                // the backend has not confirmed it in the device list yet.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(17.dp))
+                        .background(Color(0xFF12221F))
+                        .border(1.dp, Color(0xFF28443C), RoundedCornerShape(17.dp))
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(37.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(Color(0xFF172A29)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        SmartphoneIcon(color = Color(0xFF62CBB0), size = 21.dp)
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = localModel,
+                            color = Color(0xFFEAF1EF),
+                            fontSize = 14.5.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "$localOs · " + (if (isRu) "это устройство" else "this device"),
+                            color = Color(0xFF88A09F),
+                            fontSize = 11.5.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(RoundedCornerShape(3.dp))
+                                    .background(if (currentDevice != null) Color(0xFF3CDFAC) else Color(0xFFE3B26A))
+                            )
+                            Text(
+                                text = if (currentDevice != null) {
+                                    if (isRu) "Подтверждено сервером" else "Confirmed by the server"
+                                } else {
+                                    if (isRu) "Сервер пока не подтвердил это устройство" else "Not confirmed by the server yet"
+                                },
+                                color = if (currentDevice != null) Color(0xFF65E3B1) else Color(0xFFE3B26A),
+                                fontSize = 10.5.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
 
-                // List of Devices
-                if (devicesList.isNotEmpty()) {
-                    devicesList.forEach { dev ->
+                Spacer(modifier = Modifier.height(18.dp))
+
+                if (currentDevice != null) {
+                    Text(
+                        text = if (isRu) "ДРУГИЕ УСТРОЙСТВА" else "OTHER DEVICES",
+                        color = Color(0xFF8BA3A4),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.2.sp,
+                        modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                    )
+                }
+
+                val otherDevices = devicesList.filterNot { it.isCurrent }
+                if (otherDevices.isNotEmpty()) {
+                    otherDevices.forEach { dev ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -128,7 +203,7 @@ fun DevicesScreen(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = if (dev.isCurrent) "Этот телефон (${dev.deviceModel})" else dev.deviceModel,
+                                    text = dev.deviceModel,
                                     color = Color(0xFFEAF1EF),
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
@@ -140,27 +215,16 @@ fun DevicesScreen(
                                     fontSize = 11.5.sp
                                 )
                             }
-
-                            if (dev.isCurrent) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF1A3B2C))
-                                        .padding(horizontal = 9.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = "Вы здесь",
-                                        color = Color(0xFF65E3B1),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
-                            }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 } else {
-                    Text("Список устройств не подтверждён сервером.", color = AppColors.TextPrimary, fontSize = 14.sp)
+                    Text(
+                        text = if (isRu) "Других устройств сервер не вернул." else "The server returned no other devices.",
+                        color = Color(0xFF8AA1A1),
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -175,7 +239,7 @@ fun DevicesScreen(
                         .padding(18.dp)
                 ) {
                     Text(
-                        text = "ДОБАВИТЬ УСТРОЙСТВО",
+                        text = if (isRu) "ДОБАВИТЬ УСТРОЙСТВО" else "ADD A DEVICE",
                         color = Color(0xFF68B8A7),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -183,7 +247,8 @@ fun DevicesScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь автоматически в рамках вашей подписки (до $effectiveMax устройств).",
+                        text = if (isRu) "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь после регистрации на сервере."
+                            else "Sign in to ByMeVPN on another device with the same account. It will appear here once registered with the server.",
                         color = Color(0xFF9DB6AC),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp

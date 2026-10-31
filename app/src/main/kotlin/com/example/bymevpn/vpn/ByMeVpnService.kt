@@ -111,7 +111,7 @@ class ByMeVpnService : VpnService() {
 
                 val notif = buildNotification(
                     title = if (serverCountry.isNotEmpty()) "ByMeVPN • $serverCountry" else "ByMeVPN",
-                    text = "VLESS + Reality: $serverName"
+                    text = "VPN: $serverName"
                 )
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -161,7 +161,7 @@ class ByMeVpnService : VpnService() {
 
                     if (result.isSuccess) {
                         isServiceRunning = true
-                        Log.i(TAG, "Xray tunnel active! Traffic is routing through VLESS+Reality.")
+                        Log.i(TAG, "Xray core started and proxy connectivity check passed")
                         VpnManager.getInstance(applicationContext).onTunnelConnected(activeServer)
                         startHealthMonitor(engine)
                     } else {
@@ -215,7 +215,7 @@ class ByMeVpnService : VpnService() {
                             tearDownTunInterface()
                             isServiceRunning = false
                             stopForeground(STOP_FOREGROUND_REMOVE)
-                            VpnManager.getInstance(applicationContext).onTunnelFailed("Не удалось проверить интернет через VPN. Проверьте сеть или выберите другой сервер.")
+                            VpnManager.getInstance(applicationContext).onTunnelConnectivityLost(activeServer)
                             stopSelf()
                         }
                     }
@@ -269,12 +269,9 @@ class ByMeVpnService : VpnService() {
                 }
             }
 
-            // Exclude self package from VPN tunnel to prevent network loops
-            try {
-                builder.addDisallowedApplication(packageName)
-            } catch (e: Exception) {
-                Log.w(TAG, "Could not disallow self package: ${e.message}")
-            }
+            // The core opens sockets from this package. Without this exclusion they
+            // would enter their own TUN, so failure must abort tunnel creation.
+            builder.addDisallowedApplication(packageName)
 
             tunInterface?.close()
             val fd = builder.establish()
@@ -375,7 +372,7 @@ class ByMeVpnService : VpnService() {
             isServiceRunning = false
             activeServer = null
             pendingSessionConfig = null
-            VpnManager.getInstance(applicationContext).onTunnelDisconnected()
+            VpnManager.getInstance(applicationContext).onTunnelPermissionRevoked()
           }
         }
         super.onRevoke()

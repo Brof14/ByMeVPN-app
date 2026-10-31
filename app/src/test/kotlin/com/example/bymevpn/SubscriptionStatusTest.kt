@@ -4,9 +4,23 @@ import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.SubscriptionStatus
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class SubscriptionStatusTest {
+
+    @Test
+    fun remainingTimeExpiresAndUnknownDurationStaysUnknown() {
+        val sub = SubscriptionStatus(status = "active", secondsRemaining = 86_401, lastFetchedAt = 1_000)
+        assertEquals(2L, sub.daysRemainingAt(1_000))
+        assertEquals(1L, sub.daysRemainingAt(2_000))
+        assertNull(sub.daysRemainingAt(86_402_000))
+        assertFalse(sub.knownExpiryReached(86_401_999))
+        assertTrue(sub.knownExpiryReached(86_402_000))
+        assertNull(sub.daysRemainingAt(999))
+        assertNull(SubscriptionStatus(status = "active").daysRemainingAt(System.currentTimeMillis()))
+    }
 
     @Test
     fun testIsUsable_active() {

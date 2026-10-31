@@ -42,6 +42,7 @@ class SecureTokenStorage private constructor(context: Context) {
         private const val KEY_SUBSCRIPTION_URL = "custom_subscription_url"
         private const val KEY_CUSTOM_CONFIGS = "custom_server_configs_json"
         private const val KEY_SERVER_NODES = "custom_server_nodes_json"
+        private const val KEY_API_SERVER_CACHE = "api_server_cache_json"
     }
 
     private val prefs: SharedPreferences = try {
@@ -77,6 +78,7 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_CACHED_USER)
             .remove(KEY_CACHED_SUB)
+            .remove(KEY_API_SERVER_CACHE)
             .apply()
     }
 
@@ -121,6 +123,7 @@ class SecureTokenStorage private constructor(context: Context) {
             put("entitlement", sub.entitlement ?: "")
             put("server_time", sub.serverTime ?: "")
             put("last_fetched_at", sub.lastFetchedAt)
+            put("display_data_version", 1)
         }
         prefs.edit().putString(KEY_CACHED_SUB, obj.toString()).apply()
     }
@@ -129,17 +132,19 @@ class SecureTokenStorage private constructor(context: Context) {
         val raw = prefs.getString(KEY_CACHED_SUB, null) ?: return null
         return try {
             val obj = JSONObject(raw)
+            // Older clients stored invented duration and device counts for imported subscriptions.
+            val confirmedDisplayData = obj.optInt("display_data_version", 0) >= 1
             SubscriptionStatus(
                 status = obj.optString("status", "none"),
                 planCode = obj.optString("plan_code").ifEmpty { null },
                 planName = obj.optString("plan_name").ifEmpty { null },
                 expiresAt = obj.optString("expires_at").ifEmpty { null },
-                secondsRemaining = obj.optLong("seconds_remaining", 0L),
+                secondsRemaining = if (confirmedDisplayData) obj.optLong("seconds_remaining", 0L) else 0L,
                 // Older versions cached an invented value; only trust a fresh server response.
                 autoRenew = null,
                 trialAvailable = obj.optBoolean("trial_available", false),
-                maxDevices = obj.optInt("max_devices", 5),
-                activeDevices = obj.optInt("active_devices", 1),
+                maxDevices = if (confirmedDisplayData) obj.optInt("max_devices", 0) else 0,
+                activeDevices = if (confirmedDisplayData) obj.optInt("active_devices", 0) else 0,
                 entitlement = obj.optString("entitlement").ifEmpty { null },
                 serverTime = obj.optString("server_time").ifEmpty { null },
                 lastFetchedAt = obj.optLong("last_fetched_at", System.currentTimeMillis())
@@ -209,6 +214,10 @@ class SecureTokenStorage private constructor(context: Context) {
     }
 
     fun saveServerNodes(nodes: List<ServerNode>) {
+        prefs.edit().putString(KEY_SERVER_NODES, serializeServerNodes(nodes).toString()).apply()
+    }
+
+    private fun serializeServerNodes(nodes: List<ServerNode>): JSONArray {
         val array = JSONArray()
         nodes.forEach { node ->
             array.put(JSONObject().apply {
@@ -216,24 +225,53 @@ class SecureTokenStorage private constructor(context: Context) {
                 put("country", node.country)
                 put("countryCode", node.countryCode)
                 put("city", node.city)
+                put("countryEn", node.countryEn)
+                put("cityEn", node.cityEn)
                 put("flag", node.flag)
                 put("protocol", node.protocol)
+                put("isPremium", node.isPremium)
+                put("remark", node.remark)
                 put("displayName", node.displayName)
             })
         }
-        prefs.edit().putString(KEY_SERVER_NODES, array.toString()).apply()
+        return array
     }
 
-    fun getServerNodes(): List<ServerNode> = try {
-        val array = JSONArray(prefs.getString(KEY_SERVER_NODES, "[]"))
+    private fun parseServerNodes(array: JSONArray): List<ServerNode> = try {
         (0 until array.length()).map { index ->
             val obj = array.getJSONObject(index)
             ServerNode(nodeCode = obj.getString("nodeCode"), country = obj.optString("country", ""),
                 countryCode = obj.optString("countryCode", ""), city = obj.optString("city", ""),
-                flag = obj.optString("flag", ""), pingMs = -1, loadPercent = 0,
-                protocol = obj.optString("protocol", "VLESS"), displayName = obj.optString("displayName", ""))
+                flag = obj.optString("flag", ""), pingMs = -1, loadPercent = -1,
+                countryEn = obj.optString("countryEn", obj.optString("country", "")),
+                cityEn = obj.optString("cityEn", obj.optString("city", "")),
+                isPremium = obj.optBoolean("isPremium", false), remark = obj.optString("remark", ""),
+                protocol = obj.optString("protocol", "VPN"), displayName = obj.optString("displayName", ""))
         }
     } catch (_: Exception) { emptyList() }
+
+    fun getServerNodes(): List<ServerNode> = try {
+        parseServerNodes(JSONArray(prefs.getString(KEY_SERVER_NODES, "[]")))
+    } catch (_: Exception) { emptyList() }
+
+    data class ApiServerCache(val nodes: List<ServerNode>, val savedAt: Long)
+
+    fun saveApiServerCache(ownerId: String, nodes: List<ServerNode>, savedAt: Long) {
+        if (ownerId.isBlank() || nodes.isEmpty()) return
+        val cache = JSONObject().put("owner", ownerId).put("savedAt", savedAt)
+            .put("nodes", serializeServerNodes(nodes))
+        prefs.edit().putString(KEY_API_SERVER_CACHE, cache.toString()).apply()
+    }
+
+    fun getApiServerCache(ownerId: String): ApiServerCache? {
+        if (ownerId.isBlank()) return null
+        return try {
+            val cache = JSONObject(prefs.getString(KEY_API_SERVER_CACHE, null) ?: return null)
+            if (cache.optString("owner") != ownerId) return null
+            val nodes = parseServerNodes(cache.getJSONArray("nodes"))
+            if (nodes.isEmpty()) null else ApiServerCache(nodes, cache.optLong("savedAt", 0L))
+        } catch (_: Exception) { null }
+    }
 
     fun getServerConfig(nodeCode: String): com.example.bymevpn.data.api.VpnSessionConfig? {
         val raw = prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: return null

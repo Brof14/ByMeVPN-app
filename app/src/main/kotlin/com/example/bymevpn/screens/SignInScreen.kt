@@ -1,9 +1,5 @@
 package com.example.bymevpn.screens
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -75,6 +71,9 @@ import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
 
@@ -112,7 +111,20 @@ fun SignInScreen(
     var isEmailLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var isTelegramLoading by remember { mutableStateOf(false) }
+    var telegramLoginJob by remember { mutableStateOf<Job?>(null) }
     var telegramStatusText by remember { mutableStateOf<String?>(null) }
+    var telegramBotUrl by remember { mutableStateOf<String?>(null) }
+    var telegramWaitSeconds by remember { mutableStateOf(0) }
+
+    androidx.compose.runtime.LaunchedEffect(isTelegramLoading) {
+        if (isTelegramLoading) {
+            telegramWaitSeconds = 0
+            while (isTelegramLoading) {
+                kotlinx.coroutines.delay(1000)
+                telegramWaitSeconds += 1
+            }
+        }
+    }
 
     fun submitLogin() {
         focusManager.clearFocus()
@@ -144,6 +156,129 @@ fun SignInScreen(
                 } else {
                     val raw = result.exceptionOrNull()?.message ?: (if (isRu) "Неверный логин или пароль" else "Invalid email or password")
                     authError = raw.replace(Regex("^\\[[A-Za-z0-9_]+\\]\\s*"), "")
+                }
+            }
+        }
+    }
+
+    if (isTelegramLoading) {
+        androidx.compose.ui.window.Dialog(onDismissRequest = {}) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF0B1A20))
+                    .border(1.2.dp, Color(0xFF1E3B45), RoundedCornerShape(24.dp))
+                    .padding(22.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Brush.verticalGradient(listOf(Color(0xFF1E88E5), Color(0xFF1565C0)))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        PaperPlaneIcon(color = Color.White, size = 21.dp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = if (isRu) "Вход через Telegram" else "Telegram sign-in",
+                            color = Color.White,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = if (isRu) "Осталось подтвердить в боте" else "One confirmation in the bot",
+                            color = Color(0xFF8FB0BF),
+                            fontSize = 11.5.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                TelegramStep(1, if (isRu) "Откройте @ByMeVPNBot в Telegram" else "Open @ByMeVPNBot in Telegram")
+                TelegramStep(2, if (isRu) "Нажмите «Старт» в чате с ботом" else "Tap Start in the bot chat")
+                TelegramStep(3, if (isRu) "Вернитесь в приложение — вход подтвердится сам" else "Return to the app — sign-in completes automatically")
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF102A2C))
+                        .border(1.dp, Color(0xFF21474A), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF3CDFAC),
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = telegramStatusText ?: (if (isRu) "Ожидаем подтверждение…" else "Waiting for confirmation…"),
+                            color = Color(0xFFDFF6EF),
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (isRu) "Проверяем автоматически · ${telegramWaitSeconds} с" else "Checking automatically · ${telegramWaitSeconds}s",
+                            color = Color(0xFF85A6A2),
+                            fontSize = 10.5.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .background(Color(0xFF00E575))
+                        .clickable {
+                            telegramBotUrl?.let {
+                                com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, it)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isRu) "Открыть Telegram снова" else "Open Telegram again",
+                        color = Color(0xFF002213),
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(42.dp)
+                        .clip(RoundedCornerShape(13.dp))
+                        .clickable {
+                            telegramLoginJob?.cancel()
+                            isTelegramLoading = false
+                            telegramStatusText = null
+                            telegramBotUrl = null
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (isRu) "Отмена" else "Cancel",
+                        color = Color(0xFF9DB6B2),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
@@ -221,6 +356,7 @@ fun SignInScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
+                    if (com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
                     // 4. Primary 1-Tap Google Sign-In Button
                     Box(
                         modifier = Modifier
@@ -315,6 +451,7 @@ fun SignInScreen(
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
+                    }
 
                     // 6. Email Input Field
                     ExactInputField(
@@ -535,38 +672,47 @@ fun SignInScreen(
                                         isTelegramLoading = true
                                         authError = null
                                         telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
-                                        scope.launch {
+                                        telegramLoginJob = scope.launch {
                                             val sessionRes = AccountRepository.createTelegramAuthSession(context)
                                             if (sessionRes.isSuccess) {
                                                 val session = sessionRes.getOrThrow()
-                                                try {
-                                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(session.botUrl))
-                                                    context.startActivity(intent)
-                                                } catch (_: Exception) {
-                                                    Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
+                                                if (!com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, session.botUrl)) {
+                                                    isTelegramLoading = false
+                                                    telegramStatusText = null
+                                                    authError = if (isRu) "Не удалось открыть Telegram. Попробуйте ещё раз." else "Could not open Telegram. Please try again."
+                                                    return@launch
                                                 }
-                                                telegramStatusText = if (isRu) "Ожидание подтверждения в боте..." else "Waiting for confirmation..."
+                                                telegramBotUrl = session.botUrl
+                                                telegramStatusText = if (isRu) "Ожидаем подтверждение в боте…" else "Waiting for confirmation in the bot…"
 
                                                 var confirmed = false
-                                                for (attempt in 1..40) {
-                                                    kotlinx.coroutines.delay(1500)
+                                                for (attempt in 1..200) {
                                                     val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
                                                     if (checkRes.isSuccess && checkRes.getOrNull() != null) {
                                                         confirmed = true
                                                         break
                                                     }
+                                                    val failureText = checkRes.exceptionOrNull()?.message.orEmpty()
+                                                    if (failureText.contains("истек", ignoreCase = true) || failureText.contains("expired", ignoreCase = true)) {
+                                                        break
+                                                    }
+                                                    if (attempt % 7 == 0) {
+                                                        telegramStatusText = if (isRu) "Всё ещё ждём подтверждение в боте…" else "Still waiting for the bot confirmation…"
+                                                    }
+                                                    kotlinx.coroutines.delay(1500)
                                                 }
                                                 isTelegramLoading = false
                                                 telegramStatusText = null
+                                                telegramBotUrl = null
                                                 if (confirmed) {
                                                     onSignInSuccess()
                                                 } else {
-                                                    authError = if (isRu) "Время ожидания истекло. Попробуйте снова." else "Confirmation timed out. Please try again."
+                                                    authError = if (isRu) "Подтверждение не получено. Начните вход заново и нажмите «Старт» в боте." else "Confirmation was not received. Start again and tap Start in the bot."
                                                 }
                                             } else {
                                                 isTelegramLoading = false
                                                 telegramStatusText = null
-                                                openTelegram(context, "start=login")
+                                                authError = if (isRu) "Не удалось начать вход через Telegram. Проверьте интернет и попробуйте снова." else "Could not start Telegram sign-in. Check your connection and try again."
                                             }
                                         }
                                     }
@@ -637,6 +783,38 @@ fun SignInScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TelegramStep(number: Int, text: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF173A3F)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "$number",
+                color = Color(0xFF7FE3C1),
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = text,
+            color = Color(0xFFC7DCD8),
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp
+        )
     }
 }
 
@@ -720,14 +898,5 @@ private fun ExactInputField(
                 trailingIcon()
             }
         }
-    }
-}
-
-private fun openTelegram(context: Context, param: String) {
-    try {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNBot?$param"))
-        context.startActivity(intent)
-    } catch (_: Exception) {
-        Toast.makeText(context, "Telegram не установлен", Toast.LENGTH_SHORT).show()
     }
 }

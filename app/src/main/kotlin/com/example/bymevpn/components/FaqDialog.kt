@@ -50,32 +50,53 @@ data class FaqItem(
 
 val FAQ_ITEMS = listOf(
     FaqItem(
-        questionRu = "Что делать, если VPN не подключается?",
-        questionEn = "What to do if VPN won't connect?",
-        answerRu = "1. Проверьте подключение к Wi-Fi или мобильной сети.\n2. Попробуйте сменить сервер (переключитесь между Нидерландами и Германией).\n3. Убедитесь, что выдано системное разрешение на подключение VPN.\n4. Если соединение всё ещё не устанавливается, напишите в нашу поддержку @ByMeVPNSupportBot — мы поможем в течение нескольких минут.",
-        answerEn = "1. Check your Wi-Fi or mobile network connection.\n2. Try switching between Netherlands and Germany servers.\n3. Make sure the Android VPN permission is granted.\n4. If it still doesn't connect, tap the chat button in the top right to reach @ByMeVPNSupportBot.",
-        icon = "🛠️"
+        "VPN отключается, когда экран заблокирован",
+        "VPN drops when the screen is locked",
+        "Android и оболочки производителей ограничивают фоновую работу. Откройте «Настройки» → «Защита в фоне» и разрешите приложению работать без ограничений батареи; на Xiaomi, Huawei и Samsung дополнительно отключите оптимизацию в системных настройках батареи.",
+        "Android and vendor skins limit background work. Open Settings → Background protection and allow the app to run without battery restrictions; on Xiaomi, Huawei and Samsung also disable battery optimisation in system settings.",
+        ""
     ),
     FaqItem(
-        questionRu = "Будут ли работать Госуслуги, банки и доставка?",
-        questionEn = "Will local banks and gov services work?",
-        answerRu = "В настройках можно включить обход российских сайтов. Маршрут определяется базой доменов и IP; отдельные сервисы могут работать иначе.",
-        answerEn = "You can enable bypass for Russian sites in settings. Routing uses a domain and IP database; individual services may behave differently.",
-        icon = "🏦"
+        "Сайт не открывается, хотя VPN включён",
+        "A site won't open while the VPN is on",
+        "Сначала проверьте, открывается ли сайт без VPN. Затем смените сервер или протокол: Hysteria 2 лучше на нестабильных сетях, VLESS Reality — на сетях с блокировками. Если не работает только банк или госуслуги, включите «Российские сайты напрямую» в настройках.",
+        "First check whether the site opens without the VPN. Then switch the server or protocol: Hysteria 2 copes better with unstable networks, VLESS Reality with filtering. If only a bank or local service fails, enable “Russian sites directly” in Settings.",
+        ""
     ),
     FaqItem(
-        questionRu = "Как оформить или продлить подписку?",
-        questionEn = "How do I subscribe or renew?",
-        answerRu = "Откройте раздел «Аккаунт» и выберите тариф. Подписка активируется после подтверждения оплаты сервером.",
-        answerEn = "Open Account and choose a plan. The subscription activates after the server confirms payment.",
-        icon = "💎"
+        "Почему пинг у сервера иногда «Нет ответа»?",
+        "Why does server latency sometimes show “No response”?",
+        "Пинг — это проверка доступности узла по TCP. Провайдер или сеть могут блокировать такие проверки, а Hysteria 2 работает по UDP и по TCP не проверяется. Поэтому ориентируйтесь на фактическое подключение: если VPN запускается и трафик идёт, сервер доступен.",
+        "Latency is a TCP reachability probe. Carriers may block such probes, and Hysteria 2 runs over UDP, so TCP cannot test it. Judge by the real connection: if the VPN starts and traffic flows, the server is reachable.",
+        ""
     ),
     FaqItem(
-        questionRu = "Безопасен ли ByMeVPN и сохраняются ли логи?",
-        questionEn = "Is ByMeVPN secure and are logs kept?",
-        answerRu = "Приложение использует шифрованное соединение с VPN-сервером. Данные о правилах хранения на сервере должны быть описаны в политике конфиденциальности сервиса.",
-        answerEn = "The app uses an encrypted connection to the VPN server. Server-side data handling should be described in the service privacy policy.",
-        icon = "🛡️"
+        "Что такое лимит устройств?",
+        "What is the device limit?",
+        "Сервер считает устройства по установленному приложению, а не по IP-адресу. В разделе «Мои устройства» видно, какие устройства подтвердил сервер. Если телефон не появился в списке, значит сервер ещё не зарегистрировал его, а не то, что место закончилось.",
+        "The server counts devices by app installation, not by IP address. “My devices” shows what the server has confirmed. If your phone is missing there, the server has not registered it yet — it does not mean the limit is full.",
+        ""
+    ),
+    FaqItem(
+        "Как перенести подписку на новый телефон",
+        "How do I move my subscription to a new phone?",
+        "Войдите тем же способом (Telegram или почта) на новом телефоне. Старое устройство при необходимости удалите в разделе «Мои устройства», чтобы освободить место в лимите тарифа.",
+        "Sign in the same way (Telegram or email) on the new phone. If needed, remove the old device in “My devices” to free a slot in your plan's limit.",
+        ""
+    ),
+    FaqItem(
+        "Как проверить или отключить автопродление",
+        "How to check or disable automatic renewal",
+        "Откройте «Аккаунт» → «Настройки аккаунта». Там показан подтверждённый сервером статус. Если стоит «нет данных», приложение не выдумывает значение: управление автопродлением ещё не подключено к серверу.",
+        "Open Account → Account settings. The server-confirmed status is shown there. If it says “no data”, the app does not invent a value: renewal management is not connected to the server yet.",
+        ""
+    ),
+    FaqItem(
+        "Вход через Telegram не завершается",
+        "Telegram sign-in does not complete",
+        "После перехода в бота нажмите «Старт» и вернитесь в приложение. Экран ожидания сам проверит подтверждение; кнопка «Открыть Telegram» поможет, если бот не открылся с первого раза. Если ожидание истекло, начните вход заново — старая ссылка больше не действует.",
+        "After opening the bot, tap Start and return to the app. The waiting screen checks confirmation automatically; “Open Telegram” helps if the bot did not open the first time. If the wait expires, start again — the old link is no longer valid.",
+        ""
     )
 )
 
@@ -83,15 +104,15 @@ val FAQ_ITEMS = listOf(
 fun FaqDialog(onDismiss: () -> Unit) {
     val currentLanguage by LocaleManager.currentLanguage.collectAsState()
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
-    var expandedIndex by remember { mutableStateOf<Int?>(0) } // First one open by default
+    var expandedIndex by remember { mutableStateOf<Int?>(null) } // First one open by default
 
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF0C162A))
-                .border(1.2.dp, Color(0xFF1E355B), RoundedCornerShape(24.dp))
+                .background(Color(0xFF101E1B))
+                .border(1.2.dp, Color(0xFF28443C), RoundedCornerShape(24.dp))
                 .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -106,10 +127,10 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF00D4FF).copy(alpha = 0.15f)),
+                                .background(Color(0xFF62CBB0).copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("❓", fontSize = 18.sp)
+                            Text("?", color = Color(0xFF62CBB0), fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
@@ -121,7 +142,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             )
                             Text(
                                 text = if (isRu) "Ответы и подсказки" else "Help & Answers",
-                                color = Color(0xFF94A3B8),
+                                color = Color(0xFF92A9A5),
                                 fontSize = 12.sp
                             )
                         }
@@ -131,11 +152,11 @@ fun FaqDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF162542))
+                            .background(Color(0xFF172A29))
                             .clickable { onDismiss() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✕", color = Color(0xFF94A3B8), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("✕", color = Color(0xFF92A9A5), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -153,10 +174,10 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isExpanded) Color(0xFF13223D) else Color(0xFF0A1222))
+                                .background(if (isExpanded) Color(0xFF18332B) else Color(0xFF12221F))
                                 .border(
                                     1.dp,
-                                    if (isExpanded) Color(0xFF00D4FF) else Color(0xFF162746),
+                                    if (isExpanded) Color(0xFF62CBB0) else Color(0xFF28443C),
                                     RoundedCornerShape(14.dp)
                                 )
                                 .clickable {
@@ -173,8 +194,6 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(item.icon, fontSize = 16.sp)
-                                    Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = if (isRu) item.questionRu else item.questionEn,
                                         color = Color.White,
@@ -184,7 +203,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                 }
                                 Text(
                                     text = if (isExpanded) "▲" else "▼",
-                                    color = Color(0xFF00D4FF),
+                                    color = Color(0xFF62CBB0),
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -201,7 +220,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(1.dp)
-                                            .background(Color(0xFF1E355B))
+                                            .background(Color(0xFF28443C))
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
@@ -222,14 +241,14 @@ fun FaqDialog(onDismiss: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF162542))
+                        .background(Color(0xFF172A29))
                         .clickable { onDismiss() }
                         .padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (isRu) "Понятно" else "Close",
-                        color = Color(0xFF00D4FF),
+                        color = Color(0xFF62CBB0),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )

@@ -171,7 +171,7 @@ fun SupportScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = "О приложении",
-                        subtitle = "Версия 1.2.0 (Build 42)",
+                        subtitle = "Версия 1.0.0",
                         icon = { InfoCircleIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) }
                     )

@@ -64,6 +64,9 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 /**
  * 01 Welcome & Authentication Screen tailored for Google Play launch:
@@ -86,6 +89,7 @@ fun WelcomeScreen(
 
     var isGoogleLoading by remember { mutableStateOf(false) }
     var isTelegramLoading by remember { mutableStateOf(false) }
+    var telegramLoginJob by remember { mutableStateOf<Job?>(null) }
     var telegramStatusText by remember { mutableStateOf<String?>(null) }
     var authError by remember { mutableStateOf<String?>(null) }
     var showPaywall by remember { mutableStateOf(false) }
@@ -103,6 +107,16 @@ fun WelcomeScreen(
             subInputUrl = detected
             showInputCard = true
         }
+    }
+
+    if (isTelegramLoading) {
+        AlertDialog(
+            onDismissRequest = {},
+            containerColor = AppColors.BgCanvas,
+            title = { Text(if (isRu) "Вход через Telegram" else "Telegram sign-in", color = AppColors.TextPrimary) },
+            text = { Column { CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(24.dp)); Spacer(modifier = Modifier.height(12.dp)); Text(if (isRu) "Подтвердите вход в Telegram. После возвращения в приложение мы проверим подтверждение." else "Confirm sign-in in Telegram. We will check it when you return to the app.", color = AppColors.TextPrimary) } },
+            confirmButton = { TextButton(onClick = { telegramLoginJob?.cancel(); isTelegramLoading = false; telegramStatusText = null }) { Text(if (isRu) "Отмена" else "Cancel", color = AppColors.BrandGreen) } }
+        )
     }
 
     Scaffold(
@@ -332,43 +346,38 @@ fun WelcomeScreen(
                                 isTelegramLoading = true
                                 authError = null
                                 telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
-                                scope.launch {
+                                telegramLoginJob = scope.launch {
                                     val sessionRes = AccountRepository.createTelegramAuthSession(context)
                                     if (sessionRes.isSuccess) {
                                         val session = sessionRes.getOrThrow()
-                                        try {
-                                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(session.botUrl))
-                                            context.startActivity(intent)
-                                        } catch (_: Exception) {
-                                            Toast.makeText(context, "Не удалось открыть Telegram", Toast.LENGTH_SHORT).show()
+                                        if (!com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, session.botUrl)) {
+                                            isTelegramLoading = false
+                                            telegramStatusText = null
+                                            authError = if (isRu) "Не удалось открыть Telegram. Попробуйте ещё раз." else "Could not open Telegram. Please try again."
+                                            return@launch
                                         }
                                         telegramStatusText = if (isRu) "Ожидание подтверждения в боте..." else "Waiting for bot confirmation..."
 
                                         var confirmed = false
                                         for (attempt in 1..40) {
-                                            kotlinx.coroutines.delay(1500)
                                             val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
                                             if (checkRes.isSuccess && checkRes.getOrNull() != null) {
                                                 confirmed = true
                                                 break
                                             }
+                                            kotlinx.coroutines.delay(1500)
                                         }
                                         isTelegramLoading = false
                                         telegramStatusText = null
                                         if (confirmed) {
-                                            val canConnect = SubscriptionManager.getInstance(context).canConnect()
-                                            if (canConnect) {
-                                                onLoginSuccess()
-                                            } else {
-                                                showPaywall = true
-                                            }
+                                            onLoginSuccess()
                                         } else {
                                             authError = if (isRu) "Время ожидания истекло. Нажмите кнопку снова." else "Confirmation timed out. Please try again."
                                         }
                                     } else {
                                         isTelegramLoading = false
                                         telegramStatusText = null
-                                        openTelegramBot(context, "start=login")
+                                        authError = if (isRu) "Не удалось начать вход через Telegram. Проверьте интернет и попробуйте снова." else "Could not start Telegram sign-in. Check your connection and try again."
                                     }
                                 }
                             },

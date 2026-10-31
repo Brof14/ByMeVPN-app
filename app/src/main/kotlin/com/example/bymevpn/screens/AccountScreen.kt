@@ -72,10 +72,10 @@ fun AccountScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
     val devices by AccountRepository.userDevices.collectAsState()
 
-    val isActive = subscription?.isActive == true
-    val remainingDays = subscription?.daysRemaining ?: 0
-    val maxDevices = subscription?.maxDevices ?: 5
-    val activeDevicesCount = if (devices.isNotEmpty()) devices.size else (subscription?.activeDevices ?: 1)
+    val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
+    val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
+    val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
+    val activeDevicesCount = devices.size
 
     var showAccountDialog by remember { mutableStateOf(false) }
 
@@ -169,14 +169,14 @@ fun AccountScreen(
 
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
-                                text = "$remainingDays",
+                                text = remainingDays?.toString() ?: "—",
                                 color = AppColors.TextPrimary,
                                 fontSize = 64.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = (-3).sp
                             )
                             Text(
-                                text = " дня",
+                                text = if (remainingDays == null) "" else " дн.",
                                 color = Color(0xFF6EDBB0),
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
@@ -185,7 +185,7 @@ fun AccountScreen(
                         }
 
                         Text(
-                            text = "до окончания доступа",
+                            text = if (remainingDays == null) "Срок доступа не подтверждён" else "до окончания доступа",
                             color = Color(0xFF9AB1A7),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
@@ -206,7 +206,7 @@ fun AccountScreen(
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = "$maxDevices устройства · 1 месяц",
+                                text = subscription?.planName?.takeIf { it.isNotBlank() } ?: "Не указан",
                                 color = Color(0xFFE5F3EC),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
@@ -292,32 +292,12 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isActive) "Мои устройства" else "Устройства",
-                        subtitle = if (devices.isNotEmpty()) "$activeDevicesCount из $maxDevices" else "Нет подтверждённого списка устройств",
+                        subtitle = if (devices.isNotEmpty()) {
+                            maxDevices?.let { "$activeDevicesCount из $it" } ?: "$activeDevicesCount устройств"
+                        } else "Нет подтверждённого списка устройств",
                         icon = { DevicesMultiIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToDevices
-                    )
-                    ByMeSettingRow(
-                        title = "Автопродление",
-                        subtitle = when (subscription?.autoRenew) { true -> "Включено"; false -> "Отключено"; null -> "Нет подтверждённых данных" },
-                        icon = { RefreshIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                if (subscription?.autoRenew == true) {
-                                    Text(
-                                        text = "Включено",
-                                        color = Color(0xFF40D5AD),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                                ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp)
-                            }
-                        },
-                        onClick = onNavigateToRenewal,
+                        onClick = onNavigateToDevices,
                         showBottomDivider = false
                     )
                 }
@@ -334,17 +314,10 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = "Настройки аккаунта",
-                        subtitle = null,
+                        subtitle = "Имя, почта и автопродление",
                         icon = { PersonProfileIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { showAccountDialog = true }
-                    )
-                    ByMeSettingRow(
-                        title = "Помощь",
-                        subtitle = null,
-                        icon = { QuestionHelpIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToSupport,
+                        onClick = { showAccountDialog = true },
                         showBottomDivider = false
                     )
                 }
@@ -373,11 +346,57 @@ fun AccountScreen(
                 title = { Text("Настройки аккаунта") },
                 text = {
                     Column {
-                        Text("Пользователь: ${currentUser?.displayName ?: "Пользователь"}")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("Почта: ${currentUser?.email ?: "Не указана"}")
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text("ID: ${currentUser?.id ?: "local"}")
+                        AccountInfoLine("Имя", currentUser?.displayName.orEmpty().ifBlank { "Не указано" })
+                        Spacer(modifier = Modifier.height(10.dp))
+                        AccountInfoLine(
+                            "Почта",
+                            currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: "Не указана"
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(Color(0xFF243B3A))
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Автопродление", color = Color(0xFFEAF1EF), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Статус, подтверждённый сервером", color = Color(0xFF8CA5A2), fontSize = 11.sp)
+                            }
+                            val renewLabel = when (subscription?.autoRenew) {
+                                true -> "Включено"
+                                false -> "Отключено"
+                                null -> "Нет данных"
+                            }
+                            val renewColor = when (subscription?.autoRenew) {
+                                true -> Color(0xFF65E3B1)
+                                false -> Color(0xFFE3B26A)
+                                null -> Color(0xFF8CA5A2)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF172A29))
+                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                            ) {
+                                Text(renewLabel, color = renewColor, fontSize = 10.5.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            "Переключатель появится, когда сервер начнёт возвращать управление автопродлением. Сейчас приложение показывает только подтверждённый статус.",
+                            color = Color(0xFF8CA5A2),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                        Spacer(modifier = Modifier.height(14.dp))
+                        AccountInfoLine("Версия приложения", "1.0.0")
                     }
                 },
                 confirmButton = {
@@ -395,5 +414,26 @@ fun AccountScreen(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun AccountInfoLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(label, color = Color(0xFF8CA5A2), fontSize = 12.5.sp)
+        Text(
+            text = value,
+            color = Color(0xFFEAF1EF),
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.End,
+            modifier = Modifier
+                .weight(1f)
+                .padding(start = 16.dp)
+        )
     }
 }

@@ -62,11 +62,13 @@ class SubscriptionManager private constructor(private val context: Context) {
         val current = _subscriptionStatus.value ?: storage.getCachedSubscription() ?: return false
         if (!current.isUsable) return false
 
-        val elapsedSinceSync = System.currentTimeMillis() - current.lastFetchedAt
-        if (elapsedSinceSync > ApiConfig.MAX_OFFLINE_DURATION_MS) {
-            Log.w(TAG, "Offline limit of 72 hours exceeded. Requires online sync.")
+        val now = System.currentTimeMillis()
+        val elapsedSinceSync = now - current.lastFetchedAt
+        if (elapsedSinceSync < 0 || elapsedSinceSync > ApiConfig.MAX_OFFLINE_DURATION_MS) {
+            Log.w(TAG, "Offline entitlement requires an online sync.")
             return false
         }
+        if (current.knownExpiryReached(now)) return false
 
         // Verify ES256 JWT entitlement if present
         val token = current.entitlement
@@ -89,20 +91,18 @@ class SubscriptionManager private constructor(private val context: Context) {
                 val elapsed = System.currentTimeMillis() - storage.getServerRefreshAttempt()
                 val cached = storage.getCachedSubscription()
                 if (elapsed in 0 until 6L * 60 * 60 * 1000 && cached != null && storage.getServerConfigs().isNotEmpty()) {
+                    _subscriptionStatus.value = cached
                     return@withLock Result.success(cached)
                 }
-                storage.setServerRefreshAttempt(System.currentTimeMillis())
                 val parsed = fetchSubscriptionFromUrl(customSubUrl)
                 require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) { "Subscription contains no servers" }
                 storage.saveServerConfigs(parsed.configs)
                 storage.saveServerNodes(parsed.servers)
+                storage.setServerRefreshAttempt(System.currentTimeMillis())
                 val status = SubscriptionStatus(
-                    status = "active",
-                    planName = "ByMeVPN Cloud",
+                    status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
                     expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
-                    secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 86400L * 30,
-                    activeDevices = 1,
-                    maxDevices = 5,
+                    secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
                     lastFetchedAt = System.currentTimeMillis()
                 )
                 _subscriptionStatus.value = status
@@ -115,7 +115,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             storage.saveCachedSubscription(status)
             Result.success(status)
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh subscription online")
+            Log.w(TAG, "Failed to refresh subscription online: ${e.javaClass.simpleName}")
             val cached = storage.getCachedSubscription()
             if (cached != null) {
                 _subscriptionStatus.value = cached
@@ -149,19 +149,16 @@ class SubscriptionManager private constructor(private val context: Context) {
             }
 
             val status = SubscriptionStatus(
-                status = "active",
-                planName = "ByMeVPN Cloud",
+                status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
                 expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
-                secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 86400L * 30,
-                activeDevices = 1,
-                maxDevices = 5,
+                secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
                 lastFetchedAt = System.currentTimeMillis()
             )
             _subscriptionStatus.value = status
             storage.saveCachedSubscription(status)
             Result.success(parsed)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to apply subscription")
+            Log.e(TAG, "Failed to apply subscription: ${e.javaClass.simpleName}")
             Result.failure(e)
         } finally {
             _isSyncing.value = false
@@ -169,7 +166,11 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
-        val url = URL(subUrl)
+        val resolved = SubscriptionUrlPolicy.resolve(subUrl, ApiConfig.BASE_URL)
+        val url = resolved.url
+        if (resolved.rewritten) {
+            Log.w(TAG, "Subscription URL was server-local or plain HTTP; retrying over HTTPS on the public backend host")
+        }
         require(url.protocol.equals("https", ignoreCase = true)) { "Subscription URL must use HTTPS" }
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
@@ -186,13 +187,16 @@ class SubscriptionManager private constructor(private val context: Context) {
 
         val code = conn.responseCode
         if (code !in 200..299) {
+            Log.w(TAG, "Subscription endpoint returned HTTP $code")
             throw IllegalStateException("Ошибка сервера подписки (HTTP $code)")
         }
 
         val userInfoHeader = conn.getHeaderField("Subscription-Userinfo")
             ?: conn.getHeaderField("subscription-userinfo")
         val body = conn.inputStream.bufferedReader().use { it.readText() }
-        XraySubscriptionParser.parse(body, userInfoHeader)
+        val parsed = XraySubscriptionParser.parse(body, userInfoHeader)
+        Log.d(TAG, "Subscription fetched: servers=${parsed.servers.size}, configs=${parsed.configs.size}")
+        parsed
     }
 
     suspend fun activateTrial(): Result<SubscriptionStatus> {

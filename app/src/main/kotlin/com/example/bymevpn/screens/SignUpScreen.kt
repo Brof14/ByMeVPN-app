@@ -196,6 +196,7 @@ fun SignUpScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                if (com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
                 // Primary 1-Tap Google Sign-Up
                 Box(
                     modifier = Modifier
@@ -256,6 +257,7 @@ fun SignUpScreen(
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
+                }
 
                 // Email
                 SignUpInputField(
@@ -416,15 +418,7 @@ fun SignUpScreen(
                                 )
                             )
                             .clickable {
-                                try {
-                                    val tgIntent = android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("https://t.me/ByMeVPNBot?start=login")
-                                    )
-                                    context.startActivity(tgIntent)
-                                } catch (_: Exception) {
-                                    android.widget.Toast.makeText(context, "Telegram не установлен", android.widget.Toast.LENGTH_SHORT).show()
-                                }
+                                onSignInClick()
                             },
                         contentAlignment = Alignment.Center
                     ) {

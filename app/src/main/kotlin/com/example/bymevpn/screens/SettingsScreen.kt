@@ -163,44 +163,12 @@ fun SettingsScreen(
                     )
                 }
 
-                // Section: Комфорт
                 Text(
-                    text = if (isRu) "Комфорт" else "Comfort",
-                    color = Color(0xFF8BA3A4),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    text = if (isRu) "Язык приложения" else "App language",
+                    color = Color(0xFF8BA3A4), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
                 )
-
                 ByMeCardGroup {
-                    ByMeSettingRow(
-                        title = if (isRu) "Защита в фоне" else "Background protection",
-                        subtitle = if (isRu) "Настраивается в параметрах батареи Android" else "Configure in Android battery settings",
-                        icon = { ShieldSecurityIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
-                        showBottomDivider = false
-                    )
-
-                }
-
-                // Section: Дополнительно
-                Text(
-                    text = if (isRu) "Дополнительно" else "More",
-                    color = Color(0xFF8BA3A4),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
-                )
-
-                ByMeCardGroup {
-                    ByMeSettingRow(
-                        title = if (isRu) "Дополнительные настройки" else "More settings",
-                        subtitle = if (isRu) "DNS, приложения и защита при разрыве" else "Protection when VPN disconnects",
-                        icon = { SettingsGearIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToAdvanced
-                    )
                     ByMeSettingRow(
                         title = if (isRu) "Язык" else "Language",
                         subtitle = if (isRu) language.titleRu else language.titleEn,

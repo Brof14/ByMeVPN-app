@@ -11,6 +11,7 @@ import libv2ray.CoreCallbackHandler
 import libv2ray.CoreController
 import libv2ray.Libv2ray
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -125,7 +126,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             initCoreEnv()
 
             val xrayConfigJson = XrayConfigGenerator.generateString(config, bypassRussianTraffic = bypassRussianTraffic, dnsMode = dnsMode)
-            Log.d(TAG, "Starting Xray-core for ${config.server}:${config.port} (tunFd=$tunFd)")
+            Log.d(TAG, "Starting Xray-core with TUN")
 
             // Stop any currently running instance first
             stopCoreInternal()
@@ -181,11 +182,19 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             _state.value = VpnConnectionState.CONNECTED
             startStatsCollector()
             Result.success(Unit)
+        } catch (e: CancellationException) {
+            stopCoreInternal()
+            _state.value = VpnConnectionState.DISCONNECTED
+            throw e
         } catch (e: Throwable) {
-            Log.e(TAG, "Failed to start Xray tunnel: ${e.message}", e)
+            // Native exception text may contain the generated configuration, including credentials.
+            Log.e(TAG, "Failed to start Xray tunnel (${e.javaClass.simpleName})")
             _state.value = VpnConnectionState.ERROR
             stopCoreInternal()
-            Result.failure(e)
+            val message = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                "Не удалось запустить VPN. Проверьте соединение или выберите другой сервер."
+            else "Could not start VPN. Check your connection or choose another server."
+            Result.failure(IllegalStateException(message))
         }
     }
 

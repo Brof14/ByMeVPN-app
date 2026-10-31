@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,6 +58,7 @@ import com.example.bymevpn.components.RefreshIcon
 import com.example.bymevpn.components.ServerSelectionSheet
 import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.data.api.ServerNode
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.update.AppUpdateManager
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
@@ -77,6 +79,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val isRu = homeIsRussian()
     val scope = rememberCoroutineScope()
 
     val vpnManager = remember { VpnManager.getInstance(context) }
@@ -84,12 +87,14 @@ fun HomeScreen(
     val currentServer by vpnManager.currentServer.collectAsState()
     val availableServers by vpnManager.availableServers.collectAsState()
     val connectedSeconds by vpnManager.connectedSeconds.collectAsState()
+    val serversError by vpnManager.serversError.collectAsState()
+    val isLoadingServers by vpnManager.isLoadingServers.collectAsState()
 
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
 
-    val hasPlan = subscription?.isActive == true
-    val remainingDays = subscription?.daysRemaining ?: 0
+    val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
+    val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
 
     var showServerSheet by remember { mutableStateOf(false) }
     var isAutoServerSelected by remember { mutableStateOf(true) }
@@ -101,6 +106,17 @@ fun HomeScreen(
         YooKassaPaymentHandler.checkAndCompletePendingPayment(context)
     }
 
+    // Servers must be ready before the user taps "connect", not after it.
+    LaunchedEffect(hasPlan, availableServers.isEmpty()) {
+        if (hasPlan && availableServers.isEmpty()) {
+            vpnManager.loadServers()
+        }
+    }
+
+    fun refreshServers() {
+        scope.launch { vpnManager.loadServers() }
+    }
+
     // VPN Permission Launcher
     val vpnPrepareLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
@@ -108,7 +124,7 @@ fun HomeScreen(
         if (result.resultCode == Activity.RESULT_OK) {
             VpnManager.startVpn(context, currentServer)
         } else {
-            Toast.makeText(context, "Требуется разрешение для создания VPN-туннеля", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, if (isRu) "Требуется разрешение для создания VPN-туннеля" else "VPN permission is required", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -166,19 +182,19 @@ fun HomeScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Доступно обновление v${updateInfo!!.latestVersion}",
+                                text = if (isRu) "Доступно обновление v${updateInfo!!.latestVersion}" else "Update v${updateInfo!!.latestVersion} available",
                                 color = Color(0xFF3CDFAC),
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "Нажмите, чтобы скачать и обновить приложение",
+                                text = if (isRu) "Нажмите, чтобы скачать и обновить приложение" else "Tap to download and update the app",
                                 color = Color(0xFFA1C7BD),
                                 fontSize = 10.5.sp
                             )
                         }
                         Text(
-                            text = "Обновить >",
+                            text = if (isRu) "Обновить >" else "Update >",
                             color = Color(0xFF3CDFAC),
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
@@ -201,7 +217,12 @@ fun HomeScreen(
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
                         onTrialClick = onNavigateToTrial,
-                        onPlansClick = onNavigateToPricing
+                        onPlansClick = onNavigateToPricing,
+                        hasServers = availableServers.isNotEmpty(),
+                        onServerSelectClick = { showServerSheet = true },
+                        serversError = serversError,
+                        isLoadingServers = isLoadingServers,
+                        onRefreshServers = { refreshServers() }
                     )
                 } else if (vpnState == VpnConnectionState.ERROR) {
                     val vpnError by vpnManager.errorMessage.collectAsState()
@@ -221,7 +242,10 @@ fun HomeScreen(
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
                         currentServer = currentServer,
-                        remainingDays = remainingDays
+                        remainingDays = remainingDays,
+                        serversError = serversError,
+                        isLoadingServers = isLoadingServers,
+                        onRefreshServers = { refreshServers() }
                     )
                 } else {
                     // MOCKUP 04_home_off (also handles connecting)
@@ -231,7 +255,10 @@ fun HomeScreen(
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
                         currentServer = currentServer,
-                        remainingDays = remainingDays
+                        remainingDays = remainingDays,
+                        serversError = serversError,
+                        isLoadingServers = isLoadingServers,
+                        onRefreshServers = { refreshServers() }
                     )
                 }
             }
@@ -256,11 +283,13 @@ fun HomeScreen(
                 servers = availableServers,
                 selectedServer = currentServer,
                 isAutoSelected = isAutoServerSelected,
+                isLoading = isLoadingServers,
+                error = serversError,
+                onRefresh = { scope.launch { vpnManager.loadServers() } },
                 onSelectAuto = {
                     isAutoServerSelected = true
-                    if (availableServers.isNotEmpty()) {
-                        vpnManager.selectServer(availableServers.first())
-                    }
+                    // "Automatic" must measure latency, not silently take the first row.
+                    scope.launch { vpnManager.autoSelectFastestServer() }
                 },
                 onSelectServer = { server ->
                     isAutoServerSelected = false
@@ -279,10 +308,22 @@ fun HomeScreen(
  * 03_home_no_plan: State when user has no active subscription.
  */
 @Composable
+private fun homeIsRussian(): Boolean {
+    val language by LocaleManager.currentLanguage.collectAsState()
+    return LocaleManager.isRussian(language = language)
+}
+
+@Composable
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
-    onPlansClick: () -> Unit
+    onPlansClick: () -> Unit,
+    hasServers: Boolean,
+    onServerSelectClick: () -> Unit,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onRefreshServers: () -> Unit
 ) {
+    val isRu = homeIsRussian()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -324,7 +365,7 @@ private fun HomeNoPlanContent(
         Spacer(modifier = Modifier.height(14.dp))
 
         Text(
-            text = "Свободный интернет.\nОдно касание.",
+            text = if (isRu) "Свободный интернет.\nОдно касание." else "Open internet.\nOne tap.",
             color = AppColors.TextPrimary,
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
@@ -335,7 +376,7 @@ private fun HomeNoPlanContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Подключайтесь к привычным сервисам с ByMeVPN — без сложных настроек.",
+            text = if (isRu) "Подключайтесь к привычным сервисам с ByMeVPN — без сложных настроек." else "Connect to the services you use with ByMeVPN.",
             color = Color(0xFF91A4A5),
             fontSize = 13.sp,
             lineHeight = 19.sp,
@@ -356,7 +397,7 @@ private fun HomeNoPlanContent(
             ) {
                 CheckmarkIcon(color = Color(0xFF38D5A5), size = 15.dp)
                 Text(
-                    text = "Простое подключение",
+                    text = if (isRu) "Простое подключение" else "Easy connection",
                     color = Color(0xFF89A99E),
                     fontSize = 11.sp
                 )
@@ -367,13 +408,28 @@ private fun HomeNoPlanContent(
             ) {
                 CheckmarkIcon(color = Color(0xFF38D5A5), size = 15.dp)
                 Text(
-                    text = "Прозрачные условия",
+                    text = if (isRu) "Прозрачные условия" else "Clear terms",
                     color = Color(0xFF89A99E),
                     fontSize = 11.sp
                 )
             }
         }
 
+        if (hasServers) {
+            Text(
+                text = if (isRu) "Посмотреть серверы  ›" else "View servers  ›",
+                color = AppColors.BrandGreen,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable(onClick = onServerSelectClick).padding(12.dp)
+            )
+        } else {
+            ServerLoadStatusRow(
+                isRu = isRu,
+                error = serversError,
+                isLoading = isLoadingServers,
+                onRefresh = onRefreshServers
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
 
         // Action dock: Trial card + All plans link
@@ -403,7 +459,7 @@ private fun HomeNoPlanContent(
                         letterSpacing = 1.sp
                     )
                     Text(
-                        text = "Для новых пользователей",
+                        text = if (isRu) "Для новых пользователей" else "For new users",
                         color = Color(0xFFA0C2AE),
                         fontSize = 10.sp
                     )
@@ -413,14 +469,14 @@ private fun HomeNoPlanContent(
 
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = "3 дня ",
+                        text = if (isRu) "3 дня " else "3 days ",
                         color = AppColors.TextPrimary,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-1).sp
                     )
                     Text(
-                        text = "бесплатно",
+                        text = if (isRu) "бесплатно" else "free",
                         color = Color(0xFF43E0AC),
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
@@ -431,7 +487,7 @@ private fun HomeNoPlanContent(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Попробуйте сервис перед покупкой.",
+                    text = if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying.",
                     color = Color(0xFFA1B4AD),
                     fontSize = 12.sp
                 )
@@ -439,7 +495,7 @@ private fun HomeNoPlanContent(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 ByMePrimaryButton(
-                    text = "Попробовать бесплатно",
+                    text = if (isRu) "Попробовать бесплатно" else "Try for free",
                     onClick = onTrialClick,
                     height = 50.dp
                 )
@@ -447,7 +503,7 @@ private fun HomeNoPlanContent(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = "После пробного периода можно выбрать тариф.",
+                    text = if (isRu) "После пробного периода можно выбрать тариф." else "Choose a plan after your trial.",
                     color = Color(0xFF8DABA5),
                     fontSize = 10.5.sp,
                     lineHeight = 15.sp
@@ -465,7 +521,7 @@ private fun HomeNoPlanContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Посмотреть все тарифы",
+                    text = if (isRu) "Посмотреть все тарифы" else "See all plans",
                     color = Color(0xFFB9DFD3),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
@@ -487,8 +543,12 @@ private fun HomeDisconnectedContent(
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
-    remainingDays: Int
+    remainingDays: Long?,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onRefreshServers: () -> Unit
 ) {
+    val isRu = homeIsRussian()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -498,7 +558,7 @@ private fun HomeDisconnectedContent(
         Spacer(modifier = Modifier.height(28.dp))
 
         Text(
-            text = "ВАШЕ ПОДКЛЮЧЕНИЕ",
+            text = if (isRu) "ВАШЕ ПОДКЛЮЧЕНИЕ" else "YOUR CONNECTION",
             color = Color(0xFF78999A),
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -507,53 +567,14 @@ private fun HomeDisconnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Giant Power Control (Off State)
-        Box(
-            modifier = Modifier
-                .size(235.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF102421),
-                        0.54f to Color(0xFF0F1A1A),
-                        0.70f to Color.Transparent
-                    )
-                )
-                .border(1.dp, Color(0xFF223739), CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onPowerClick
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(195.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0D181A))
-                    .border(2.dp, Color(0xFF2A4141), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(134.dp)
-                        .clip(CircleShape)
-                        .background(AppGradients.PowerButtonInactive),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PowerIcon(
-                        color = if (isConnecting) Color(0xFF40E4B2) else Color(0xFF7E9B9C),
-                        size = 45.dp
-                    )
-                }
-            }
+        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Включить VPN" else "Connect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
+            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = if (isConnecting) 0.9f else 0.35f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = if (isConnecting) "Подключение..." else "VPN выключен",
+            text = if (isConnecting) { if (isRu) "Подключение..." else "Connecting..." } else { if (isRu) "VPN выключен" else "VPN is off" },
             color = AppColors.TextPrimary,
             fontSize = 25.sp,
             fontWeight = FontWeight.Bold
@@ -562,7 +583,7 @@ private fun HomeDisconnectedContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = if (isConnecting) "Устанавливаем защищенный туннель" else "Нажмите, чтобы подключиться",
+            text = if (isConnecting) { if (isRu) "Устанавливаем туннель" else "Establishing tunnel" } else { if (isRu) "Нажмите, чтобы подключиться" else "Tap to connect" },
             color = Color(0xFF859B9D),
             fontSize = 13.sp
         )
@@ -590,7 +611,7 @@ private fun HomeDisconnectedContent(
             ) {
                 Column {
                     Text(
-                        text = "МЕСТОПОЛОЖЕНИЕ",
+                        text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
                         color = Color(0xFF698589),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -602,11 +623,11 @@ private fun HomeDisconnectedContent(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CountryFlagView(
-                            countryCode = currentServer?.countryCode ?: "DE",
+                            countryCode = currentServer?.countryCode.orEmpty(),
                             size = 24.dp
                         )
                         Text(
-                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: "Германия • VLESS Reality",
+                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: if (isRu) "Сервер не выбран" else "No server selected",
                             color = AppColors.TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -618,18 +639,20 @@ private fun HomeDisconnectedContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
                     ) {
-                        val proto = currentServer?.protocol ?: "VLESS Reality"
+                        val proto = currentServer?.protocol.orEmpty()
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)
@@ -646,7 +669,7 @@ private fun HomeDisconnectedContent(
                             )
                         }
                         Text(
-                            text = "Выбрано автоматически",
+                            text = if (isRu) "Текущий сервер" else "Current server",
                             color = Color(0xFF81999B),
                             fontSize = 11.sp
                         )
@@ -662,6 +685,15 @@ private fun HomeDisconnectedContent(
                 ) {
                     ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
                 }
+            }
+
+            if (currentServer == null) {
+                ServerLoadStatusRow(
+                    isRu = isRu,
+                    error = serversError,
+                    isLoading = isLoadingServers,
+                    onRefresh = onRefreshServers
+                )
             }
 
             // Subscription access strip
@@ -688,14 +720,14 @@ private fun HomeDisconnectedContent(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Подписка активна",
+                        text = if (isRu) "Подписка активна" else "Subscription active",
                         color = Color(0xFFEDF5F2),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Осталось $remainingDays дней · 2 устройства",
+                        text = remainingDays?.let { if (isRu) "Осталось $it дней" else "$it days remaining" } ?: if (isRu) "Срок подписки не подтверждён" else "Subscription duration not confirmed",
                         color = Color(0xFF8AA1A1),
                         fontSize = 11.sp
                     )
@@ -717,8 +749,12 @@ private fun HomeConnectedContent(
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
-    remainingDays: Int
+    remainingDays: Long?,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onRefreshServers: () -> Unit
 ) {
+    val isRu = homeIsRussian()
     val hours = connectedSeconds / 3600
     val minutes = (connectedSeconds % 3600) / 60
     val seconds = connectedSeconds % 60
@@ -733,7 +769,7 @@ private fun HomeConnectedContent(
         Spacer(modifier = Modifier.height(28.dp))
 
         Text(
-            text = "ВАШЕ ПОДКЛЮЧЕНИЕ",
+            text = if (isRu) "ВАШЕ ПОДКЛЮЧЕНИЕ" else "YOUR CONNECTION",
             color = Color(0xFF78999A),
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -742,44 +778,8 @@ private fun HomeConnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Giant Power Control (On State with Mint Glow Ring)
-        Box(
-            modifier = Modifier
-                .size(235.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF123C34),
-                        0.54f to Color(0xFF102620),
-                        0.70f to Color.Transparent
-                    )
-                )
-                .border(1.dp, Color(0xFF285A4C), CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onPowerClick
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(195.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0D181A))
-                    .border(3.dp, Color(0xFF39DFA8), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(134.dp)
-                        .clip(CircleShape)
-                        .background(AppGradients.PowerButtonActive),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PowerIcon(color = Color(0xFF40E4B2), size = 45.dp)
-                }
-            }
+        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Выключить VPN" else "Disconnect VPN", onClick = onPowerClick), contentAlignment = Alignment.Center) {
+            ShieldLogo(size = 205.dp, isActive = true, glowAlpha = 1f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -790,7 +790,7 @@ private fun HomeConnectedContent(
         ) {
             CheckmarkIcon(color = Color(0xFF3CDCAD), size = 22.dp)
             Text(
-                text = "VPN подключён",
+            text = if (isRu) "VPN запущен" else "VPN started",
                 color = AppColors.TextPrimary,
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold
@@ -800,7 +800,7 @@ private fun HomeConnectedContent(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Соединение защищено",
+            text = if (isRu) "Соединение с сервером проверено" else "Server connection checked",
             color = Color(0xFF859B9D),
             fontSize = 13.sp
         )
@@ -838,7 +838,7 @@ private fun HomeConnectedContent(
             ) {
                 Column {
                     Text(
-                        text = "МЕСТОПОЛОЖЕНИЕ",
+                        text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
                         color = Color(0xFF698589),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -850,11 +850,11 @@ private fun HomeConnectedContent(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CountryFlagView(
-                            countryCode = currentServer?.countryCode ?: "DE",
+                            countryCode = currentServer?.countryCode.orEmpty(),
                             size = 24.dp
                         )
                         Text(
-                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: "Германия • VLESS Reality",
+                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: if (isRu) "Сервер не выбран" else "No server selected",
                             color = AppColors.TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -866,18 +866,20 @@ private fun HomeConnectedContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
                     ) {
-                        val proto = currentServer?.protocol ?: "VLESS Reality"
+                        val proto = currentServer?.protocol.orEmpty()
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)
@@ -894,7 +896,7 @@ private fun HomeConnectedContent(
                             )
                         }
                         Text(
-                            text = "Подключено",
+                            text = if (isRu) "Подключено" else "Connected",
                             color = Color(0xFF3CDFAC),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold
@@ -911,6 +913,15 @@ private fun HomeConnectedContent(
                 ) {
                     ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
                 }
+            }
+
+            if (currentServer == null) {
+                ServerLoadStatusRow(
+                    isRu = isRu,
+                    error = serversError,
+                    isLoading = isLoadingServers,
+                    onRefresh = onRefreshServers
+                )
             }
 
             // Subscription access strip
@@ -937,14 +948,14 @@ private fun HomeConnectedContent(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Подписка активна",
+                        text = if (isRu) "Подписка активна" else "Subscription active",
                         color = Color(0xFFEDF5F2),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Осталось $remainingDays дней · 2 устройства",
+                        text = remainingDays?.let { if (isRu) "Осталось $it дней" else "$it days remaining" } ?: if (isRu) "Срок подписки не подтверждён" else "Subscription duration not confirmed",
                         color = Color(0xFF8AA1A1),
                         fontSize = 11.sp
                     )
@@ -953,6 +964,73 @@ private fun HomeConnectedContent(
                 ChevronRightIcon(color = Color(0xFF73898A), size = 17.dp)
             }
         }
+    }
+}
+
+/**
+ * Compact status/retry strip shown while the server list is missing or being refreshed.
+ */
+@Composable
+private fun ServerLoadStatusRow(
+    isRu: Boolean,
+    error: String?,
+    isLoading: Boolean,
+    onRefresh: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(15.dp))
+            .background(Color(0xFF152420))
+            .border(1.dp, Color(0xFF2A4A42), RoundedCornerShape(15.dp))
+            .clickable(enabled = !isLoading, onClick = onRefresh)
+            .padding(horizontal = 15.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF1D3731)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    color = Color(0xFF3CDFAC),
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                RefreshIcon(color = Color(0xFF3CDFAC), size = 14.dp)
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (isRu) "Список серверов" else "Server list",
+                color = Color(0xFFEDF5F2),
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = when {
+                    isLoading -> if (isRu) "Получаем серверы…" else "Loading servers…"
+                    !error.isNullOrBlank() -> error
+                    else -> if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
+                },
+                color = Color(0xFF8AA1A1),
+                fontSize = 10.5.sp,
+                maxLines = 2
+            )
+        }
+
+        Text(
+            text = if (isLoading) "" else if (isRu) "Обновить" else "Refresh",
+            color = Color(0xFF3CDFAC),
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -967,6 +1045,7 @@ private fun HomeConnectionErrorContent(
     currentServer: ServerNode?,
     errorMessage: String? = null
 ) {
+    val isRu = homeIsRussian()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -976,7 +1055,7 @@ private fun HomeConnectionErrorContent(
         Spacer(modifier = Modifier.height(28.dp))
 
         Text(
-            text = "ВАШЕ ПОДКЛЮЧЕНИЕ",
+            text = if (isRu) "ВАШЕ ПОДКЛЮЧЕНИЕ" else "YOUR CONNECTION",
             color = Color(0xFF78999A),
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
@@ -985,45 +1064,14 @@ private fun HomeConnectionErrorContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        // Power Control in Off State
-        Box(
-            modifier = Modifier
-                .size(235.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        0.0f to Color(0xFF102421),
-                        0.54f to Color(0xFF0F1A1A),
-                        0.70f to Color.Transparent
-                    )
-                )
-                .border(1.dp, Color(0xFF223739), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(195.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF0D181A))
-                    .border(2.dp, Color(0xFF2A4141), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(134.dp)
-                        .clip(CircleShape)
-                        .background(AppGradients.PowerButtonInactive),
-                    contentAlignment = Alignment.Center
-                ) {
-                    PowerIcon(color = Color(0xFF7E9B9C), size = 45.dp)
-                }
-            }
+        Box(modifier = Modifier.size(235.dp).clickable(onClickLabel = if (isRu) "Повторить подключение" else "Retry connection", onClick = onRetry), contentAlignment = Alignment.Center) {
+            ShieldLogo(size = 205.dp, isActive = false, glowAlpha = 0.2f)
         }
 
         Spacer(modifier = Modifier.height(20.dp))
 
         Text(
-            text = "Не удалось подключиться",
+            text = if (isRu) "Не удалось подключиться" else "Could not connect",
             color = AppColors.TextPrimary,
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold
@@ -1032,7 +1080,7 @@ private fun HomeConnectionErrorContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = errorMessage?.takeIf { it.isNotBlank() } ?: "Проверьте интернет и попробуйте ещё раз",
+            text = errorMessage?.takeIf { it.isNotBlank() } ?: if (isRu) "Проверьте интернет и попробуйте ещё раз" else "Check your internet connection and try again",
             color = Color(0xFF859B9D),
             fontSize = 13.sp,
             textAlign = TextAlign.Center
@@ -1053,7 +1101,7 @@ private fun HomeConnectionErrorContent(
         ) {
             RefreshIcon(color = Color(0xFFB6E2D4), size = 17.dp)
             Text(
-                text = "Повторить",
+                text = if (isRu) "Повторить" else "Try again",
                 color = Color(0xFFB6E2D4),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold
@@ -1083,7 +1131,7 @@ private fun HomeConnectionErrorContent(
             ) {
                 Column {
                     Text(
-                        text = "ВЫБРАННЫЙ СЕРВЕР",
+                        text = if (isRu) "ВЫБРАННЫЙ СЕРВЕР" else "SELECTED SERVER",
                         color = Color(0xFF698589),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
@@ -1095,11 +1143,11 @@ private fun HomeConnectionErrorContent(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CountryFlagView(
-                            countryCode = currentServer?.countryCode ?: "DE",
+                            countryCode = currentServer?.countryCode.orEmpty(),
                             size = 24.dp
                         )
                         Text(
-                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: "Германия • VLESS Reality",
+                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: if (isRu) "Сервер не выбран" else "No server selected",
                             color = AppColors.TextPrimary,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
@@ -1111,18 +1159,20 @@ private fun HomeConnectionErrorContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
                     ) {
-                        val proto = currentServer?.protocol ?: "VLESS Reality"
+                        val proto = currentServer?.protocol.orEmpty()
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.isBlank()) Color.Transparent
+                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)
@@ -1139,7 +1189,7 @@ private fun HomeConnectionErrorContent(
                             )
                         }
                         Text(
-                            text = "Выбрано автоматически",
+                            text = if (isRu) "Текущий сервер" else "Current server",
                             color = Color(0xFF81999B),
                             fontSize = 11.sp
                         )
@@ -1173,14 +1223,14 @@ private fun HomeConnectionErrorContent(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Не получается подключиться?",
+                        text = if (isRu) "Не получается подключиться?" else "Having trouble connecting?",
                         color = Color(0xFFEDF5F2),
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Напишите нам — поможем разобраться",
+                        text = if (isRu) "Напишите нам — поможем разобраться" else "Contact us for help",
                         color = Color(0xFF8AA1A1),
                         fontSize = 11.sp
                     )

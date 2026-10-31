@@ -4,12 +4,23 @@ import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ApiJsonParsers
 import org.json.JSONObject
+import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ApiModelsTest {
+
+    @Test
+    fun missingServerMetadataDoesNotInventCountryOrLatency() {
+        val server = ApiJsonParsers.parseServers(JSONArray("[{\"node_code\":\"node\"}]")).single()
+        assertEquals("", server.countryCode)
+        assertEquals("", server.city)
+        assertEquals(-1, server.pingMs)
+        assertEquals(-1, server.loadPercent)
+        assertEquals("VPN", server.protocol)
+    }
 
     @Test
     fun unknownRenewalIsNotReportedAsEnabledOrDisabled() {
