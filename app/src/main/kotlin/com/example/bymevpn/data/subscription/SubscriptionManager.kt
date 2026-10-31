@@ -91,11 +91,11 @@ class SubscriptionManager private constructor(private val context: Context) {
                 if (elapsed in 0 until 6L * 60 * 60 * 1000 && cached != null && storage.getServerConfigs().isNotEmpty()) {
                     return@withLock Result.success(cached)
                 }
-                storage.setServerRefreshAttempt(System.currentTimeMillis())
                 val parsed = fetchSubscriptionFromUrl(customSubUrl)
                 require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) { "Subscription contains no servers" }
                 storage.saveServerConfigs(parsed.configs)
                 storage.saveServerNodes(parsed.servers)
+                storage.setServerRefreshAttempt(System.currentTimeMillis())
                 val status = SubscriptionStatus(
                     status = "active",
                     planName = "ByMeVPN Cloud",

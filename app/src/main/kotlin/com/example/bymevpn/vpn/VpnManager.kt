@@ -92,6 +92,7 @@ class VpnManager private constructor(private val context: Context) {
 
     private var timerJob: Job? = null
     private var engineObserverJob: Job? = null
+    private var reconnectJob: Job? = null
 
     init {
         scope.launch {
@@ -354,6 +355,8 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelConnected(server: ServerNode?) {
         scope.launch(Dispatchers.Main) {
+            reconnectJob?.cancel()
+            reconnectJob = null
             if (server != null) {
                 val checked = server.copy(connectionCheck = 1)
                 _currentServer.value = checked
@@ -378,6 +381,65 @@ class VpnManager private constructor(private val context: Context) {
             _errorMessage.value = error
             stopTimer()
         }
+    }
+
+    /** A live tunnel failed its periodic end-to-end check. Retry briefly when enabled. */
+    fun onTunnelConnectivityLost(server: ServerNode?) {
+        scope.launch(Dispatchers.Main) {
+            if (_state.value != VpnConnectionState.CONNECTED) return@launch
+
+            server?.let { _currentServer.value = it }
+            stopTimer()
+            reconnectJob?.cancel()
+
+            val settings = settingsRepo.settingsFlow.first()
+            if (!settings.autoReconnect) {
+                _state.value = VpnConnectionState.ERROR
+                _errorMessage.value = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                    "Связь с VPN потеряна. Проверьте интернет и подключитесь снова."
+                else "VPN connection was lost. Check your internet and reconnect."
+                return@launch
+            }
+
+            reconnectJob = scope.launch(Dispatchers.Main) {
+                val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                val retryDelaysSeconds = longArrayOf(2, 4, 8, 16, 30)
+                for (waitSeconds in retryDelaysSeconds) {
+                    if (!isNetworkAvailable()) {
+                        _state.value = VpnConnectionState.CONNECTING
+                        _errorMessage.value = if (isRu) "Ждём восстановления интернета…" else "Waiting for internet…"
+                    } else {
+                        _state.value = VpnConnectionState.CONNECTING
+                        _errorMessage.value = if (isRu) "Восстанавливаем VPN-соединение…" else "Reconnecting VPN…"
+                    }
+                    delay(waitSeconds * 1000)
+                    if (_state.value == VpnConnectionState.CONNECTED) return@launch
+
+                    _state.value = VpnConnectionState.DISCONNECTED
+                    connect()
+                    for (poll in 0 until 40) {
+                        delay(500)
+                        if (_state.value == VpnConnectionState.CONNECTED) return@launch
+                        if (_state.value == VpnConnectionState.ERROR) break
+                    }
+                }
+
+                if (_state.value != VpnConnectionState.CONNECTED) {
+                    _state.value = VpnConnectionState.ERROR
+                    _errorMessage.value = if (isRu)
+                        "Не удалось восстановить VPN. Проверьте интернет или выберите другой сервер."
+                    else "Could not restore the VPN. Check your internet or choose another server."
+                }
+            }
+        }
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            ?: return false
+        val network = connectivityManager.activeNetwork ?: return false
+        val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     /**
@@ -410,6 +472,8 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun disconnect() {
+        reconnectJob?.cancel()
+        reconnectJob = null
         if (_state.value == VpnConnectionState.DISCONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
             return
         }

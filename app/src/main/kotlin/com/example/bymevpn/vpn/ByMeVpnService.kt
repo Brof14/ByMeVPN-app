@@ -215,7 +215,7 @@ class ByMeVpnService : VpnService() {
                             tearDownTunInterface()
                             isServiceRunning = false
                             stopForeground(STOP_FOREGROUND_REMOVE)
-                            VpnManager.getInstance(applicationContext).onTunnelFailed("Не удалось проверить интернет через VPN. Проверьте сеть или выберите другой сервер.")
+                            VpnManager.getInstance(applicationContext).onTunnelConnectivityLost(activeServer)
                             stopSelf()
                         }
                     }
