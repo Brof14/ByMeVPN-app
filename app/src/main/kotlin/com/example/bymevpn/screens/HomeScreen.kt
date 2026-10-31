@@ -203,7 +203,9 @@ fun HomeScreen(
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
                         onTrialClick = onNavigateToTrial,
-                        onPlansClick = onNavigateToPricing
+                        onPlansClick = onNavigateToPricing,
+                        hasServers = availableServers.isNotEmpty(),
+                        onServerSelectClick = { showServerSheet = true }
                     )
                 } else if (vpnState == VpnConnectionState.ERROR) {
                     val vpnError by vpnManager.errorMessage.collectAsState()
@@ -289,7 +291,9 @@ private fun homeIsRussian(): Boolean {
 @Composable
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
-    onPlansClick: () -> Unit
+    onPlansClick: () -> Unit,
+    hasServers: Boolean,
+    onServerSelectClick: () -> Unit
 ) {
     val isRu = homeIsRussian()
     Column(
@@ -383,6 +387,14 @@ private fun HomeNoPlanContent(
             }
         }
 
+        if (hasServers) {
+            Text(
+                text = if (isRu) "Посмотреть серверы  ›" else "View servers  ›",
+                color = AppColors.BrandGreen,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable(onClick = onServerSelectClick).padding(12.dp)
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
 
         // Action dock: Trial card + All plans link

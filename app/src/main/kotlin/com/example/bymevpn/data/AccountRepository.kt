@@ -42,6 +42,7 @@ object AccountRepository {
         val appContext = context.applicationContext
         repoScope.launch { com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers() }
         repoScope.launch { refreshDevices(appContext) }
+        repoScope.launch { SubscriptionManager.getInstance(appContext).refreshStatus() }
     }
 
     fun init(context: Context) {
