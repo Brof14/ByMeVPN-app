@@ -135,7 +135,9 @@ jobs:
             printf -- '-rm "app/update.json.new"\n'
             printf 'put "dist/update.json" "app/update.json.new"\n'
             printf 'chmod 0644 "app/update.json.new"\n'
-            printf 'posix-rename "app/update.json.new" "app/update.json"\n'
+            # OpenSSH's sftp CLI command is `rename`; it uses the POSIX rename
+            # extension automatically when the server advertises support.
+            printf 'rename "app/update.json.new" "app/update.json"\n'
           } > "$HOME/.ssh/upload.batch"
           chmod 600 "$HOME/.ssh/upload.batch"
           sftp -b "$HOME/.ssh/upload.batch" -i "$HOME/.ssh/update_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$UPDATE_SSH_USER@$UPDATE_SSH_HOST"
