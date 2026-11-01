@@ -234,9 +234,9 @@ fun PricingScreen(
                 if (priceError && !plansLoading) {
                     Text(
                         text = if (mobileCatalogNotDeployed)
-                            t("Сервер тарифов ещё не обновлён. Цены и оплата пока недоступны.", "The server has not enabled mobile plans yet. Prices and checkout are unavailable.")
+                            t("Покупка пока недоступна. Попробуйте позже.", "Purchases are temporarily unavailable. Please try again later.")
                         else
-                            t("Не удалось получить подтверждённые тарифы. Проверьте подключение и повторите.", "Could not load confirmed plans. Check your connection and retry."),
+                            t("Не удалось загрузить тарифы. Попробуйте ещё раз.", "Could not load plans. Please try again."),
                         color = AppColors.TextSecondary,
                         fontSize = 12.sp
                     )
@@ -250,7 +250,7 @@ fun PricingScreen(
                             .padding(vertical = 12.dp)
                     )
                 } else if (plansLoading) {
-                    Text(t("Проверяем цены и доступность тарифов…", "Checking prices and availability…"), color = AppColors.TextSecondary, fontSize = 12.sp)
+                    Text(t("Загружаем тарифы…", "Loading plans…"), color = AppColors.TextSecondary, fontSize = 12.sp)
                 }
                 Spacer(modifier = Modifier.height(12.dp))
 
