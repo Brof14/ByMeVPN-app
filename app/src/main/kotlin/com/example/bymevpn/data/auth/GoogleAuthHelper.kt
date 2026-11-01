@@ -74,10 +74,10 @@ class GoogleAuthHelper(private val context: Context) {
             Log.d(TAG, "Google sign-in cancelled by user")
             GoogleAuthResult.Cancelled
         } catch (e: GetCredentialException) {
-            Log.e(TAG, "Google Credential Manager error: ${e.message}", e)
+            Log.e(TAG, "Google Credential Manager error: ${e.javaClass.simpleName}")
             GoogleAuthResult.Error(e.localizedMessage ?: "Google sign-in failed")
         } catch (e: Exception) {
-            Log.e(TAG, "Unexpected Google sign in error: ${e.message}", e)
+            Log.e(TAG, "Unexpected Google sign in error: ${e.javaClass.simpleName}")
             GoogleAuthResult.Error(e.localizedMessage ?: "Failed to initialize Google Sign In")
         }
     }

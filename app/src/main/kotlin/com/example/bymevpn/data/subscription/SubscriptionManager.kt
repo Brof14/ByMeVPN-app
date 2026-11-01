@@ -269,7 +269,7 @@ class SubscriptionManager private constructor(private val context: Context) {
 
             return false
         } catch (e: Exception) {
-            Log.e(TAG, "JWT verification exception: ${e.message}")
+            Log.e(TAG, "JWT verification failed: ${e.javaClass.simpleName}")
             return false
         }
     }

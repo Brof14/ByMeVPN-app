@@ -156,7 +156,7 @@ class ByMeApiClient(private val context: Context) {
         try {
             request("POST", "/auth/logout", JSONObject(), requiresAuth = true)
         } catch (e: Exception) {
-            Log.w(TAG, "Logout request failed: ${e.message}")
+                Log.w(TAG, "Logout request failed: ${e.javaClass.simpleName}")
         } finally {
             storage.clearTokens()
         }
@@ -266,7 +266,7 @@ class ByMeApiClient(private val context: Context) {
         try {
             request("DELETE", "/vpn/session", null, requiresAuth = true)
         } catch (e: Exception) {
-            Log.w(TAG, "deleteVpnSession failed: ${e.message}")
+            Log.w(TAG, "deleteVpnSession failed: ${e.javaClass.simpleName}")
         }
     }
 
@@ -496,7 +496,7 @@ class ByMeApiClient(private val context: Context) {
                     connection.disconnect()
                 }
             } catch (e: Exception) {
-                Log.w(TAG, "Refresh token error: ${e.message}")
+                Log.w(TAG, "Refresh token error: ${e.javaClass.simpleName}")
                 false
             }
         }
