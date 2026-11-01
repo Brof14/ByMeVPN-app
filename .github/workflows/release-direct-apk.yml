@@ -1,0 +1,140 @@
+name: Publish direct Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: direct-apk-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon
+      - name: Check release version
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          text = Path('app/build.gradle.kts').read_text()
+          code = re.search(r'versionCode\s*=\s*(\d+)', text)
+          name = re.search(r'versionName\s*=\s*"([^"]+)"', text)
+          tag = os.environ['RELEASE_REF'].removeprefix('v')
+          if not code or not name or int(code.group(1)) <= 0:
+              raise SystemExit('Android versionCode/versionName is missing')
+          if not re.fullmatch(r'\d+\.\d+\.\d+', tag):
+              raise SystemExit('Release tag must use vMAJOR.MINOR.PATCH')
+          if tag != name.group(1):
+              raise SystemExit(f'Release tag v{tag} must match app versionName {name.group(1)}')
+          print(f'Validated release v{tag} (versionCode {code.group(1)})')
+          PY
+      - name: Prepare release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_BASE64" && test -n "$KEYSTORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/bymevpn-release.jks"
+          chmod 600 "$RUNNER_TEMP/bymevpn-release.jks"
+      - name: Build signed APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/bymevpn-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle :app:assembleRelease --no-daemon
+      - name: Verify APK and generate update manifest
+        env:
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          apksigner verify "$apk"
+          mkdir -p dist
+          version="${RELEASE_REF#v}"
+          cp "$apk" "dist/ByMeVPN-v${version}.apk"
+          python3 - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+          gradle = Path('app/build.gradle.kts').read_text()
+          code = int(re.search(r'versionCode\s*=\s*(\d+)', gradle).group(1))
+          version = os.environ['RELEASE_REF'].removeprefix('v')
+          apk = Path(f'dist/ByMeVPN-v{version}.apk')
+          digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+          manifest = {
+              'version_name': version,
+              'version_code': code,
+              'download_url': f'https://bymevpn.duckdns.org/app/downloads/{apk.name}',
+              'sha256': digest,
+              'release_notes': ''
+          }
+          Path('dist/update.json').write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')) + '\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ByMeVPN-direct-${{ github.ref_name }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+  deploy-update-site:
+    if: github.ref_type == 'tag' && vars.UPDATE_DEPLOY_ENABLED == 'true'
+    needs: build-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: ByMeVPN-direct-${{ github.ref_name }}
+          path: dist
+      - name: Deploy APK and atomically publish update manifest
+        env:
+          UPDATE_SSH_HOST: ${{ secrets.UPDATE_SSH_HOST }}
+          UPDATE_SSH_USER: ${{ secrets.UPDATE_SSH_USER }}
+          UPDATE_SSH_KEY: ${{ secrets.UPDATE_SSH_KEY }}
+          UPDATE_SSH_KNOWN_HOSTS: ${{ secrets.UPDATE_SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          test -n "$UPDATE_SSH_HOST" && test -n "$UPDATE_SSH_USER" && test -n "$UPDATE_SSH_KEY" && test -n "$UPDATE_SSH_KNOWN_HOSTS"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$UPDATE_SSH_KEY" > "$HOME/.ssh/update_deploy_key"
+          printf '%s\n' "$UPDATE_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/update_deploy_key" "$HOME/.ssh/known_hosts"
+          apk="$(find dist -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          apk_name="$(basename "$apk")"
+          {
+            printf 'put "%s" "app/downloads/%s.part"\n' "$apk" "$apk_name"
+            printf -- '-rm "app/downloads/%s"\n' "$apk_name"
+            printf 'rename "app/downloads/%s.part" "app/downloads/%s"\n' "$apk_name" "$apk_name"
+            printf 'chmod 0644 "app/downloads/%s"\n' "$apk_name"
+            printf -- '-rm "app/update.json.new"\n'
+            printf 'put "dist/update.json" "app/update.json.new"\n'
+            printf 'chmod 0644 "app/update.json.new"\n'
+            printf 'posix-rename "app/update.json.new" "app/update.json"\n'
+          } > "$HOME/.ssh/upload.batch"
+          chmod 600 "$HOME/.ssh/upload.batch"
+          sftp -b "$HOME/.ssh/upload.batch" -i "$HOME/.ssh/update_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$UPDATE_SSH_USER@$UPDATE_SSH_HOST"
