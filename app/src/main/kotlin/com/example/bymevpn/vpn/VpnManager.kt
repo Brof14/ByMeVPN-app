@@ -449,7 +449,7 @@ class VpnManager private constructor(private val context: Context) {
                 throw e
             } catch (e: Exception) {
                 coroutineContext.ensureActive()
-                Log.e(TAG, "Connect failed: ${e.message}", e)
+                Log.e(TAG, "VPN connection failed: ${e.javaClass.simpleName}")
                 ByMeVpnService.stop(context)
                 _state.value = VpnConnectionState.ERROR
                 _errorMessage.value = e.message ?: (if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Ошибка подключения" else "Connection error")
@@ -631,7 +631,7 @@ class VpnManager private constructor(private val context: Context) {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                Log.w(TAG, "Disconnect cleanup warning: ${e.message}")
+                Log.w(TAG, "VPN disconnect cleanup failed: ${e.javaClass.simpleName}")
             } finally {
                 if (!connectionRequested) _state.value = VpnConnectionState.DISCONNECTED
                 stopTimer()

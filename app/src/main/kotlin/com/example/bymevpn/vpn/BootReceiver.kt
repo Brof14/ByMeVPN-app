@@ -29,7 +29,7 @@ class BootReceiver : BroadcastReceiver() {
                         }
                     }
                 } catch (e: Exception) {
-                    Log.e("BootReceiver", "Error during boot receiver execution: ${e.message}", e)
+                    Log.e("BootReceiver", "Boot receiver failed: ${e.javaClass.simpleName}")
                 } finally {
                     pendingResult.finish()
                 }

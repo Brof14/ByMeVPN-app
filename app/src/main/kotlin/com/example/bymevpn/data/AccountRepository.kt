@@ -160,7 +160,7 @@ object AccountRepository {
             val user = api.getMe()
             _currentUser.value = user
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh profile: ${e.message}")
+            Log.w(TAG, "Failed to refresh profile: ${e.javaClass.simpleName}")
         }
     }
 
@@ -173,7 +173,7 @@ object AccountRepository {
             storage.saveRegisteredDevices(devices)
             return
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh devices from API: ${e.message}")
+            Log.w(TAG, "Failed to refresh devices from API: ${e.javaClass.simpleName}")
         }
 
         // Do not display old locally fabricated devices as a current server response.

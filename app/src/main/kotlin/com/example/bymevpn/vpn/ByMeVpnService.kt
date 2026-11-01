@@ -82,7 +82,7 @@ class ByMeVpnService : VpnService() {
                     context.startService(intent)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error starting VPN service: ${e.message}", e)
+                Log.e(TAG, "VPN service start failed: ${e.javaClass.simpleName}")
                 VpnManager.getInstance(context).onTunnelFailed("Failed to start VPN service: ${e.message}")
             }
         }
@@ -95,7 +95,7 @@ class ByMeVpnService : VpnService() {
             try {
                 context.startService(intent)
             } catch (e: Exception) {
-                Log.e(TAG, "Error stopping VPN service: ${e.message}", e)
+                Log.e(TAG, "VPN service stop failed: ${e.javaClass.simpleName}")
             }
         }
     }
@@ -204,7 +204,7 @@ class ByMeVpnService : VpnService() {
                     try {
                         XrayVpnEngine.getInstance(applicationContext).disconnect()
                     } catch (e: Exception) {
-                        Log.w(TAG, "Error disconnecting Xray: ${e.message}")
+                        Log.w(TAG, "Xray disconnect failed: ${e.javaClass.simpleName}")
                     }
                     tearDownTunInterface()
                     stopForeground(STOP_FOREGROUND_REMOVE)
@@ -310,12 +310,12 @@ class ByMeVpnService : VpnService() {
                         setUnderlyingNetworks(null)
                     }
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to set underlying networks: ${e.message}")
+                    Log.w(TAG, "Setting underlying networks failed: ${e.javaClass.simpleName}")
                 }
             }
             fd
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to establish TUN interface: ${e.message}", e)
+            Log.e(TAG, "Establishing TUN interface failed: ${e.javaClass.simpleName}")
             null
         }
     }
@@ -326,7 +326,7 @@ class ByMeVpnService : VpnService() {
             tunInterface = null
             Log.i(TAG, "TUN interface closed")
         } catch (e: Exception) {
-            Log.w(TAG, "Error closing TUN interface: ${e.message}")
+            Log.w(TAG, "Closing TUN interface failed: ${e.javaClass.simpleName}")
         }
     }
 
