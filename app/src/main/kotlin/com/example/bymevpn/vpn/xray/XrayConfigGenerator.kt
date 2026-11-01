@@ -120,7 +120,10 @@ object XrayConfigGenerator {
 
         // 5. Outbounds (Primary VLESS+Reality / Hysteria 2 proxy outbound, direct, dns-out, block)
         val outboundsArray = JSONArray()
-        val serverAddress = config.server.ifBlank { "2.27.120.247" }
+        // Never silently fall back to a baked-in server IP: VPN endpoints are
+        // owned by the subscription/backend and may change independently.
+        val serverAddress = config.server.trim()
+        require(serverAddress.isNotEmpty()) { "VPN server address is missing from the subscription" }
 
         // Main proxy outbound
         val proxyOutbound = JSONObject().apply {
