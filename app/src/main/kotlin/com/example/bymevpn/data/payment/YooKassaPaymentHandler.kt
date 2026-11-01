@@ -94,7 +94,7 @@ object YooKassaPaymentHandler {
             customTabsIntent.launchUrl(context, Uri.parse(paymentUrl))
             onCheckoutLaunched()
         } catch (e: Exception) {
-            Log.w(TAG, "Chrome Custom Tabs failed, falling back to Intent: ${e.javaClass.simpleName}")
+            Log.w(TAG, "Chrome Custom Tabs failed, falling back to Intent: ${e.message}")
             try {
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl))
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
