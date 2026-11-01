@@ -4,6 +4,20 @@ plugins {
     kotlin("plugin.compose")
 }
 
+val serverEntitlementPublicKey = providers.gradleProperty("serverEntitlementPublicKey")
+    .orElse(providers.environmentVariable("SERVER_ES256_PUBLIC_KEY"))
+    .getOrElse("")
+val escapedEntitlementPublicKey = serverEntitlementPublicKey
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+    .replace("\r", "\\r")
+    .replace("\n", "\\n")
+require(serverEntitlementPublicKey.isBlank() ||
+    (serverEntitlementPublicKey.startsWith("-----BEGIN PUBLIC KEY-----") &&
+        serverEntitlementPublicKey.trimEnd().endsWith("-----END PUBLIC KEY-----"))) {
+    "SERVER_ES256_PUBLIC_KEY must be a PEM-encoded public key"
+}
+
 android {
     namespace = "com.example.bymevpn"
     compileSdk = 35
@@ -14,6 +28,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
+        buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
     }
 
     signingConfigs {
@@ -63,6 +78,7 @@ android {
         jvmTarget = "17"
     }
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     testOptions {

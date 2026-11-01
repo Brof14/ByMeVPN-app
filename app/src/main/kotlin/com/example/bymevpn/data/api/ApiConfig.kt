@@ -1,5 +1,6 @@
 package com.example.bymevpn.data.api
 
+import com.example.bymevpn.BuildConfig
 import org.json.JSONObject
 
 /**
@@ -22,10 +23,11 @@ object ApiConfig {
 
     /**
      * Server public key in PEM format for ES256 JWT offline entitlement verification.
+     * Configure with the matching backend public key as the SERVER_ES256_PUBLIC_KEY
+     * build environment variable or serverEntitlementPublicKey Gradle property.
+     * Empty remains fail-closed whenever the server returns a signed entitlement.
      */
-    const val SERVER_ES256_PUBLIC_KEY = """-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEbymevpnServerPublicKeyPlaceholderPlaceholderPlaceholderPlaceholderPlaceholderPlaceholderPlaceholderPlaceholder0=
------END PUBLIC KEY-----"""
+    val SERVER_ES256_PUBLIC_KEY: String = BuildConfig.SERVER_ES256_PUBLIC_KEY
 
     // 72-hour offline entitlement allowance (in milliseconds)
     const val MAX_OFFLINE_DURATION_MS = 72L * 60 * 60 * 1000

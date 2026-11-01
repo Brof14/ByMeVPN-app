@@ -65,6 +65,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY }}
         run: gradle :app:assembleRelease :app:bundleRelease --no-daemon
       - uses: actions/upload-artifact@v4
         with:
