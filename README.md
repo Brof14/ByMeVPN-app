@@ -2,7 +2,7 @@
 
 An Android client for managing ByMeVPN subscriptions and VPN connections. The app is written in Kotlin with Jetpack Compose and integrates Xray through the `libv2ray.aar` runtime.
 
-> **Status:** In active development and testing. This repository is not a production-ready consumer release. Authentication, payments, release signing, and full network lifecycle validation still need completion.
+> **Status:** In active development and testing. This repository is not yet a production-ready consumer release. Production API/payment integration, release signing, direct-update hosting, and full network lifecycle validation still need completion.
 
 ## Current capabilities
 
@@ -29,13 +29,15 @@ gradle :app:assembleDebug -PsideBySideDebug=true
 
 The side-by-side build uses a separate application ID and app data. Debug builds use a local debug signing key and are not suitable for release distribution.
 
-GitHub Actions runs unit tests and creates a debug artifact. Release publishing is intentionally not automatic; a protected signing key and a verified release process are required.
+GitHub Actions runs unit tests and creates debug artifacts. A tagged direct-download release (`vX.Y.Z`) uses the separate `Publish direct Android APK` workflow. It requires a protected release signing key. Publishing to the ByMeVPN update site also requires its restricted upload credentials; until those are configured, the signed APK and update manifest remain a private Actions artifact. See [`docs/DIRECT_DISTRIBUTION.md`](docs/DIRECT_DISTRIBUTION.md).
 
 ## Known release blockers
 
-- The configured API currently uses HTTP. The client blocks sending credentials over that connection; verified HTTPS and server-side authentication are required.
-- Google Sign-In token verification must happen on the server.
-- Payment and subscription renewal flows need verified server-side handlers and a policy-compliant Play distribution plan.
+- The production API must be rechecked for the mobile V2 plans, subscription, payment, and device contracts before release. Prices and device limits must come from the server; checkout stays disabled unless the server explicitly enables it.
+- Google Sign-In stays unavailable until the server validates ID-token signatures, audience, expiry, and nonce. Email access must remain usable independently of Telegram.
+- Payment and subscription renewal flows need provider-backed staging verification. Do not enable live checkout based only on unit tests or mock providers.
+- Direct APK updates need a verified signed upgrade from an existing release APK and a tested HTTPS update manifest on the ByMeVPN site.
+- VPN release acceptance still requires real tunnel traffic checks for DNS, IPv4/IPv6, reconnects, and clean shutdown on supported devices.
 - Referral data shown by the bot is not yet connected to an app-side server API.
 
 Do not present local UI state as proof of an authenticated account, completed payment, or active entitlement.

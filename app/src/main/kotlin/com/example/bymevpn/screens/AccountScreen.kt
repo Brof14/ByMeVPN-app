@@ -25,6 +25,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -86,14 +87,22 @@ fun AccountScreen(
     val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
-    val activeDevicesCount = devices.size
-    val effectiveDevicesText = maxDevices?.let { "$activeDevicesCount / $it" } ?: t("Лимит не получен от сервера", "Server did not provide the limit")
+    val activeDevicesCount = devices.count { !it.isCurrent } + 1
+    val effectiveDevicesText = maxDevices?.let {
+        t("Устройств: $activeDevicesCount из $it", "Devices: $activeDevicesCount of $it")
+    } ?: t("Устройств сейчас: $activeDevicesCount", "Devices shown: $activeDevicesCount")
 
     var showAccountDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
     var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        AccountRepository.refreshProfile(context)
+        AccountRepository.refreshDevices(context)
+        subManager.refreshStatus(forceBackend = true)
+    }
 
     Box(
         modifier = modifier

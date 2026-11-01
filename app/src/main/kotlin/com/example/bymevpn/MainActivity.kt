@@ -20,7 +20,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.update.AppUpdateManager
 import com.example.bymevpn.screens.AccountScreen
 import com.example.bymevpn.screens.AdvancedSettingsScreen
 import com.example.bymevpn.screens.DevicesScreen
@@ -109,8 +111,19 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         VpnManager.getInstance(applicationContext).syncWithServiceState()
-        CoroutineScope(Dispatchers.Main).launch {
-            com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(applicationContext)
+        CoroutineScope(Dispatchers.IO).launch {
+            val appContext = applicationContext
+            AppUpdateManager.checkForUpdates(appContext)
+            com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(appContext)
+
+            // Bot/admin changes are reflected as soon as the user returns to the app.
+            // Entitlements are always fetched from the API; server-list caching remains independent.
+            if (!SecureTokenStorage.getInstance(appContext).getAccessToken().isNullOrBlank()) {
+                AccountRepository.refreshProfile(appContext)
+                AccountRepository.refreshDevices(appContext)
+                SubscriptionManager.getInstance(appContext).refreshStatus(forceBackend = true)
+                VpnManager.getInstance(appContext).loadServers()
+            }
         }
     }
 }

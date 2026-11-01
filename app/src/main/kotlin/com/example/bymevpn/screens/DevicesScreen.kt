@@ -20,6 +20,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,11 @@ fun DevicesScreen(
     var pendingRemoveId by remember { mutableStateOf<String?>(null) }
     var isRemoving by remember { mutableStateOf(false) }
     val otherDevices = devicesList.filterNot { it.isCurrent }
+
+    LaunchedEffect(Unit) {
+        AccountRepository.refreshDevices(context)
+        subManager.refreshStatus(forceBackend = true)
+    }
 
     val effectiveMax = subscription?.maxDevices?.takeIf { it > 0 }
     val effectiveConnected = visibleDeviceCount(devicesList)

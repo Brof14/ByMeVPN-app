@@ -2,7 +2,11 @@ package com.example.bymevpn.screens
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.net.VpnService
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,7 +69,6 @@ import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.update.AppUpdateManager
-import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import com.example.bymevpn.vpn.VpnConnectionState
@@ -107,10 +110,38 @@ fun HomeScreen(
     var showVpnDisclosure by remember { mutableStateOf(false) }
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     val updateInfo by AppUpdateManager.updateInfo.collectAsState()
+    var isInstallingUpdate by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
-        AppUpdateManager.checkForUpdates()
-        YooKassaPaymentHandler.checkAndCompletePendingPayment(context)
+    val startUpdateInstall: (com.example.bymevpn.data.update.AppUpdateInfo) -> Unit = { info ->
+        scope.launch {
+            isInstallingUpdate = true
+            try {
+                AppUpdateManager.downloadAndInstall(context, info)
+            } catch (e: Exception) {
+                Toast.makeText(
+                    context,
+                    if (isRu) "Не удалось установить обновление. Попробуйте позже." else "Could not install the update. Please try again.",
+                    Toast.LENGTH_LONG
+                ).show()
+            } finally {
+                isInstallingUpdate = false
+            }
+        }
+    }
+    val installPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        val permissionGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.O || context.packageManager.canRequestPackageInstalls()
+        val pendingUpdate = updateInfo
+        if (permissionGranted && pendingUpdate != null) {
+            startUpdateInstall(pendingUpdate)
+        } else if (pendingUpdate != null) {
+            Toast.makeText(
+                context,
+                if (isRu) "Разрешите установку обновлений для ByMeVPN." else "Allow ByMeVPN to install updates.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
     }
 
     // Servers must be ready before the user taps "connect", not after it.
@@ -208,8 +239,19 @@ fun HomeScreen(
                             .clip(RoundedCornerShape(12.dp))
                             .background(Color(0xFF163128))
                             .border(1.dp, AppColors.BrandMint, RoundedCornerShape(12.dp))
-                            .clickable {
-                                AppUpdateManager.openUpdateDownload(context, updateInfo!!.downloadUrl)
+                            .clickable(enabled = !isInstallingUpdate) {
+                                val info = updateInfo ?: return@clickable
+                                val needsInstallPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                    !context.packageManager.canRequestPackageInstalls()
+                                if (needsInstallPermission) {
+                                    installPermissionLauncher.launch(
+                                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                                            data = Uri.parse("package:${context.packageName}")
+                                        }
+                                    )
+                                } else {
+                                    startUpdateInstall(info)
+                                }
                             }
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -223,13 +265,19 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (isRu) "Нажмите, чтобы скачать и обновить приложение" else "Tap to download and update the app",
+                                text = when {
+                                    isInstallingUpdate -> if (isRu) "Загружаем обновление…" else "Downloading update…"
+                                    else -> if (isRu) "Нажмите, чтобы скачать и установить" else "Tap to download and install"
+                                },
                                 color = Color(0xFFA1C7BD),
                                 fontSize = 10.5.sp
                             )
                         }
                         Text(
-                            text = if (isRu) "Обновить >" else "Update >",
+                            text = when {
+                                isInstallingUpdate -> if (isRu) "Загрузка…" else "Downloading…"
+                                else -> if (isRu) "Обновить >" else "Update >"
+                            },
                             color = AppColors.BrandMint,
                             fontSize = 11.5.sp,
                             fontWeight = FontWeight.Bold
