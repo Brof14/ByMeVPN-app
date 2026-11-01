@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -70,15 +71,22 @@ fun PaywallSheet(
 
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
     var selectedPlan by remember { mutableStateOf<PlanTariff?>(null) }
+    var selectedDeviceCount by remember { mutableIntStateOf(2) }
     var plansLoading by remember { mutableStateOf(true) }
     var plansUnavailable by remember { mutableStateOf(false) }
     var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
+    var refreshSequence by remember { mutableIntStateOf(0) }
     var isActivatingTrial by remember { mutableStateOf(false) }
     var isProcessingPayment by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(selectedDeviceCount, refreshSequence) {
+        serverPlans = emptyList()
+        selectedPlan = null
+        plansUnavailable = false
+        mobileCatalogNotDeployed = false
+        plansLoading = true
         try {
-            serverPlans = ByMeApiClient(context).getPlans(devices = 2)
+            serverPlans = ByMeApiClient(context).getPlans(devices = selectedDeviceCount)
             plansUnavailable = serverPlans.isEmpty()
         } catch (e: Exception) {
             plansUnavailable = true
@@ -210,8 +218,8 @@ fun PaywallSheet(
                     )
                     PaywallFeatureRow(
                         icon = "📱",
-                        title = if (isRu) "До 5 устройств на аккаунт" else "Up to 5 devices per account",
-                        desc = if (isRu) "Телефон, ПК, планшет, Smart TV" else "Phone, PC, tablet, Smart TV"
+                        title = if (isRu) "До $selectedDeviceCount устройств на аккаунт" else "Up to $selectedDeviceCount devices per account",
+                        desc = if (isRu) "Телефон, планшет, компьютер или телевизор" else "Phone, tablet, computer or TV"
                     )
                 }
 
@@ -303,6 +311,38 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(AppColors.InputBg)
+                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(2, 5, 10).forEach { deviceCount ->
+                        val isSelected = selectedDeviceCount == deviceCount
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isSelected) AppColors.BrandGreen else Color.Transparent)
+                                .clickable(enabled = !plansLoading) { selectedDeviceCount = deviceCount }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isRu) "$deviceCount устройств" else "$deviceCount devices",
+                                color = if (isSelected) AppColors.DarkText else AppColors.TextSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
                 // Plans list
                 tariffOptions.forEach { plan ->
                     val isSelected = selectedPlan?.code == plan.code
@@ -328,6 +368,16 @@ fun PaywallSheet(
                         color = AppColors.TextSecondary,
                         fontSize = 12.sp,
                         modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = if (isRu) "Повторить" else "Try again",
+                        color = AppColors.BrandGreen,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .align(Alignment.Start)
+                            .clickable { refreshSequence++ }
+                            .padding(top = 8.dp)
                     )
                 }
 
