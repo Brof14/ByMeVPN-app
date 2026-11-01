@@ -77,7 +77,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                 val version = Libv2ray.checkVersionX()
                 Log.i(TAG, "Xray core environment initialized. Version: $version")
             } catch (e: Throwable) {
-                Log.e(TAG, "Failed to initialize Xray core env: ${e.message}", e)
+                Log.e(TAG, "Xray core initialization failed: ${e.javaClass.simpleName}")
                 envInitialized.set(false)
             }
         }
@@ -97,7 +97,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                     Log.d(TAG, "Extracted asset: $assetName to ${outFile.absolutePath}")
                 }
             } catch (e: Exception) {
-                Log.d(TAG, "Asset $assetName not extracted: ${e.message}")
+                Log.d(TAG, "Asset $assetName was not extracted: ${e.javaClass.simpleName}")
             }
         }
     }
@@ -267,7 +267,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                 }
             }
         } catch (e: Throwable) {
-            Log.w(TAG, "Error stopping core loop: ${e.message}")
+            Log.w(TAG, "Stopping Xray core loop failed: ${e.javaClass.simpleName}")
         } finally {
             coreController = null
         }
