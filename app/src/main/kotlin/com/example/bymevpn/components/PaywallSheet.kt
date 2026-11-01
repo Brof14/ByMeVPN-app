@@ -321,7 +321,7 @@ fun PaywallSheet(
                 } else if (plansUnavailable || tariffOptions.isEmpty()) {
                     Text(
                         text = if (mobileCatalogNotDeployed) {
-                            if (isRu) "Сервер тарифов ещё не обновлён. Оплата пока недоступна." else "The server has not enabled mobile plans yet. Checkout is unavailable."
+                            if (isRu) "Покупка пока недоступна. Попробуйте позже." else "Purchases are temporarily unavailable. Please try again later."
                         } else {
                             if (isRu) "Тарифы временно недоступны. Попробуйте позже." else "Plans are temporarily unavailable. Please try again later."
                         },

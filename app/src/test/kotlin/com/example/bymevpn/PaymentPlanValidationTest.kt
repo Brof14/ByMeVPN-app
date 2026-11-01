@@ -1,15 +1,28 @@
 package com.example.bymevpn
 
 import com.example.bymevpn.data.api.PlanItem
+import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.api.ApiJsonParsers
 import com.example.bymevpn.screens.PlanDuration
 import com.example.bymevpn.screens.matchesConfirmedPlan
+import com.example.bymevpn.screens.visibleDeviceCount
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class PaymentPlanValidationTest {
+    @Test
+    fun deviceCounterAlwaysIncludesThisPhoneAndDoesNotDoubleCountIt() {
+        assertEquals(1, visibleDeviceCount(emptyList()))
+        assertEquals(1, visibleDeviceCount(listOf(DeviceItem("phone", "Pixel", "Android", "now", isCurrent = true))))
+        assertEquals(2, visibleDeviceCount(listOf(DeviceItem("tablet", "Tablet", "Android", "now"))))
+        assertEquals(2, visibleDeviceCount(listOf(
+            DeviceItem("phone", "Pixel", "Android", "now", isCurrent = true),
+            DeviceItem("tablet", "Tablet", "Android", "now")
+        )))
+    }
+
     @Test
     fun subscriptionDeviceLimitUsesServerFieldOrTierBoundPlanCode() {
         assertEquals(5, ApiJsonParsers.parseSubscriptionStatus(org.json.JSONObject("{\"plan_code\":\"12m_d5\"}")).maxDevices)

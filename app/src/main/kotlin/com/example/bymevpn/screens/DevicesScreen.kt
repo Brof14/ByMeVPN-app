@@ -45,6 +45,9 @@ import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 
+internal fun visibleDeviceCount(devices: List<com.example.bymevpn.data.api.DeviceItem>): Int =
+    devices.count { !it.isCurrent } + 1
+
 @Composable
 fun DevicesScreen(
     onBackClick: () -> Unit,
@@ -62,9 +65,10 @@ fun DevicesScreen(
     val scope = rememberCoroutineScope()
     var pendingRemoveId by remember { mutableStateOf<String?>(null) }
     var isRemoving by remember { mutableStateOf(false) }
+    val otherDevices = devicesList.filterNot { it.isCurrent }
 
     val effectiveMax = subscription?.maxDevices?.takeIf { it > 0 }
-    val effectiveConnected = devicesList.size
+    val effectiveConnected = visibleDeviceCount(devicesList)
 
     Box(
         modifier = modifier
@@ -94,7 +98,7 @@ fun DevicesScreen(
                         letterSpacing = (-3).sp
                     )
                     Text(
-                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: (if (isRu) " / ?" else " / ?"),
+                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
                         color = Color(0xFF80D3C6),
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
@@ -104,8 +108,12 @@ fun DevicesScreen(
 
                 Text(
                     text = if (effectiveMax == null) {
-                        if (isRu) "Лимит подписки пока не подтверждён сервером" else "Subscription device limit not yet confirmed by the server"
-                    } else if (isRu) "Зарегистрировано устройств · лимит $effectiveMax" else "Registered devices · limit $effectiveMax",
+                        if (otherDevices.isEmpty()) {
+                            if (isRu) "Пока отображается только это устройство." else "Only this device is shown for now."
+                        } else {
+                            if (isRu) "Сейчас отображается $effectiveConnected устройств." else "$effectiveConnected devices are shown now."
+                        }
+                    } else if (isRu) "Подключено устройств · максимум $effectiveMax" else "Devices connected · up to $effectiveMax",
                     color = Color(0xFF92A9A5),
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
@@ -121,7 +129,6 @@ fun DevicesScreen(
                     Spacer(Modifier.height(20.dp))
                 }
 
-                val currentDevice = devicesList.firstOrNull { it.isCurrent }
                 val localModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
                     .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 val localOs = "Android ${android.os.Build.VERSION.RELEASE}"
@@ -169,15 +176,11 @@ fun DevicesScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(if (currentDevice != null) Color(0xFF69D3BC) else Color(0xFFE3B26A))
+                                    .background(Color(0xFF69D3BC))
                             )
                             Text(
-                                text = if (currentDevice != null) {
-                                    if (isRu) "Подтверждено сервером" else "Confirmed by the server"
-                                } else {
-                                    if (isRu) "Сервер пока не подтвердил это устройство" else "Not confirmed by the server yet"
-                                },
-                                color = if (currentDevice != null) Color(0xFF8CDECA) else Color(0xFFE3B26A),
+                                text = if (isRu) "Это устройство" else "This device",
+                                color = Color(0xFF8CDECA),
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -187,7 +190,7 @@ fun DevicesScreen(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                if (currentDevice != null) {
+                if (otherDevices.isNotEmpty()) {
                     Text(
                         text = if (isRu) "ДРУГИЕ УСТРОЙСТВА" else "OTHER DEVICES",
                         color = Color(0xFF8BA3A4),
@@ -198,7 +201,6 @@ fun DevicesScreen(
                     )
                 }
 
-                val otherDevices = devicesList.filterNot { it.isCurrent }
                 if (otherDevices.isNotEmpty()) {
                     otherDevices.forEach { dev ->
                         Row(
@@ -247,7 +249,7 @@ fun DevicesScreen(
                     }
                 } else {
                     Text(
-                        text = if (isRu) "Других устройств сервер не вернул." else "The server returned no other devices.",
+                        text = if (isRu) "Пока отображается только это устройство." else "Only this device is shown for now.",
                         color = Color(0xFF8AA1A1),
                         fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 6.dp)
