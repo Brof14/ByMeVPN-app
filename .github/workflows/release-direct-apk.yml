@@ -65,7 +65,9 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY }}
-        run: gradle :app:assembleRelease --no-daemon
+        run: |
+          test -n "$SERVER_ES256_PUBLIC_KEY"
+          gradle :app:assembleRelease --no-daemon
       - name: Verify APK and generate update manifest
         env:
           RELEASE_REF: ${{ github.ref_name }}

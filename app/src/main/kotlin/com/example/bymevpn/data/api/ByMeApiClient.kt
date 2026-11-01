@@ -347,6 +347,9 @@ class ByMeApiClient(private val context: Context) {
                 doInput = true
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
+                if (ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()) {
+                    setRequestProperty("X-Entitlement-Version", "es256-v1")
+                }
                 val installId = storage.getInstallId(context)
                 if (installId.isNotBlank()) {
                     setRequestProperty("X-HWID", installId)

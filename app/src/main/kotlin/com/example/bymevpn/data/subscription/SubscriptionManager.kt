@@ -2,7 +2,6 @@ package com.example.bymevpn.data.subscription
 
 import android.content.Context
 import android.os.Build
-import android.util.Base64
 import android.util.Log
 import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.ByMeApiClient
@@ -15,18 +14,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
-import java.security.KeyFactory
-import java.security.PublicKey
-import java.security.Signature
-import java.security.spec.X509EncodedKeySpec
 
 /**
  * Manages the current subscription, offline entitlement evaluation, and trial activation.
  * Offline rule:
- * - Entitlement is verified against server public ES256 key.
+ * - When the release has the server ES256 key, its signed entitlement is mandatory.
  * - Usable without server connectivity for up to 72 hours since last successful sync.
  */
 class SubscriptionManager private constructor(private val context: Context) {
@@ -70,11 +64,17 @@ class SubscriptionManager private constructor(private val context: Context) {
         }
         if (current.knownExpiryReached(now)) return false
 
-        // Verify ES256 JWT entitlement if present
+        // New release builds opt into signed, account/device-bound offline access.
         val token = current.entitlement
+        val publicKey = ApiConfig.SERVER_ES256_PUBLIC_KEY
+        if (publicKey.isNotBlank() && token.isNullOrBlank()) {
+            Log.w(TAG, "Signed subscription confirmation is missing.")
+            return false
+        }
         if (!token.isNullOrBlank()) {
-            val valid = verifyEntitlementJwt(token)
-            if (!valid) {
+            val userId = storage.getCachedUser()?.id.orEmpty()
+            val hwid = storage.getInstallId(context)
+            if (!EntitlementJwtVerifier.verify(token, publicKey, userId, hwid, current)) {
                 Log.w(TAG, "Entitlement token validation failed.")
                 return false
             }
@@ -226,64 +226,4 @@ class SubscriptionManager private constructor(private val context: Context) {
         _subscriptionStatus.value = null
     }
 
-    /**
-     * Verifies the ES256 JWT entitlement signature and expiration.
-     */
-    private fun verifyEntitlementJwt(jwt: String): Boolean {
-        try {
-            val parts = jwt.split(".")
-            if (parts.size != 3) return false
-
-            val headerJson = String(Base64.decode(parts[0], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP), Charsets.UTF_8)
-            if (JSONObject(headerJson).optString("alg") != "ES256") return false
-
-            val payloadJson = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP), Charsets.UTF_8)
-            val payload = JSONObject(payloadJson)
-
-            // Check expiration
-            val exp = payload.optLong("exp", 0L)
-            if (exp <= 0 || exp <= System.currentTimeMillis() / 1000) {
-                return false
-            }
-
-            // Check signature if public key is not placeholder
-            if (!ApiConfig.SERVER_ES256_PUBLIC_KEY.contains("Placeholder")) {
-                val publicKey = parsePublicKey(ApiConfig.SERVER_ES256_PUBLIC_KEY) ?: return false
-                val signedData = "${parts[0]}.${parts[1]}".toByteArray(Charsets.US_ASCII)
-                val rawSignature = Base64.decode(parts[2], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)
-                if (rawSignature.size != 64) return false
-                fun derInteger(bytes: ByteArray): ByteArray {
-                    val trimmed = bytes.dropWhile { it == 0.toByte() }.toByteArray()
-                    val unsigned = if (trimmed.isEmpty()) byteArrayOf(0) else trimmed
-                    val value = if ((unsigned[0].toInt() and 0x80) != 0) byteArrayOf(0) + unsigned else unsigned
-                    return byteArrayOf(2, value.size.toByte()) + value
-                }
-                val values = derInteger(rawSignature.copyOfRange(0, 32)) + derInteger(rawSignature.copyOfRange(32, 64))
-                val signatureBytes = byteArrayOf(0x30, values.size.toByte()) + values
-
-                val verifier = Signature.getInstance("SHA256withECDSA")
-                verifier.initVerify(publicKey)
-                verifier.update(signedData)
-                return verifier.verify(signatureBytes)
-            }
-
-            return false
-        } catch (e: Exception) {
-            Log.e(TAG, "JWT verification failed: ${e.javaClass.simpleName}")
-            return false
-        }
-    }
-
-    private fun parsePublicKey(pem: String): PublicKey? {
-        return try {
-            val clean = pem.replace("-----BEGIN PUBLIC KEY-----", "")
-                .replace("-----END PUBLIC KEY-----", "")
-                .replace("\\s+".toRegex(), "")
-            val decoded = Base64.decode(clean, Base64.DEFAULT)
-            val spec = X509EncodedKeySpec(decoded)
-            KeyFactory.getInstance("EC").generatePublic(spec)
-        } catch (e: Exception) {
-            null
-        }
-    }
 }
