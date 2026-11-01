@@ -4,6 +4,7 @@ import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.vpn.xray.XrayConfigGenerator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class XrayConfigGeneratorTest {
@@ -26,6 +27,22 @@ class XrayConfigGeneratorTest {
         val reality = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds")
             .getJSONObject(0).getJSONObject("streamSettings").getJSONObject("realitySettings")
         assertEquals("bymevpn.duckdns.org", reality.getString("serverName"))
+    }
+
+    @Test
+    fun rejectsMissingEndpointInsteadOfFallingBackToAnEmbeddedIp() {
+        val config = VpnSessionConfig(
+            server = " ",
+            port = 443,
+            uuid = "test",
+            serverName = "bymevpn.duckdns.org",
+            publicKey = "test"
+        )
+
+        val error = assertThrows(IllegalArgumentException::class.java) {
+            XrayConfigGenerator.generateJson(config)
+        }
+        assertEquals("VPN server address is missing from the subscription", error.message)
     }
 
     @Test

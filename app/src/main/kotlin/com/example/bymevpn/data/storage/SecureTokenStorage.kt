@@ -43,6 +43,7 @@ class SecureTokenStorage private constructor(context: Context) {
         private const val KEY_CUSTOM_CONFIGS = "custom_server_configs_json"
         private const val KEY_SERVER_NODES = "custom_server_nodes_json"
         private const val KEY_API_SERVER_CACHE = "api_server_cache_json"
+        private const val KEY_CONFIG_SAVED_AT = "saved_at"
     }
 
     private val prefs: SharedPreferences = try {
@@ -206,25 +207,9 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun saveServerConfigs(configs: Map<String, com.example.bymevpn.data.api.VpnSessionConfig>) {
         val root = JSONObject()
+        val savedAt = System.currentTimeMillis()
         configs.forEach { (nodeCode, cfg) ->
-            val obj = JSONObject().apply {
-                put("protocol", cfg.protocol)
-                put("server", cfg.server)
-                put("port", cfg.port)
-                put("uuid", cfg.uuid)
-                put("encryption", cfg.encryption)
-                put("flow", cfg.flow)
-                put("security", cfg.security)
-                put("serverName", cfg.serverName)
-                put("publicKey", cfg.publicKey)
-                put("shortId", cfg.shortId)
-                put("fingerprint", cfg.fingerprint)
-                put("network", cfg.network)
-                put("transportPath", cfg.transportPath)
-                put("transportHost", cfg.transportHost)
-                put("transportMode", cfg.transportMode)
-            }
-            root.put(nodeCode, obj)
+            root.put(nodeCode, configToJson(cfg, savedAt))
         }
         prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
     }
@@ -294,32 +279,20 @@ class SecureTokenStorage private constructor(context: Context) {
         return try {
             val root = JSONObject(raw)
             val obj = root.optJSONObject(nodeCode) ?: return null
-            com.example.bymevpn.data.api.VpnSessionConfig(
-                protocol = obj.optString("protocol", "vless"),
-                server = obj.optString("server", ""),
-                port = obj.optInt("port", 443),
-                uuid = obj.optString("uuid", ""),
-                encryption = obj.optString("encryption", "none"),
-                flow = obj.optString("flow", "xtls-rprx-vision"),
-                security = obj.optString("security", "reality"),
-                serverName = obj.optString("serverName", ""),
-                publicKey = obj.optString("publicKey", ""),
-                shortId = obj.optString("shortId", ""),
-                fingerprint = obj.optString("fingerprint", "chrome"),
-                network = obj.optString("network", "tcp"),
-                transportPath = obj.optString("transportPath", ""),
-                transportHost = obj.optString("transportHost", ""),
-                transportMode = obj.optString("transportMode", "")
-            )
+            parseFreshServerConfig(obj, System.currentTimeMillis())
         } catch (e: Exception) {
             null
         }
     }
 
     fun saveServerConfig(nodeCode: String, cfg: com.example.bymevpn.data.api.VpnSessionConfig) {
-        val current = getServerConfigs().toMutableMap()
-        current[nodeCode] = cfg
-        saveServerConfigs(current)
+        val root = try {
+            JSONObject(prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: "{}")
+        } catch (_: Exception) {
+            JSONObject()
+        }
+        root.put(nodeCode, configToJson(cfg, System.currentTimeMillis()))
+        prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
     }
 
     fun getServerConfigs(): Map<String, com.example.bymevpn.data.api.VpnSessionConfig> {
@@ -331,28 +304,60 @@ class SecureTokenStorage private constructor(context: Context) {
             while (keys.hasNext()) {
                 val nodeCode = keys.next()
                 val obj = root.optJSONObject(nodeCode) ?: continue
-                result[nodeCode] = com.example.bymevpn.data.api.VpnSessionConfig(
-                    protocol = obj.optString("protocol", "vless"),
-                    server = obj.optString("server", ""),
-                    port = obj.optInt("port", 443),
-                    uuid = obj.optString("uuid", ""),
-                    encryption = obj.optString("encryption", "none"),
-                    flow = obj.optString("flow", "xtls-rprx-vision"),
-                    security = obj.optString("security", "reality"),
-                    serverName = obj.optString("serverName", ""),
-                    publicKey = obj.optString("publicKey", ""),
-                    shortId = obj.optString("shortId", ""),
-                    fingerprint = obj.optString("fingerprint", "chrome"),
-                    network = obj.optString("network", "tcp"),
-                    transportPath = obj.optString("transportPath", ""),
-                    transportHost = obj.optString("transportHost", ""),
-                    transportMode = obj.optString("transportMode", "")
-                )
+                val cfg = parseFreshServerConfig(obj, System.currentTimeMillis()) ?: continue
+                result[nodeCode] = cfg
             }
             result
         } catch (e: Exception) {
             emptyMap()
         }
+    }
+
+    private fun configToJson(
+        cfg: com.example.bymevpn.data.api.VpnSessionConfig,
+        savedAt: Long
+    ) = JSONObject().apply {
+        put("protocol", cfg.protocol)
+        put("server", cfg.server)
+        put("port", cfg.port)
+        put("uuid", cfg.uuid)
+        put("encryption", cfg.encryption)
+        put("flow", cfg.flow)
+        put("security", cfg.security)
+        put("serverName", cfg.serverName)
+        put("publicKey", cfg.publicKey)
+        put("shortId", cfg.shortId)
+        put("fingerprint", cfg.fingerprint)
+        put("network", cfg.network)
+        put("transportPath", cfg.transportPath)
+        put("transportHost", cfg.transportHost)
+        put("transportMode", cfg.transportMode)
+        put(KEY_CONFIG_SAVED_AT, savedAt)
+    }
+
+    private fun parseFreshServerConfig(
+        obj: JSONObject,
+        now: Long
+    ): com.example.bymevpn.data.api.VpnSessionConfig? {
+        // Legacy cache entries have no timestamp and are intentionally discarded.
+        if (!ServerConfigCachePolicy.isFresh(obj.optLong(KEY_CONFIG_SAVED_AT, 0L), now)) return null
+        return com.example.bymevpn.data.api.VpnSessionConfig(
+            protocol = obj.optString("protocol", "vless"),
+            server = obj.optString("server", ""),
+            port = obj.optInt("port", 443),
+            uuid = obj.optString("uuid", ""),
+            encryption = obj.optString("encryption", "none"),
+            flow = obj.optString("flow", "xtls-rprx-vision"),
+            security = obj.optString("security", "reality"),
+            serverName = obj.optString("serverName", ""),
+            publicKey = obj.optString("publicKey", ""),
+            shortId = obj.optString("shortId", ""),
+            fingerprint = obj.optString("fingerprint", "chrome"),
+            network = obj.optString("network", "tcp"),
+            transportPath = obj.optString("transportPath", ""),
+            transportHost = obj.optString("transportHost", ""),
+            transportMode = obj.optString("transportMode", "")
+        )
     }
 
     fun getFavoriteServers(): Set<String> {
