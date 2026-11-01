@@ -404,7 +404,12 @@ class VpnManager private constructor(private val context: Context) {
 
                 // 3. Obtain VLESS+Reality session configuration from backend or local subscription store
                 val sessionConfig = storage.getServerConfig(targetServer.nodeCode) ?: try {
-                    apiClient.createVpnSession(targetServer.nodeCode)
+                    // Refresh expired or legacy endpoint data before connecting. This
+                    // lets DNS/backend changes take effect without keeping old IPs forever.
+                    subscriptionManager.refreshStatus()
+                    coroutineContext.ensureActive()
+                    storage.getServerConfig(targetServer.nodeCode)
+                        ?: apiClient.createVpnSession(targetServer.nodeCode)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
