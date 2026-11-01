@@ -3,6 +3,7 @@ package com.example.bymevpn
 import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.api.ApiJsonParsers
+import com.example.bymevpn.components.filterPlansByDeviceCount
 import com.example.bymevpn.screens.PlanDuration
 import com.example.bymevpn.screens.matchesConfirmedPlan
 import com.example.bymevpn.screens.visibleDeviceCount
@@ -69,5 +70,20 @@ class PaymentPlanValidationTest {
         """.trimIndent())).single()
         assertEquals(1185, plan.priceRub)
         assertFalse(plan.purchaseEnabled)
+    }
+
+    @Test
+    fun compactPaywallShowsOnlyTheSelectedDeviceTier() {
+        val plans = ApiJsonParsers.parsePlans(org.json.JSONObject("""
+            {"plans":[
+              {"code":"1m_d2","name":"1 месяц","price_rub":89,"days":30,"devices":2},
+              {"code":"1m_d5","name":"1 месяц","price_rub":109,"days":30,"devices":5},
+              {"code":"1m_d10","name":"1 месяц","price_rub":129,"days":30,"devices":10}
+            ]}
+        """.trimIndent()))
+
+        assertEquals(listOf("1m_d2"), filterPlansByDeviceCount(plans, 2).map { it.code })
+        assertEquals(listOf("1m_d5"), filterPlansByDeviceCount(plans, 5).map { it.code })
+        assertEquals(listOf("1m_d10"), filterPlansByDeviceCount(plans, 10).map { it.code })
     }
 }

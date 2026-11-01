@@ -87,7 +87,7 @@ fun PaywallSheet(
         plansLoading = true
         try {
             serverPlans = ByMeApiClient(context).getPlans(devices = selectedDeviceCount)
-            plansUnavailable = serverPlans.isEmpty()
+            plansUnavailable = serverPlans.none { it.devices == selectedDeviceCount }
         } catch (e: Exception) {
             plansUnavailable = true
             mobileCatalogNotDeployed = (e as? ApiError)?.httpStatusCode == 404
@@ -96,7 +96,7 @@ fun PaywallSheet(
         }
     }
 
-    val tariffOptions = serverPlans.map { plan ->
+    val tariffOptions = filterPlansByDeviceCount(serverPlans, selectedDeviceCount).map { plan ->
         PlanTariff(
             code = plan.code,
             name = plan.name,
@@ -446,6 +446,9 @@ fun PaywallSheet(
         }
     }
 }
+
+internal fun filterPlansByDeviceCount(plans: List<PlanItem>, deviceCount: Int): List<PlanItem> =
+    plans.filter { it.devices == deviceCount }
 
 @Composable
 private fun PaywallFeatureRow(
