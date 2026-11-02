@@ -7,4 +7,3 @@ internal object TrialActivationPolicy {
     fun shouldAutoActivate(status: SubscriptionStatus?): Boolean =
         status != null && !status.isUsable && status.trialAvailable
 }
-}
