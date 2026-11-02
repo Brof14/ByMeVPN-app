@@ -38,7 +38,10 @@ jobs:
           ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | grep -Fq \
             'SHA256:qm99nR8xq7zOZe+cxke5cVaXm2Op/08ck0o8oNDb/pQ'
 
-          marker="sftp-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
+          # The public download route intentionally serves only versioned APK
+          # filenames. Use a unique, temporary marker that matches that route;
+          # it is removed before the workflow completes and never goes in a manifest.
+          marker="ByMeVPN-v0.0.${GITHUB_RUN_ID}.apk"
           marker_file="$RUNNER_TEMP/$marker"
           printf 'ByMeVPN SFTP smoke test %s/%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > "$marker_file"
           uploaded=0
