@@ -117,11 +117,12 @@ object AccountRepository {
         }
         _isLoading.value = true
         return try {
+            val api = ByMeApiClient(context)
+            val nonce = api.createGoogleAuthNonce()
             val helper = GoogleAuthHelper(context)
-            when (val authResult = helper.signInWithGoogle()) {
+            when (val authResult = helper.signInWithGoogle(nonce)) {
                 is GoogleAuthResult.Success -> {
-                    val api = ByMeApiClient(context)
-                    val auth = api.loginGoogle(authResult.idToken)
+                    val auth = api.loginGoogle(authResult.idToken, nonce)
                     _currentUser.value = auth.user
                     refreshAfterLogin(context)
                     Result.success(auth.user)

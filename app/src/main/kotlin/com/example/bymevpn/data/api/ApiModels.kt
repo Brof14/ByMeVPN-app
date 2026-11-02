@@ -53,6 +53,9 @@ data class SubscriptionStatus(
     val maxDevices: Int = 0,
     val activeDevices: Int = 0,
     val entitlement: String? = null,
+    /** Short-lived proof used only to bootstrap the first panel HWID registration. */
+    val entitlementBootstrap: Boolean = false,
+    val entitlementExpiresAt: Long? = null,
     val serverTime: String? = null,
     val subscriptionUrl: String? = null,
     val lastFetchedAt: Long = System.currentTimeMillis()
@@ -227,6 +230,8 @@ object ApiJsonParsers {
             maxDevices = explicitDeviceLimit ?: deviceLimitFromServerPlan ?: 0,
             activeDevices = target.optInt("active_devices", 0),
             entitlement = optNullableString("entitlement"),
+            entitlementBootstrap = target.optBoolean("entitlement_bootstrap", false),
+            entitlementExpiresAt = target.optLong("entitlement_expires_at", 0L).takeIf { it > 0 },
             serverTime = optNullableString("server_time"),
             subscriptionUrl = optNullableString("subscription_url") ?: optNullableString("sub_url"),
             lastFetchedAt = System.currentTimeMillis()
