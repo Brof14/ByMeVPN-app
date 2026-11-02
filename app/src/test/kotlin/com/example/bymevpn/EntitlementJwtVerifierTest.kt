@@ -28,15 +28,6 @@ class EntitlementJwtVerifierTest {
     }
 
     @Test
-    fun acceptsOneDeviceLimitOnlyForTrialEntitlement() {
-        val oneDeviceTrial = SubscriptionStatus(status = "trial", maxDevices = 1)
-        assertTrue(verify(token(entitlementSubscription = oneDeviceTrial), oneDeviceTrial))
-
-        val oneDevicePaidStatus = SubscriptionStatus(status = "active", maxDevices = 1)
-        assertFalse(verify(token(entitlementSubscription = oneDevicePaidStatus), oneDevicePaidStatus))
-    }
-
-    @Test
     fun rejectsWrongIssuerAudienceUserDeviceStatusPlanAndLimit() {
         val changes = listOf(
             "iss" to "other-api",
@@ -68,28 +59,25 @@ class EntitlementJwtVerifierTest {
         assertFalse(EntitlementJwtVerifier.verify(valid, "", userId, hwid, subscription, now))
     }
 
-    private fun verify(jwt: String, expected: SubscriptionStatus = subscription) = EntitlementJwtVerifier.verify(
+    private fun verify(jwt: String) = EntitlementJwtVerifier.verify(
         jwt = jwt,
         publicKeyPem = pem(keyPair.public.encoded),
         expectedUserId = userId,
         expectedHwid = hwid,
-        expectedSubscription = expected,
+        expectedSubscription = subscription,
         nowSeconds = now
     )
 
-    private fun token(
-        overrides: Map<String, Any> = emptyMap(),
-        entitlementSubscription: SubscriptionStatus = subscription
-    ): String {
+    private fun token(overrides: Map<String, Any> = emptyMap()): String {
         val header = base64Url("""{"alg":"ES256","typ":"JWT"}""".toByteArray())
         val claims = JSONObject().apply {
             put("iss", "bymevpn-api")
             put("aud", "bymevpn-mobile")
             put("sub", userId)
             put("device_hash", EntitlementJwtVerifier.deviceHash(userId, hwid))
-            put("status", entitlementSubscription.status)
-            put("plan_code", entitlementSubscription.planCode ?: JSONObject.NULL)
-            put("max_devices", entitlementSubscription.maxDevices)
+            put("status", subscription.status)
+            put("plan_code", subscription.planCode)
+            put("max_devices", subscription.maxDevices)
             put("iat", now - 10)
             put("nbf", now - 10)
             put("exp", now + 3600)
