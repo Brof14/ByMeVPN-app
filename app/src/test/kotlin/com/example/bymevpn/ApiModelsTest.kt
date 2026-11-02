@@ -30,6 +30,19 @@ class ApiModelsTest {
     }
 
     @Test
+    fun trialBootstrapMetadataIsParsedAndMissingFieldsStayDisabled() {
+        val bootstrap = ApiJsonParsers.parseSubscriptionStatus(
+            JSONObject("""{"status":"trial","max_devices":2,"seconds_remaining":600,"entitlement_bootstrap":true,"entitlement_expires_at":1793670000}""")
+        )
+        assertEquals(true, bootstrap.entitlementBootstrap)
+        assertEquals(1793670000L, bootstrap.entitlementExpiresAt)
+
+        val ordinary = ApiJsonParsers.parseSubscriptionStatus(JSONObject("""{"status":"trial","max_devices":2}"""))
+        assertEquals(false, ordinary.entitlementBootstrap)
+        assertNull(ordinary.entitlementExpiresAt)
+    }
+
+    @Test
     fun testParseVpnSessionConfig_vlessReality() {
         val jsonString = """
             {

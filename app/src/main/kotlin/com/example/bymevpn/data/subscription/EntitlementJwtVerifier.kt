@@ -47,6 +47,9 @@ internal object EntitlementJwtVerifier {
             if (issuedAt <= 0 || notBefore <= 0 || expiresAt <= 0) return false
             if (issuedAt > nowSeconds + CLOCK_SKEW_SECONDS || notBefore > nowSeconds + CLOCK_SKEW_SECONDS) return false
             if (expiresAt <= nowSeconds || expiresAt <= issuedAt || expiresAt - issuedAt > MAX_TOKEN_TTL_SECONDS) return false
+            if (expectedSubscription.entitlementBootstrap &&
+                expiresAt > (expectedSubscription.entitlementExpiresAt ?: return false) + CLOCK_SKEW_SECONDS
+            ) return false
 
             val rawSignature = decodeBase64(parts[2]) ?: return false
             if (rawSignature.size != 64) return false

@@ -107,6 +107,7 @@ class VpnManager private constructor(private val context: Context) {
     val connectedSeconds: StateFlow<Long> = _connectedSeconds.asStateFlow()
 
     private var timerJob: Job? = null
+    private var bootstrapPromotionJob: Job? = null
     private var engineObserverJob: Job? = null
     private var reconnectJob: Job? = null
     private var connectionJob: Job? = null
@@ -476,6 +477,50 @@ class VpnManager private constructor(private val context: Context) {
             _state.value = VpnConnectionState.CONNECTED
             _errorMessage.value = null
             startTimer()
+            if (subscriptionManager.subscriptionStatus.value?.entitlementBootstrap == true) {
+                promoteTrialBootstrapAfterConnection()
+            }
+        }
+    }
+
+    /**
+     * The backend grants a short bootstrap entitlement so a new device can make
+     * its first tunnel connection and register its HWID with the panel. Once the
+     * panel sees that device, immediately exchange the bootstrap snapshot for the
+     * ordinary trial entitlement. Never leave the tunnel running if confirmation
+     * does not arrive during the bounded promotion window.
+     */
+    private fun promoteTrialBootstrapAfterConnection() {
+        bootstrapPromotionJob?.cancel()
+        bootstrapPromotionJob = scope.launch {
+            val retryDelaysMs = longArrayOf(0L, 1_500L, 3_000L, 6_000L, 10_000L, 15_000L)
+            var promoted = false
+            for (delayMs in retryDelaysMs) {
+                if (delayMs > 0) delay(delayMs)
+                if (!connectionRequested || _state.value != VpnConnectionState.CONNECTED) return@launch
+
+                val refreshed = subscriptionManager.refreshStatus(forceBackend = true).getOrNull()
+                if (refreshed != null && !refreshed.entitlementBootstrap && subscriptionManager.canConnect()) {
+                    promoted = true
+                    break
+                }
+            }
+
+            if (!promoted && connectionRequested && _state.value == VpnConnectionState.CONNECTED) {
+                Log.w(TAG, "Trial device was not confirmed by the backend after bootstrap connection")
+                connectionRequested = false
+                bootstrapPromotionJob = null
+                ByMeVpnService.stop(context)
+                stopTimer()
+                _state.value = VpnConnectionState.ERROR
+                _errorMessage.value = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                    "Не удалось подтвердить устройство. Попробуйте подключиться ещё раз."
+                else
+                    "Could not confirm this device. Please try connecting again."
+            } else {
+                bootstrapPromotionJob = null
+                if (promoted) loadServers()
+            }
         }
     }
 
@@ -484,6 +529,8 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelFailed(error: String) {
         scope.launch(Dispatchers.Main) {
+            bootstrapPromotionJob?.cancel()
+            bootstrapPromotionJob = null
             if (!connectionRequested) return@launch
             _currentServer.value?.let { failed ->
                 _currentServer.value = failed.copy(connectionCheck = -1)
@@ -564,6 +611,8 @@ class VpnManager private constructor(private val context: Context) {
      */
     fun onTunnelDisconnected() {
         scope.launch(Dispatchers.Main) {
+            bootstrapPromotionJob?.cancel()
+            bootstrapPromotionJob = null
             if (!connectionRequested && _state.value != VpnConnectionState.ERROR) {
                 _state.value = VpnConnectionState.DISCONNECTED
                 stopTimer()
@@ -573,6 +622,8 @@ class VpnManager private constructor(private val context: Context) {
 
     fun onTunnelPermissionRevoked() {
         connectionRequested = false
+        bootstrapPromotionJob?.cancel()
+        bootstrapPromotionJob = null
         connectionJob?.cancel()
         reconnectJob?.cancel()
         scope.launch(Dispatchers.Main) {
@@ -611,6 +662,8 @@ class VpnManager private constructor(private val context: Context) {
 
     private fun disconnectInternal() {
         connectionRequested = false
+        bootstrapPromotionJob?.cancel()
+        bootstrapPromotionJob = null
         connectionJob?.cancel()
         connectionJob = null
         reconnectJob?.cancel()

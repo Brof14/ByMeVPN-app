@@ -50,6 +50,27 @@ class EntitlementJwtVerifierTest {
     }
 
     @Test
+    fun bootstrapEntitlementCannotOutliveItsServerWindow() {
+        val bootstrap = SubscriptionStatus(
+            status = "trial",
+            maxDevices = 2,
+            secondsRemaining = 600,
+            entitlementBootstrap = true,
+            entitlementExpiresAt = now + 600
+        )
+        val valid = token(
+            overrides = mapOf("exp" to now + 300),
+            entitlementSubscription = bootstrap
+        )
+        val tooLong = token(
+            overrides = mapOf("exp" to now + 661),
+            entitlementSubscription = bootstrap
+        )
+        assertTrue(verify(valid, bootstrap))
+        assertFalse(verify(tooLong, bootstrap))
+    }
+
+    @Test
     fun rejectsTamperedPayloadMalformedTokenAndMissingKey() {
         val valid = token()
         val parts = valid.split('.').toMutableList()
@@ -59,25 +80,28 @@ class EntitlementJwtVerifierTest {
         assertFalse(EntitlementJwtVerifier.verify(valid, "", userId, hwid, subscription, now))
     }
 
-    private fun verify(jwt: String) = EntitlementJwtVerifier.verify(
+    private fun verify(jwt: String, expected: SubscriptionStatus = subscription) = EntitlementJwtVerifier.verify(
         jwt = jwt,
         publicKeyPem = pem(keyPair.public.encoded),
         expectedUserId = userId,
         expectedHwid = hwid,
-        expectedSubscription = subscription,
+        expectedSubscription = expected,
         nowSeconds = now
     )
 
-    private fun token(overrides: Map<String, Any> = emptyMap()): String {
+    private fun token(
+        overrides: Map<String, Any> = emptyMap(),
+        entitlementSubscription: SubscriptionStatus = subscription
+    ): String {
         val header = base64Url("""{"alg":"ES256","typ":"JWT"}""".toByteArray())
         val claims = JSONObject().apply {
             put("iss", "bymevpn-api")
             put("aud", "bymevpn-mobile")
             put("sub", userId)
             put("device_hash", EntitlementJwtVerifier.deviceHash(userId, hwid))
-            put("status", subscription.status)
-            put("plan_code", subscription.planCode)
-            put("max_devices", subscription.maxDevices)
+            put("status", entitlementSubscription.status)
+            put("plan_code", entitlementSubscription.planCode ?: JSONObject.NULL)
+            put("max_devices", entitlementSubscription.maxDevices)
             put("iat", now - 10)
             put("nbf", now - 10)
             put("exp", now + 3600)

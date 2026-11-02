@@ -57,6 +57,12 @@ class SubscriptionManager private constructor(private val context: Context) {
         if (!current.isUsable) return false
 
         val now = System.currentTimeMillis()
+        if (current.entitlementBootstrap &&
+            !TrialBootstrapPolicy.isValid(current, now / 1000)
+        ) {
+            Log.w(TAG, "Trial bootstrap is missing or outside its short validity window.")
+            return false
+        }
         val elapsedSinceSync = now - current.lastFetchedAt
         if (elapsedSinceSync < 0 || elapsedSinceSync > ApiConfig.MAX_OFFLINE_DURATION_MS) {
             Log.w(TAG, "Offline entitlement requires an online sync.")
