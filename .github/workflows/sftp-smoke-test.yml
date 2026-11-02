@@ -36,7 +36,7 @@ jobs:
           chmod 600 "$HOME/.ssh/update_deploy_key" "$HOME/.ssh/known_hosts"
           ssh-keygen -F "$UPDATE_SSH_HOST" -f "$HOME/.ssh/known_hosts" >/dev/null
           ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | grep -Fq \
-            'SHA256:qm99nR8xq7zOZe+cxke5cVaXm2Op/08cko8o8oNDb/pQ'
+            'SHA256:qm99nR8xq7zOZe+cxke5cVaXm2Op/08ck0o8oNDb/pQ'
 
           marker="sftp-smoke-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
           marker_file="$RUNNER_TEMP/$marker"
