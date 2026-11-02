@@ -43,7 +43,12 @@ internal object EntitlementJwtVerifier {
             if (!constantTimeEquals(claims.optString("device_hash"), deviceHash(expectedUserId, expectedHwid))) return false
             if (claims.optString("status") != expectedSubscription.status) return false
             if (!planCodeMatches(claims, expectedSubscription.planCode)) return false
-            if (maxDevices !in setOf(2L, 5L, 10L) || maxDevices != expectedSubscription.maxDevices.toLong()) return false
+            val supportedDeviceLimits = if (expectedSubscription.status == "trial") {
+                setOf(1L, 2L, 5L, 10L)
+            } else {
+                setOf(2L, 5L, 10L)
+            }
+            if (maxDevices !in supportedDeviceLimits || maxDevices != expectedSubscription.maxDevices.toLong()) return false
             if (issuedAt <= 0 || notBefore <= 0 || expiresAt <= 0) return false
             if (issuedAt > nowSeconds + CLOCK_SKEW_SECONDS || notBefore > nowSeconds + CLOCK_SKEW_SECONDS) return false
             if (expiresAt <= nowSeconds || expiresAt <= issuedAt || expiresAt - issuedAt > MAX_TOKEN_TTL_SECONDS) return false
