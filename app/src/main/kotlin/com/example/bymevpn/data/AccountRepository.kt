@@ -116,18 +116,22 @@ object AccountRepository {
             return Result.failure(ApiError("GOOGLE_AUTH_UNAVAILABLE", "Google sign-in is temporarily unavailable"))
         }
         _isLoading.value = true
+        var stage = "request_nonce"
         return try {
             val api = ByMeApiClient(context)
             val nonce = api.createGoogleAuthNonce()
+            stage = "google_credential"
             val helper = GoogleAuthHelper(context)
             when (val authResult = helper.signInWithGoogle(nonce)) {
                 is GoogleAuthResult.Success -> {
+                    stage = "verify_with_server"
                     val auth = api.loginGoogle(authResult.idToken, nonce)
                     _currentUser.value = auth.user
                     refreshAfterLogin(context)
                     Result.success(auth.user)
                 }
                 is GoogleAuthResult.Error -> {
+                    Log.w(TAG, "Google sign-in failed at $stage")
                     Result.failure(ApiError("GOOGLE_AUTH_FAILED", authResult.message))
                 }
                 is GoogleAuthResult.Cancelled -> {
@@ -135,6 +139,11 @@ object AccountRepository {
                 }
             }
         } catch (e: Exception) {
+            val apiError = e as? ApiError
+            Log.w(
+                TAG,
+                "Google sign-in failed at $stage (code=${apiError?.code ?: e.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"})"
+            )
             Result.failure(e)
         } finally {
             _isLoading.value = false
