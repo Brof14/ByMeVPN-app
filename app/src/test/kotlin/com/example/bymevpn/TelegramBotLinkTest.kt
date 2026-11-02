@@ -1,11 +1,24 @@
 package com.example.bymevpn
 
 import com.example.bymevpn.data.auth.isByMeTelegramBotLink
+import com.example.bymevpn.data.api.TelegramAuthRequest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TelegramBotLinkTest {
+
+    @Test
+    fun telegramSessionStateIsSentInJsonBodyNotQueryString() {
+        val token = "auth_one-time-state"
+        val body = TelegramAuthRequest.sessionBody(token)
+
+        assertEquals("/auth/telegram/check-session", TelegramAuthRequest.CHECK_SESSION_PATH)
+        assertFalse(TelegramAuthRequest.CHECK_SESSION_PATH.contains("?"))
+        assertEquals(token, body.getString("token"))
+        assertEquals(1, body.length())
+    }
     @Test
     fun acceptsOnlyExpectedBotHttpsLink() {
         assertTrue(isByMeTelegramBotLink("https://t.me/ByMeVPNbot?start=auth_test-1"))
