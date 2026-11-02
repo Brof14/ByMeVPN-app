@@ -80,6 +80,15 @@ class ApiModelsTest {
     }
 
     @Test
+    fun activePanelClientIsNotMistakenForThisPhone() {
+        val device = ApiJsonParsers.parseDevices(
+            JSONArray("[{\"id\":41,\"device_model\":\"Xiaomi\",\"is_active\":true}]")
+        ).single()
+
+        assertEquals(false, device.isCurrent)
+    }
+
+    @Test
     fun testParseVpnSessionConfig_vlessReality() {
         val jsonString = """
             {

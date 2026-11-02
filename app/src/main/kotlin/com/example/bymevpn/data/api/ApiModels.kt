@@ -366,7 +366,9 @@ object ApiJsonParsers {
             }
             val platform = obj.optString("platform", "Android")
             val lastActive = obj.optString("last_seen_at", obj.optString("last_active", "Just now"))
-            val isCurrent = obj.optBoolean("is_current", false) || obj.optBoolean("is_active", false) ||
+            // `is_active` commonly means that a panel client/subscription is active;
+            // it does not identify this physical phone.
+            val isCurrent = obj.optBoolean("is_current", false) ||
                 (!currentInstallId.isNullOrBlank() && installId == currentInstallId)
             val parsed = DeviceItem(
                 id = idStr,
