@@ -102,9 +102,22 @@ class ByMeApiClient(private val context: Context) {
         return auth
     }
 
-    suspend fun loginGoogle(idToken: String): AuthResponse {
-        val body = JSONObject().apply {
-            put("id_token", idToken)
+    suspend fun createGoogleAuthNonce(): String {
+        val json = request(
+            "POST",
+            GoogleAuthRequest.CHALLENGE_PATH,
+            GoogleAuthRequest.challengeBody(),
+            requiresAuth = false
+        )
+        return json.optString("nonce").takeIf { it.isNotBlank() }
+            ?: throw ApiError("INVALID_AUTH_RESPONSE", "Google sign-in challenge is missing")
+    }
+
+    suspend fun loginGoogle(idToken: String, nonce: String): AuthResponse {
+        if (idToken.isBlank() || nonce.isBlank()) {
+            throw ApiError("INVALID_AUTH_REQUEST", "Google sign-in credentials are incomplete")
+        }
+        val body = GoogleAuthRequest.tokenBody(idToken, nonce).apply {
             put("install_id", storage.getInstallId(context))
         }
         val json = request("POST", "/auth/google", body, requiresAuth = false)

@@ -1,7 +1,6 @@
 package com.example.bymevpn.data.auth
 
 import android.content.Context
-import android.util.Base64
 import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
@@ -12,7 +11,6 @@ import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.security.SecureRandom
 
 sealed class GoogleAuthResult {
     data class Success(val idToken: String, val email: String, val displayName: String?) : GoogleAuthResult()
@@ -31,23 +29,21 @@ class GoogleAuthHelper(private val context: Context) {
 
     private val credentialManager = CredentialManager.create(context)
 
-    suspend fun signInWithGoogle(): GoogleAuthResult = withContext(Dispatchers.Main) {
+    suspend fun signInWithGoogle(serverNonce: String): GoogleAuthResult = withContext(Dispatchers.Main) {
         if (ApiConfig.GOOGLE_SERVER_CLIENT_ID.startsWith("YOUR_GOOGLE_SERVER_CLIENT_ID")) {
             return@withContext GoogleAuthResult.Error(
                 "Google Sign-In requires configuring a valid Google Web Client ID in ApiConfig.GOOGLE_SERVER_CLIENT_ID"
             )
         }
+        if (serverNonce.isBlank()) {
+            return@withContext GoogleAuthResult.Error("Google sign-in challenge is unavailable")
+        }
         try {
-            // Generate a cryptographic nonce for replay protection
-            val nonceBytes = ByteArray(16)
-            SecureRandom().nextBytes(nonceBytes)
-            val nonce = Base64.encodeToString(nonceBytes, Base64.NO_WRAP or Base64.URL_SAFE)
-
             val googleIdOption = GetGoogleIdOption.Builder()
                 .setFilterByAuthorizedAccounts(false)
                 .setServerClientId(ApiConfig.GOOGLE_SERVER_CLIENT_ID)
                 .setAutoSelectEnabled(false)
-                .setNonce(nonce)
+                .setNonce(serverNonce)
                 .build()
 
             val request = GetCredentialRequest.Builder()
