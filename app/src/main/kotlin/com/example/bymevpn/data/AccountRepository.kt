@@ -40,9 +40,23 @@ object AccountRepository {
 
     private fun refreshAfterLogin(context: Context) {
         val appContext = context.applicationContext
-        repoScope.launch { com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers() }
         repoScope.launch { refreshDevices(appContext) }
-        repoScope.launch { SubscriptionManager.getInstance(appContext).refreshStatus() }
+        repoScope.launch {
+            val subscriptionManager = SubscriptionManager.getInstance(appContext)
+            val statusResult = subscriptionManager.refreshStatus(forceBackend = true)
+            val status = statusResult.getOrNull()
+            if (com.example.bymevpn.data.subscription.TrialActivationPolicy.shouldAutoActivate(status)) {
+                val trialResult = subscriptionManager.activateTrial()
+                if (trialResult.isSuccess) {
+                    Log.i(TAG, "Available trial activated after sign-in")
+                } else {
+                    // Keep sign-in successful; the server remains authoritative and the
+                    // account screen can offer a retry without exposing backend details.
+                    Log.w(TAG, "Automatic trial activation failed: ${trialResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"}")
+                }
+            }
+            com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
+        }
     }
 
     fun init(context: Context) {

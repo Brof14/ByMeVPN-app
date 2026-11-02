@@ -122,7 +122,13 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun checkTelegramSession(token: String): TelegramCheckResult {
-        val json = request("GET", "/auth/telegram/check-session?token=${URLEncoder.encode(token, "UTF-8")}", null, requiresAuth = false)
+        // Keep the one-time state out of URLs and reverse-proxy access logs.
+        val json = request(
+            "POST",
+            TelegramAuthRequest.CHECK_SESSION_PATH,
+            TelegramAuthRequest.sessionBody(token),
+            requiresAuth = false
+        )
         val status = json.optString("status", "pending")
         if (status == "authenticated") {
             val accessToken = json.optString("access_token").ifBlank { json.optString("access") }
