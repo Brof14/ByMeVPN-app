@@ -18,6 +18,9 @@ class TelegramBotLinkTest {
         assertFalse(TelegramAuthRequest.CHECK_SESSION_PATH.contains("?"))
         assertEquals(token, body.getString("token"))
         assertEquals(1, body.length())
+        assertTrue(TelegramAuthRequest.shouldFallbackToLegacyGet(405))
+        assertFalse(TelegramAuthRequest.shouldFallbackToLegacyGet(404))
+        assertTrue(TelegramAuthRequest.legacyGetPath("auth state").endsWith("?token=auth+state"))
     }
     @Test
     fun acceptsOnlyExpectedBotHttpsLink() {
