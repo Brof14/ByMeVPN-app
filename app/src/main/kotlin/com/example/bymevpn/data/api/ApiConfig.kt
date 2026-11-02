@@ -25,7 +25,9 @@ object ApiConfig {
      * Server public key in PEM format for ES256 JWT offline entitlement verification.
      * Configure with the matching backend public key as the SERVER_ES256_PUBLIC_KEY
      * build environment variable or serverEntitlementPublicKey Gradle property.
-     * Empty remains fail-closed whenever the server returns a signed entitlement.
+     * When configured, the client opts into ES256 entitlements and requires a valid
+     * account/device-bound token before allowing VPN use. An empty value keeps the
+     * legacy server contract until the signer is deployed.
      */
     val SERVER_ES256_PUBLIC_KEY: String = BuildConfig.SERVER_ES256_PUBLIC_KEY
 
