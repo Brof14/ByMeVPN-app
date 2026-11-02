@@ -67,6 +67,22 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY || secrets.SERVER_ES256_PUBLIC_KEY }}
         run: gradle :app:assembleRelease :app:bundleRelease --no-daemon
+      - name: Verify APK release certificate
+        env:
+          EXPECTED_CERT_SHA256: 0C2160CEDAFAAE98B32AAF83F8B22229A67C98513DF93A8FE759EA910B177222
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          cert_output="$("$apksigner" verify --print-certs "$apk")"
+          printf '%s\n' "$cert_output"
+          actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$actual" = "$EXPECTED_CERT_SHA256"
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-signed-1.0.0
