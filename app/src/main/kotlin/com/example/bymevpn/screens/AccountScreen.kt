@@ -16,14 +16,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -61,6 +65,7 @@ import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun AccountScreen(
     onBackClick: () -> Unit,
     onNavigateToHome: () -> Unit = onBackClick,
@@ -97,6 +102,7 @@ fun AccountScreen(
     var deletingAccount by remember { mutableStateOf(false) }
     var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val accountSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(Unit) {
         AccountRepository.refreshProfile(context)
@@ -363,47 +369,139 @@ fun AccountScreen(
         }
 
         if (showAccountDialog) {
-            AlertDialog(
+            ModalBottomSheet(
                 onDismissRequest = { showAccountDialog = false },
-                containerColor = AppColors.CardBg,
-                titleContentColor = AppColors.TextPrimary,
-                title = { Text(t("Настройки аккаунта", "Account settings")) },
-                text = {
+                sheetState = accountSheetState,
+                containerColor = AppColors.BgCanvas,
+                contentColor = AppColors.TextPrimary
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 680.dp)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 22.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(t("Настройки аккаунта", "Account settings"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            t("Профиль, подписка и управление доступом", "Profile, subscription and access"),
+                            color = AppColors.TextSecondary,
+                            fontSize = 13.sp
+                        )
+                    }
+
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .verticalScroll(rememberScrollState()),
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(AppColors.CardBg)
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        AccountInfoLine(t("Имя", "Name"), currentUser?.displayName.orEmpty().ifBlank { t("Не указано", "Not specified") })
+                        Text(t("ПРОФИЛЬ", "PROFILE"), color = AppColors.BrandMint, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        AccountInfoLine(t("Имя", "Name"), currentUser?.displayName.orEmpty().ifBlank { t("Не указано", "Not set") })
                         AccountInfoLine(
                             "Email",
                             currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" }
-                                ?: t("Не указан", "Not specified")
+                                ?: t("Не указан", "Not set")
                         )
-                        AccountInfoLine(t("ID аккаунта", "Account ID"), currentUser?.id ?: "—")
-                        TextButton(
-                            enabled = currentUser?.id?.isNotBlank() == true,
-                            onClick = {
-                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                clipboard.setPrimaryClip(ClipData.newPlainText("ByMeVPN account ID", currentUser?.id.orEmpty()))
-                                Toast.makeText(context, t("ID скопирован", "ID copied"), Toast.LENGTH_SHORT).show()
-                            }
-                        ) { Text(t("Скопировать ID", "Copy ID"), color = AppColors.BrandMint) }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = t("ID аккаунта", "Account ID"),
+                                color = AppColors.TextSecondary,
+                                fontSize = 12.5.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                enabled = currentUser?.id?.isNotBlank() == true,
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("ByMeVPN account ID", currentUser?.id.orEmpty()))
+                                    Toast.makeText(context, t("ID скопирован", "ID copied"), Toast.LENGTH_SHORT).show()
+                                }
+                            ) { Text(t("Скопировать", "Copy"), color = AppColors.BrandMint) }
+                        }
+                    }
 
-                        TextButton(
-                            enabled = !refreshingAccount,
-                            onClick = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(AppColors.CardBg)
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(t("ПОДПИСКА", "SUBSCRIPTION"), color = AppColors.BrandMint, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        AccountInfoLine(t("Статус", "Status"), if (isActive) t("Активна", "Active") else t("Не активна", "Inactive"))
+                        AccountInfoLine(t("Осталось", "Remaining"), remainingDays?.let { t("$it дн.", "$it days") } ?: "—")
+                        AccountInfoLine(t("Тариф", "Plan"), subscription?.planName?.takeIf { it.isNotBlank() } ?: t("Не выбран", "Not selected"))
+                        AccountInfoLine(t("Устройства", "Devices"), effectiveDevicesText)
+                        subscription?.autoRenew?.let { enabled ->
+                            AccountInfoLine(t("Автопродление", "Auto-renewal"), if (enabled) t("Включено", "On") else t("Отключено", "Off"))
+                        }
+                    }
+
+                    ByMeCardGroup {
+                        ByMeSettingRow(
+                            title = t("Устройства", "Devices"),
+                            subtitle = t("Посмотреть и убрать устройства", "View or remove devices"),
+                            icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            onClick = { showAccountDialog = false; onNavigateToDevices() }
+                        )
+                        ByMeSettingRow(
+                            title = t("Тарифы и оплата", "Plans and payment"),
+                            subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
+                            icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            onClick = { showAccountDialog = false; onNavigateToPricing() }
+                        )
+                        ByMeSettingRow(
+                            title = t("Автопродление", "Auto-renewal"),
+                            subtitle = when (subscription?.autoRenew) {
+                                true -> t("Включено", "On")
+                                false -> t("Отключено", "Off")
+                                null -> t("Управление продлением подписки", "Manage subscription renewal")
+                            },
+                            icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            onClick = { showAccountDialog = false; onNavigateToRenewal() }
+                        )
+                        ByMeSettingRow(
+                            title = t("Настройки приложения", "App settings"),
+                            subtitle = t("Язык и внешний вид", "Language and appearance"),
+                            icon = { SettingsGearIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            onClick = { showAccountDialog = false; onNavigateToSettings() }
+                        )
+                        ByMeSettingRow(
+                            title = t("Помощь и поддержка", "Help and support"),
+                            subtitle = t("Связаться с нами", "Contact our team"),
+                            icon = { QuestionHelpIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            onClick = { showAccountDialog = false; onNavigateToSupport() },
+                            showBottomDivider = false
+                        )
+                    }
+
+                    ByMeSecondaryButton(
+                        text = if (refreshingAccount) t("Обновляем…", "Refreshing…") else t("Обновить данные", "Refresh account"),
+                        onClick = {
+                            if (!refreshingAccount) {
                                 refreshingAccount = true
                                 scope.launch {
                                     try {
                                         AccountRepository.refreshProfile(context)
                                         AccountRepository.refreshDevices(context)
-                                        val result = subManager.refreshStatus()
+                                        val result = subManager.refreshStatus(forceBackend = true)
                                         Toast.makeText(
                                             context,
                                             if (result.isSuccess) t("Данные обновлены", "Account refreshed")
-                                            else t("Не удалось проверить подписку", "Could not refresh subscription"),
+                                            else t("Не удалось обновить данные. Попробуйте позже.", "Could not refresh account. Try again later."),
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     } finally {
@@ -411,70 +509,22 @@ fun AccountScreen(
                                     }
                                 }
                             }
-                        ) {
-                            Text(
-                                if (refreshingAccount) t("Обновляем…", "Refreshing…")
-                                else t("Обновить данные аккаунта", "Refresh account data"),
-                                color = AppColors.BrandMint
-                            )
                         }
+                    )
 
-                        AccountInfoLine(t("Устройства", "Devices"), effectiveDevicesText)
-                        TextButton(onClick = {
-                            showAccountDialog = false
-                            onNavigateToDevices()
-                        }) { Text(t("Управление устройствами", "Manage devices"), color = AppColors.BrandMint) }
-
-                        AccountInfoLine(
-                            t("Подписка", "Subscription"),
-                            if (isActive) t("Активна", "Active") else t("Не активна", "Inactive")
-                        )
-                        AccountInfoLine(
-                            t("Автопродление", "Auto-renewal"),
-                            when (subscription?.autoRenew) {
-                                true -> t("Включено", "Enabled")
-                                false -> t("Отключено", "Disabled")
-                                null -> t("Не подтверждено сервером", "Not confirmed by server")
-                            }
-                        )
-                        TextButton(onClick = {
-                            showAccountDialog = false
-                            onNavigateToRenewal()
-                        }) { Text(t("Подробнее об автопродлении", "Auto-renewal details"), color = AppColors.BrandMint) }
-
-                        TextButton(onClick = {
-                            showAccountDialog = false
-                            onNavigateToPricing()
-                        }) { Text(t("Тарифы и продление", "Plans and renewal"), color = AppColors.BrandMint) }
-
-                        TextButton(onClick = {
-                            showAccountDialog = false
-                            onNavigateToSupport()
-                        }) { Text(t("Связаться с поддержкой", "Contact support"), color = AppColors.BrandMint) }
-
-                        TextButton(onClick = {
-                            showAccountDialog = false
-                            onNavigateToSettings()
-                        }) { Text(t("Настройки приложения и язык", "App settings and language"), color = AppColors.BrandMint) }
-
-                        TextButton(onClick = {
-                            showAccountDialog = false
-                            showDeleteDialog = true
-                        }) { Text(t("Удаление аккаунта и данных", "Account and data deletion"), color = Color(0xFFFF8A8A)) }
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        TextButton(
+                            onClick = { showAccountDialog = false; onLogOut() },
+                            modifier = Modifier.weight(1f)
+                        ) { Text(t("Выйти", "Sign out"), color = Color(0xFFE98B8B)) }
+                        TextButton(
+                            onClick = { showAccountDialog = false; showDeleteDialog = true },
+                            modifier = Modifier.weight(1f)
+                        ) { Text(t("Удалить аккаунт", "Delete account"), color = Color(0xFFE98B8B)) }
                     }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showAccountDialog = false
-                        onLogOut()
-                    }) { Text(t("Выйти", "Sign out"), color = Color(0xFFFF7373)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showAccountDialog = false }) {
-                        Text(t("Закрыть", "Close"), color = AppColors.BrandMint)
-                    }
+                    Spacer(Modifier.height(16.dp))
                 }
-            )
+            }
         }
         if (showDeleteDialog) {
             AlertDialog(

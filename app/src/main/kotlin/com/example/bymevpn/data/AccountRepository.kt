@@ -142,7 +142,7 @@ object AccountRepository {
             val apiError = e as? ApiError
             Log.w(
                 TAG,
-                "Google sign-in failed at $stage (code=${apiError?.code ?: e.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"})"
+                "Google sign-in failed at $stage (code=${apiError?.code ?: e.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"}, correlation=${apiError?.correlationId ?: "n/a"})"
             )
             Result.failure(e)
         } finally {
@@ -156,6 +156,11 @@ object AccountRepository {
             val session = api.createTelegramSession()
             Result.success(session)
         } catch (e: Exception) {
+            val apiError = e as? ApiError
+            Log.w(
+                TAG,
+                "Telegram sign-in session creation failed (code=${apiError?.code ?: e.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"}, correlation=${apiError?.correlationId ?: "n/a"})"
+            )
             Result.failure(e)
         }
     }

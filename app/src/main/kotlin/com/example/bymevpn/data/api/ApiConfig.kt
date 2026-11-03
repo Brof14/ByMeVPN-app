@@ -46,12 +46,19 @@ object ApiConfig {
 data class ApiError(
     val code: String,
     override val message: String,
-    val httpStatusCode: Int? = null
+    val httpStatusCode: Int? = null,
+    val correlationId: String? = null
 ) : Exception("[$code] $message") {
     companion object {
         fun fromJson(jsonStr: String): ApiError {
             return try {
                 val root = JSONObject(jsonStr)
+                val correlationId = sequenceOf(
+                    root.optString("correlation_id"),
+                    root.optString("request_id"),
+                    root.optJSONObject("detail")?.optString("correlation_id").orEmpty(),
+                    root.optJSONObject("detail")?.optString("request_id").orEmpty()
+                ).firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{4,64}")) }
 
                 // Check FastAPI {"detail": ...} format
                 if (root.has("detail")) {
@@ -61,12 +68,14 @@ data class ApiError(
                         if (nestedErr != null) {
                             return ApiError(
                                 code = nestedErr.optString("code", "API_ERROR"),
-                                message = nestedErr.optString("message", "An error occurred")
+                                message = nestedErr.optString("message", "An error occurred"),
+                                correlationId = correlationId
                             )
                         }
                         return ApiError(
                             code = detailObj.optString("code", "API_ERROR"),
-                            message = detailObj.optString("message", detailObj.toString())
+                            message = detailObj.optString("message", detailObj.toString()),
+                            correlationId = correlationId
                         )
                     }
 
@@ -74,12 +83,12 @@ data class ApiError(
                     if (detailArray != null && detailArray.length() > 0) {
                         val firstItem = detailArray.optJSONObject(0)
                         val msg = firstItem?.optString("msg") ?: "Validation error"
-                        return ApiError("VALIDATION_ERROR", msg)
+                        return ApiError("VALIDATION_ERROR", msg, correlationId = correlationId)
                     }
 
                     val detailStr = root.optString("detail")
                     if (detailStr.isNotBlank()) {
-                        return ApiError("API_ERROR", detailStr)
+                        return ApiError("API_ERROR", detailStr, correlationId = correlationId)
                     }
                 }
 
@@ -89,15 +98,16 @@ data class ApiError(
                     if (errObj != null) {
                         return ApiError(
                             code = errObj.optString("code", "API_ERROR"),
-                            message = errObj.optString("message", "An unexpected error occurred")
+                            message = errObj.optString("message", "An unexpected error occurred"),
+                            correlationId = correlationId
                         )
                     } else {
                         val errMsg = root.optString("error", "An unexpected error occurred")
-                        return ApiError("API_ERROR", errMsg)
+                        return ApiError("API_ERROR", errMsg, correlationId = correlationId)
                     }
                 }
 
-                ApiError("API_ERROR", jsonStr)
+                ApiError("API_ERROR", jsonStr, correlationId = correlationId)
             } catch (e: Exception) {
                 ApiError("NETWORK_ERROR", jsonStr.ifBlank { "Network or parsing error" })
             }
