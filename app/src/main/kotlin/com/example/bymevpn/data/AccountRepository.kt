@@ -174,11 +174,16 @@ object AccountRepository {
                 refreshAfterLogin(context)
                 Result.success(check.auth.user)
             } else if (check.status == "expired") {
-                Result.failure(Exception("Сессия авторизации истекла"))
+                Result.failure(ApiError("SESSION_EXPIRED", "Telegram sign-in session expired", 401))
             } else {
                 Result.success(null) // pending confirmation
             }
         } catch (e: Exception) {
+            val apiError = e as? ApiError
+            Log.w(
+                TAG,
+                "Telegram sign-in confirmation check failed (code=${apiError?.code ?: e.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"}, correlation=${apiError?.correlationId ?: "n/a"})"
+            )
             Result.failure(e)
         }
     }

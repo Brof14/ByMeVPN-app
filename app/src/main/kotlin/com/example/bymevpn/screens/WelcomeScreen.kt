@@ -55,6 +55,7 @@ import com.example.bymevpn.components.PaywallSheet
 import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.components.TelegramLogoIcon
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
 import com.example.bymevpn.data.ClipboardKeyDetector
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
@@ -318,10 +319,22 @@ fun WelcomeScreen(
                                         telegramStatusText = if (isRu) "Ожидание подтверждения в боте..." else "Waiting for bot confirmation..."
 
                                         var confirmed = false
+                                        var transientFailures = 0
+                                        var checkError: Throwable? = null
                                         for (attempt in 1..40) {
                                             val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
                                             if (checkRes.isSuccess && checkRes.getOrNull() != null) {
                                                 confirmed = true
+                                                break
+                                            }
+                                            val error = checkRes.exceptionOrNull()
+                                            if (error != null) {
+                                                if (TelegramAuthPollPolicy.shouldRetry(error, transientFailures)) {
+                                                    transientFailures++
+                                                    kotlinx.coroutines.delay(1500)
+                                                    continue
+                                                }
+                                                checkError = error
                                                 break
                                             }
                                             kotlinx.coroutines.delay(1500)
@@ -330,6 +343,8 @@ fun WelcomeScreen(
                                         telegramStatusText = null
                                         if (confirmed) {
                                             onLoginSuccess()
+                                        } else if (checkError != null) {
+                                            authError = com.example.bymevpn.data.api.AccountActionErrorMessages.telegramSignInCheck(checkError, isRu)
                                         } else {
                                             authError = if (isRu) "Время ожидания истекло. Нажмите кнопку снова." else "Confirmation timed out. Please try again."
                                         }

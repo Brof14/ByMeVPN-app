@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.theme.AppColors
 
 data class FaqItem(
     val questionRu: String,
@@ -111,8 +112,8 @@ fun FaqDialog(onDismiss: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color(0xFF101E1B))
-                .border(1.2.dp, Color(0xFF28443C), RoundedCornerShape(24.dp))
+                .background(AppColors.BgSurface)
+                .border(1.2.dp, AppColors.BorderDefault, RoundedCornerShape(24.dp))
                 .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
@@ -127,22 +128,22 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFF62CBB0).copy(alpha = 0.15f)),
+                                .background(AppColors.BadgeGreenBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("?", color = Color(0xFF62CBB0), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            Text("?", color = AppColors.BrandMint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
                                 text = if (isRu) "Частые вопросы" else "FAQ",
-                                color = Color.White,
+                                color = AppColors.TextPrimary,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
                                 text = if (isRu) "Ответы и подсказки" else "Help & Answers",
-                                color = Color(0xFF92A9A5),
+                                color = AppColors.TextSecondary,
                                 fontSize = 12.sp
                             )
                         }
@@ -152,11 +153,11 @@ fun FaqDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF172A29))
+                            .background(AppColors.BgSurfaceAccent)
                             .clickable { onDismiss() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✕", color = Color(0xFF92A9A5), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("✕", color = AppColors.TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -174,10 +175,10 @@ fun FaqDialog(onDismiss: () -> Unit) {
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (isExpanded) Color(0xFF18332B) else Color(0xFF12221F))
+                                .background(if (isExpanded) AppColors.BgSurfaceElevated else AppColors.BgSurfaceAccent)
                                 .border(
                                     1.dp,
-                                    if (isExpanded) Color(0xFF62CBB0) else Color(0xFF28443C),
+                                    if (isExpanded) AppColors.BrandMint else AppColors.BorderDefault,
                                     RoundedCornerShape(14.dp)
                                 )
                                 .clickable {
@@ -196,14 +197,14 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                 ) {
                                     Text(
                                         text = if (isRu) item.questionRu else item.questionEn,
-                                        color = Color.White,
+                                        color = AppColors.TextPrimary,
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
                                 Text(
                                     text = if (isExpanded) "▲" else "▼",
-                                    color = Color(0xFF62CBB0),
+                                    color = AppColors.BrandMint,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -220,12 +221,12 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(1.dp)
-                                            .background(Color(0xFF28443C))
+                                            .background(AppColors.BorderDefault)
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
                                         text = if (isRu) item.answerRu else item.answerEn,
-                                        color = Color(0xFFCBD5E1),
+                                        color = AppColors.TextSecondary,
                                         fontSize = 12.5.sp,
                                         lineHeight = 18.sp
                                     )
@@ -241,14 +242,14 @@ fun FaqDialog(onDismiss: () -> Unit) {
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF172A29))
+                        .background(AppColors.BgSurfaceAccent)
                         .clickable { onDismiss() }
                         .padding(vertical = 11.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (isRu) "Понятно" else "Close",
-                        color = Color(0xFF62CBB0),
+                        color = AppColors.BrandMint,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )

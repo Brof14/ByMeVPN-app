@@ -3,6 +3,7 @@ package com.example.bymevpn
 import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ApiJsonParsers
+import com.example.bymevpn.data.api.TelegramAuthStatus
 import org.json.JSONObject
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
@@ -11,6 +12,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class ApiModelsTest {
+
+    @Test
+    fun telegramSessionStatusRejectsMissingOrUnexpectedServerResponses() {
+        assertEquals(TelegramAuthStatus.PENDING, TelegramAuthStatus.parse("pending"))
+        assertEquals(TelegramAuthStatus.AUTHENTICATED, TelegramAuthStatus.parse("authenticated"))
+        assertEquals(TelegramAuthStatus.EXPIRED, TelegramAuthStatus.parse("expired"))
+        assertEquals("INVALID_AUTH_RESPONSE", org.junit.Assert.assertThrows(ApiError::class.java) {
+            TelegramAuthStatus.parse(null)
+        }.code)
+        assertEquals("INVALID_AUTH_RESPONSE", org.junit.Assert.assertThrows(ApiError::class.java) {
+            TelegramAuthStatus.parse("waiting-but-not-a-contract")
+        }.code)
+    }
 
     @Test
     fun missingServerMetadataDoesNotInventCountryOrLatency() {
