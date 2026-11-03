@@ -43,6 +43,52 @@ class ApiModelsTest {
     }
 
     @Test
+    fun deviceParserNeverInventsDeleteIdsAndKeepsDistinctDevicesWithSameModel() {
+        val devices = ApiJsonParsers.parseDevices(
+            JSONArray(
+                """
+                [
+                  {"device_model":"Xiaomi 2312","platform":"Android","is_current":true},
+                  {"id":41,"device_model":"Xiaomi 2312","platform":"Android"},
+                  {"id":42,"device_model":"Xiaomi 2312","platform":"Android"}
+                ]
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(listOf("41", "42"), devices.map { it.id })
+        assertEquals(2, devices.size)
+        assertEquals(devices[0].deviceModel, devices[1].deviceModel)
+    }
+
+    @Test
+    fun duplicateServerRowsMergeOnlyWhenTheirStableIdsMatch() {
+        val devices = ApiJsonParsers.parseDevices(
+            JSONArray(
+                """
+                [
+                  {"id":41,"device_model":"Xiaomi","last_active":"Yesterday"},
+                  {"id":41,"device_model":"Xiaomi","is_current":true,"last_active":"Now"}
+                ]
+                """.trimIndent()
+            )
+        )
+
+        assertEquals(1, devices.size)
+        assertEquals(true, devices.single().isCurrent)
+        assertEquals("Now", devices.single().lastActive)
+    }
+
+    @Test
+    fun activePanelClientIsNotMistakenForThisPhone() {
+        val device = ApiJsonParsers.parseDevices(
+            JSONArray("[{\"id\":41,\"device_model\":\"Xiaomi\",\"is_active\":true}]")
+        ).single()
+
+        assertEquals(false, device.isCurrent)
+    }
+
+    @Test
     fun testParseVpnSessionConfig_vlessReality() {
         val jsonString = """
             {

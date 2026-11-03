@@ -385,10 +385,9 @@ fun SignInScreen(
                                     if (result.isSuccess) {
                                         onSignInSuccess()
                                     } else {
-                                        val rawErr = result.exceptionOrNull()?.message
-                                        if (rawErr != "Sign-in cancelled") {
-                                            authError = if (isRu) "Не удалось подтвердить вход через Google. Попробуйте позже." else "Could not verify Google sign-in. Please try again later."
-                                        }
+                                        val message = com.example.bymevpn.data.api.AccountActionErrorMessages
+                                            .googleSignIn(result.exceptionOrNull(), isRu)
+                                        authError = message.takeIf { it.isNotBlank() }
                                     }
                                 }
                             }

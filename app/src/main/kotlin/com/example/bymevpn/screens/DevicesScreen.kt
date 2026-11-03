@@ -315,7 +315,13 @@ fun DevicesScreen(
                             val result = AccountRepository.removeDevice(context, targetId)
                             isRemoving = false
                             if (result.isSuccess) pendingRemoveId = null
-                            else Toast.makeText(context, if (isRu) "Не удалось удалить устройство" else "Could not remove device", Toast.LENGTH_LONG).show()
+                            else Toast.makeText(
+                                context,
+                                com.example.bymevpn.data.api.AccountActionErrorMessages.deleteDevice(
+                                    result.exceptionOrNull(), isRu
+                                ),
+                                Toast.LENGTH_LONG
+                            ).show()
                         }
                     }) { Text(if (isRu) "Удалить" else "Remove", color = Color(0xFFFF7373)) }
                 },

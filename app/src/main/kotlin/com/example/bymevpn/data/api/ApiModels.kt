@@ -346,10 +346,16 @@ object ApiJsonParsers {
     }
 
     fun parseDevices(array: JSONArray, currentInstallId: String? = null): List<DeviceItem> {
-        val list = mutableListOf<DeviceItem>()
+        // Device IDs are server-owned identifiers used by DELETE /devices/{id}.
+        // Never synthesize one from the array position: that can target a different
+        // device if the server response omits an ID or changes order.
+        val byId = linkedMapOf<String, DeviceItem>()
         for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val idStr = obj.opt("id")?.toString() ?: i.toString()
+            val obj = array.optJSONObject(i) ?: continue
+            val idStr = sequenceOf("id", "device_id", "hwid_id")
+                .map { key -> obj.opt(key)?.toString()?.trim().orEmpty() }
+                .firstOrNull { id -> id.isNotBlank() && id != "null" && id.all { it in '0'..'9' } }
+                ?: continue
             val installId = obj.optString("install_id", "")
             val rawModel = obj.optString("device_model")
             val rawName = obj.optString("device_name")
@@ -360,18 +366,23 @@ object ApiJsonParsers {
             }
             val platform = obj.optString("platform", "Android")
             val lastActive = obj.optString("last_seen_at", obj.optString("last_active", "Just now"))
-            val isCurrent = obj.optBoolean("is_current", false) || obj.optBoolean("is_active", false) ||
+            // `is_active` commonly means that a panel client/subscription is active;
+            // it does not identify this physical phone.
+            val isCurrent = obj.optBoolean("is_current", false) ||
                 (!currentInstallId.isNullOrBlank() && installId == currentInstallId)
-            list.add(
-                DeviceItem(
-                    id = idStr,
-                    deviceModel = model,
-                    platform = platform,
-                    lastActive = lastActive,
-                    isCurrent = isCurrent
-                )
+            val parsed = DeviceItem(
+                id = idStr,
+                deviceModel = model,
+                platform = platform,
+                lastActive = lastActive,
+                isCurrent = isCurrent
+            )
+            val previous = byId[idStr]
+            byId[idStr] = if (previous == null) parsed else previous.copy(
+                isCurrent = previous.isCurrent || parsed.isCurrent,
+                lastActive = if (parsed.lastActive.isNotBlank()) parsed.lastActive else previous.lastActive
             )
         }
-        return list
+        return byId.values.toList()
     }
 }
