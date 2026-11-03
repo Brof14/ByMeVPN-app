@@ -85,7 +85,7 @@ jobs:
           test "$actual" = "$EXPECTED_CERT_SHA256"
       - uses: actions/upload-artifact@v4
         with:
-          name: bymevpn-signed-1.0.0
+          name: bymevpn-signed-1.0.1
           path: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
