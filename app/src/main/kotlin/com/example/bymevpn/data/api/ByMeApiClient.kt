@@ -149,8 +149,8 @@ class ByMeApiClient(private val context: Context) {
             if (!TelegramAuthRequest.shouldFallbackToLegacyGet(error.httpStatusCode)) throw error
             request("GET", TelegramAuthRequest.legacyGetPath(token), null, requiresAuth = false)
         }
-        val status = json.optString("status", "pending")
-        if (status == "authenticated") {
+        val status = TelegramAuthStatus.parse(json.optString("status").takeIf { it.isNotBlank() })
+        if (status == TelegramAuthStatus.AUTHENTICATED) {
             val accessToken = json.optString("access_token").ifBlank { json.optString("access") }
             val refreshToken = json.optString("refresh_token").ifBlank { json.optString("refresh") }
             if (accessToken.isBlank()) {
@@ -167,9 +167,9 @@ class ByMeApiClient(private val context: Context) {
                 subscription = sub
             )
             processAuthPayload(json, auth)
-            return TelegramCheckResult(status = "authenticated", auth = auth)
+            return TelegramCheckResult(status = status.wireValue, auth = auth)
         }
-        return TelegramCheckResult(status = status, auth = null)
+        return TelegramCheckResult(status = status.wireValue, auth = null)
     }
 
     /** Revokes a previous session without changing the current local account. */

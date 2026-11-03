@@ -432,13 +432,13 @@ private fun HomeNoPlanContent(
                     )
                     .border(1.dp, Color(0x214CB299), CircleShape)
             )
-            ShieldLogo(size = 104.dp)
+            ShieldLogo(size = 126.dp)
         }
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "BYMEVPN",
+            text = "ByMeVPN",
             color = AppColors.BrandMint,
             fontSize = 10.sp,
             fontWeight = FontWeight.Bold,

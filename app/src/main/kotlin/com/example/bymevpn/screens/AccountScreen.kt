@@ -447,13 +447,6 @@ fun AccountScreen(
 
                     ByMeCardGroup {
                         ByMeSettingRow(
-                            title = t("Устройства", "Devices"),
-                            subtitle = t("Посмотреть и убрать устройства", "View or remove devices"),
-                            icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { showAccountDialog = false; onNavigateToDevices() }
-                        )
-                        ByMeSettingRow(
                             title = t("Тарифы и оплата", "Plans and payment"),
                             subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
                             icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
@@ -470,13 +463,6 @@ fun AccountScreen(
                             icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                             trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                             onClick = { showAccountDialog = false; onNavigateToRenewal() }
-                        )
-                        ByMeSettingRow(
-                            title = t("Настройки приложения", "App settings"),
-                            subtitle = t("Язык и внешний вид", "Language and appearance"),
-                            icon = { SettingsGearIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { showAccountDialog = false; onNavigateToSettings() }
                         )
                         ByMeSettingRow(
                             title = t("Помощь и поддержка", "Help and support"),

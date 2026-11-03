@@ -57,6 +57,33 @@ object AccountActionErrorMessages {
         return appendSupportCode(message, apiError)
     }
 
+    fun telegramSignInCheck(error: Throwable?, isRussian: Boolean): String {
+        val apiError = error as? ApiError
+        val message = when {
+            apiError?.code == "SESSION_EXPIRED" || apiError?.httpStatusCode == 401 -> if (isRussian) {
+                "Время входа истекло. Начните вход через Telegram заново."
+            } else {
+                "This sign-in session expired. Start Telegram sign-in again."
+            }
+            apiError?.code == "NETWORK_ERROR" -> if (isRussian) {
+                "Не удалось связаться с сервером после подтверждения в боте. Проверьте интернет и повторите вход."
+            } else {
+                "Could not reach the server after bot confirmation. Check your connection and try again."
+            }
+            apiError?.httpStatusCode?.let { it in 500..599 } == true -> if (isRussian) {
+                "Бот подтвердил вход, но сервер не завершил его. Попробуйте ещё раз позже."
+            } else {
+                "The bot confirmed sign-in, but the server could not finish it. Please try again later."
+            }
+            else -> if (isRussian) {
+                "Не удалось завершить вход через Telegram. Начните вход заново."
+            } else {
+                "Could not finish Telegram sign-in. Please start again."
+            }
+        }
+        return appendSupportCode(message, apiError)
+    }
+
     fun activateTrial(error: Throwable?, isRussian: Boolean): String {
         val apiError = error as? ApiError
         val message = when {

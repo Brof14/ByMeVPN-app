@@ -20,6 +20,21 @@ data class TelegramCheckResult(
     val auth: AuthResponse? = null
 )
 
+enum class TelegramAuthStatus(val wireValue: String) {
+    PENDING("pending"),
+    AUTHENTICATED("authenticated"),
+    EXPIRED("expired");
+
+    companion object {
+        fun parse(value: String?): TelegramAuthStatus = when (value?.trim()?.lowercase()) {
+            "pending" -> PENDING
+            "authenticated" -> AUTHENTICATED
+            "expired" -> EXPIRED
+            else -> throw ApiError("INVALID_AUTH_RESPONSE", "Telegram authentication returned an invalid session status")
+        }
+    }
+}
+
 data class PaymentCreateResponse(
     val paymentUrl: String,
     val provider: String,

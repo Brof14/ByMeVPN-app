@@ -61,6 +61,16 @@ class AccountActionErrorMessagesTest {
     }
 
     @Test
+    fun telegramConfirmationFailureExplainsThatBotConfirmationWasNotEnoughAndKeepsSupportCode() {
+        val failure = AccountActionErrorMessages.telegramSignInCheck(
+            ApiError("HTTP_500", "private backend detail", 500, correlationId = "tg-5678"), true
+        )
+        assertTrue(failure.contains("Бот подтвердил вход"))
+        assertTrue(failure.contains("tg-5678"))
+        assertTrue(!failure.contains("private backend detail"))
+    }
+
+    @Test
     fun deviceDeleteFailureExplainsSessionAndRetryWithoutShowingServerDetails() {
         val expired = AccountActionErrorMessages.deleteDevice(
             ApiError("UNAUTHORIZED", "internal detail", 401), true
