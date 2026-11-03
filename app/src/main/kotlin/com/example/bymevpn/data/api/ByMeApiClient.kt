@@ -447,7 +447,10 @@ class ByMeApiClient(private val context: Context) {
             } else {
                 ApiError.fromJson(responseString)
             }
-            throw apiError.copy(httpStatusCode = responseCode)
+            val correlationId = connection.getHeaderField("X-Correlation-ID")
+                ?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{4,64}")) }
+                ?: apiError.correlationId
+            throw apiError.copy(httpStatusCode = responseCode, correlationId = correlationId)
         }
 
         if (responseString.isBlank()) {

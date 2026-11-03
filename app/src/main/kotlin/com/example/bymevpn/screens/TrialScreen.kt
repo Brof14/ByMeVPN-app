@@ -36,7 +36,13 @@ fun TrialScreen(onBackClick: () -> Unit, onChoosePlanClick: () -> Unit, onTrialA
                         val result = YooKassaPaymentHandler.activateTrial(context)
                         activating = false
                         if (result.isSuccess) onTrialActivated()
-                        else Toast.makeText(context, if (isRu) "Не удалось активировать пробный доступ. Попробуйте позже." else "Could not activate trial. Try again later.", Toast.LENGTH_LONG).show()
+                        else Toast.makeText(
+                            context,
+                            com.example.bymevpn.data.api.AccountActionErrorMessages.activateTrial(
+                                result.exceptionOrNull(), isRu
+                            ),
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             })

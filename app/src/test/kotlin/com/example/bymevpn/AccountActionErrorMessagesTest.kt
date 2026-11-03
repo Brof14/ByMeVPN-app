@@ -8,6 +8,19 @@ import org.junit.Test
 
 class AccountActionErrorMessagesTest {
     @Test
+    fun apiErrorPreservesOnlySafeCorrelationIdsFromBackendBody() {
+        val valid = ApiError.fromJson(
+            """{"detail":"Sign-in failed","correlation_id":"abc-1234"}"""
+        )
+        assertEquals("abc-1234", valid.correlationId)
+
+        val unsafe = ApiError.fromJson(
+            """{"detail":"Sign-in failed","correlation_id":"https://private.example/token"}"""
+        )
+        assertEquals(null, unsafe.correlationId)
+    }
+
+    @Test
     fun googleFailureExplainsConnectionAndBackendAvailabilitySeparately() {
         assertTrue(
             AccountActionErrorMessages.googleSignIn(ApiError("NETWORK_ERROR", "private detail"), true)
@@ -21,6 +34,30 @@ class AccountActionErrorMessagesTest {
             "",
             AccountActionErrorMessages.googleSignIn(ApiError("USER_CANCELLED", "cancelled"), true)
         )
+
+        val denied = AccountActionErrorMessages.googleSignIn(
+            ApiError("API_ERROR", "private detail", 401, correlationId = "a1b2c3d4e5f60708"), true
+        )
+        assertTrue(denied.contains("вход не завершился"))
+        assertTrue(denied.contains("a1b2c3d4e5f60708"))
+        assertTrue(!denied.contains("private detail"))
+    }
+
+    @Test
+    fun telegramAndTrialFailuresGiveUsefulLocalizedGuidanceAndSupportCode() {
+        val telegram = AccountActionErrorMessages.telegramSignInStart(
+            ApiError("HTTP_503", "private detail", 503, correlationId = "support-1234"), true
+        )
+        assertTrue(telegram.contains("временно недоступен"))
+        assertTrue(telegram.contains("support-1234"))
+        assertTrue(!telegram.contains("private detail"))
+
+        val trial = AccountActionErrorMessages.activateTrial(
+            ApiError("API_ERROR", "private detail", 422, correlationId = "trial-1234"), true
+        )
+        assertTrue(trial.contains("подтвердить это устройство"))
+        assertTrue(trial.contains("trial-1234"))
+        assertTrue(!trial.contains("private detail"))
     }
 
     @Test

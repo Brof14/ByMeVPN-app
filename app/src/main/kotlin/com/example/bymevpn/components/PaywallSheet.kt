@@ -279,7 +279,13 @@ fun PaywallSheet(
                                         onSubscriptionActivated()
                                         onDismissRequest()
                                     } else {
-                                        Toast.makeText(context, "Не удалось активировать триал", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(
+                                            context,
+                                            com.example.bymevpn.data.api.AccountActionErrorMessages.activateTrial(
+                                                res.exceptionOrNull(), isRu
+                                            ),
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }
                                 }
                             },

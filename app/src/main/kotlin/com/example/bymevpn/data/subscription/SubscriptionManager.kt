@@ -39,6 +39,8 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     private val refreshMutex = Mutex()
+    // Login auto-activation and the Trial screen can request the same grant at once.
+    private val trialActivationMutex = Mutex()
     private val apiClient = ByMeApiClient(context)
     private val storage = SecureTokenStorage.getInstance(context)
 
@@ -211,16 +213,40 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     suspend fun activateTrial(): Result<SubscriptionStatus> {
-        _isSyncing.value = true
-        return try {
-            val activeStatus = apiClient.activateTrial()
-            _subscriptionStatus.value = activeStatus
-            storage.saveCachedSubscription(activeStatus)
-            Result.success(activeStatus)
-        } catch (e: Exception) {
-            Result.failure(e)
-        } finally {
-            _isSyncing.value = false
+        return trialActivationMutex.withLock {
+            _isSyncing.value = true
+            try {
+                val cached = _subscriptionStatus.value
+                if (TrialActivationPolicy.isConfirmedActiveTrial(cached, System.currentTimeMillis())) {
+                    return@withLock Result.success(cached!!)
+                }
+
+                val activeStatus = try {
+                    apiClient.activateTrial()
+                } catch (activationError: Exception) {
+                    // A login may already have activated the trial, or the server may
+                    // have completed it while the response was lost. Confirm with the
+                    // authoritative status endpoint before showing a failure.
+                    val refreshed = runCatching { apiClient.getSubscriptionStatus() }.getOrNull()
+                    if (TrialActivationPolicy.isConfirmedActiveTrial(refreshed, System.currentTimeMillis())) {
+                        refreshed!!
+                    } else {
+                        throw activationError
+                    }
+                }
+                _subscriptionStatus.value = activeStatus
+                storage.saveCachedSubscription(activeStatus)
+                Result.success(activeStatus)
+            } catch (e: Exception) {
+                val apiError = e as? com.example.bymevpn.data.api.ApiError
+                Log.w(
+                    TAG,
+                    "Trial activation failed (code=${apiError?.code ?: e.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"}, correlation=${apiError?.correlationId ?: "n/a"})"
+                )
+                Result.failure(e)
+            } finally {
+                _isSyncing.value = false
+            }
         }
     }
 

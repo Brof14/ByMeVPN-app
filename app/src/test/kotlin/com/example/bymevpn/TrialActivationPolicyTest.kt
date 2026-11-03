@@ -31,4 +31,29 @@ class TrialActivationPolicyTest {
         )
         assertFalse(TrialActivationPolicy.shouldAutoActivate(null))
     }
+
+    @Test
+    fun recognizesOnlyFreshUsableTrialForDuplicateActivationRecovery() {
+        val now = 1_800_000_000_000L
+        assertTrue(
+            TrialActivationPolicy.isConfirmedActiveTrial(
+                SubscriptionStatus(status = "trial", secondsRemaining = 120, lastFetchedAt = now), now
+            )
+        )
+        assertFalse(
+            TrialActivationPolicy.isConfirmedActiveTrial(
+                SubscriptionStatus(status = "trial", secondsRemaining = 120, lastFetchedAt = now - 121_000), now
+            )
+        )
+        assertFalse(
+            TrialActivationPolicy.isConfirmedActiveTrial(
+                SubscriptionStatus(status = "trial", secondsRemaining = 0, lastFetchedAt = now), now
+            )
+        )
+        assertFalse(
+            TrialActivationPolicy.isConfirmedActiveTrial(
+                SubscriptionStatus(status = "active", secondsRemaining = 120, lastFetchedAt = now), now
+            )
+        )
+    }
 }

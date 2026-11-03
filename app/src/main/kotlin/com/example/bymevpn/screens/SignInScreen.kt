@@ -711,7 +711,9 @@ fun SignInScreen(
                                             } else {
                                                 isTelegramLoading = false
                                                 telegramStatusText = null
-                                                authError = if (isRu) "Не удалось начать вход через Telegram. Проверьте интернет и попробуйте снова." else "Could not start Telegram sign-in. Check your connection and try again."
+                                                authError = com.example.bymevpn.data.api.AccountActionErrorMessages.telegramSignInStart(
+                                                    sessionRes.exceptionOrNull(), isRu
+                                                )
                                             }
                                         }
                                     }
