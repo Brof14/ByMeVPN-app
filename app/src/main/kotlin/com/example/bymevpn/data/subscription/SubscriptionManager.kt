@@ -7,6 +7,7 @@ import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.storage.SecureTokenStorage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -95,27 +96,48 @@ class SubscriptionManager private constructor(private val context: Context) {
         _isSyncing.value = true
         try {
             val customSubUrl = storage.getSubscriptionUrl()
-            if (!forceBackend && !customSubUrl.isNullOrBlank()) {
+            // A panel subscription feed has no account/device-bound ES256 proof.
+            // Once signed entitlements are enabled, only the authenticated API may
+            // refresh authoritative status; fetching the feed here would replace a
+            // valid signed snapshot with an unsigned `active` status. Older builds
+            // may still use the feed, but a malformed/stale link must not prevent
+            // falling back to the authenticated status endpoint.
+            val canUseSubscriptionFeed = SubscriptionStatusSourcePolicy
+                .shouldUseSubscriptionFeed(
+                    forceBackend = forceBackend,
+                    subscriptionUrl = customSubUrl,
+                    signedEntitlementsEnabled = ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()
+                )
+            if (canUseSubscriptionFeed) {
                 val elapsed = System.currentTimeMillis() - storage.getServerRefreshAttempt()
                 val cached = storage.getCachedSubscription()
                 if (elapsed in 0 until 6L * 60 * 60 * 1000 && cached != null && storage.getServerConfigs().isNotEmpty()) {
                     _subscriptionStatus.value = cached
                     return@withLock Result.success(cached)
                 }
-                val parsed = fetchSubscriptionFromUrl(customSubUrl)
-                require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) { "Subscription contains no servers" }
-                storage.saveServerConfigs(parsed.configs)
-                storage.saveServerNodes(parsed.servers)
-                storage.setServerRefreshAttempt(System.currentTimeMillis())
-                val status = SubscriptionStatus(
-                    status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
-                    expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
-                    secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
-                    lastFetchedAt = System.currentTimeMillis()
-                )
-                _subscriptionStatus.value = status
-                storage.saveCachedSubscription(status)
-                return@withLock Result.success(status)
+                try {
+                    val parsed = fetchSubscriptionFromUrl(customSubUrl!!)
+                    require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) { "Subscription contains no servers" }
+                    storage.saveServerConfigs(parsed.configs)
+                    storage.saveServerNodes(parsed.servers)
+                    storage.setServerRefreshAttempt(System.currentTimeMillis())
+                    val status = SubscriptionStatus(
+                        status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
+                        expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
+                        secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
+                        lastFetchedAt = System.currentTimeMillis()
+                    )
+                    _subscriptionStatus.value = status
+                    storage.saveCachedSubscription(status)
+                    return@withLock Result.success(status)
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (feedError: Exception) {
+                    // The backend status route is the source of trial eligibility
+                    // and ES256 entitlement. A bad legacy subscription URL should
+                    // not leave the app stuck on a stale cached status.
+                    Log.w(TAG, "Subscription feed refresh failed (${feedError.javaClass.simpleName}); falling back to account status API")
+                }
             }
 
             val status = apiClient.getSubscriptionStatus()

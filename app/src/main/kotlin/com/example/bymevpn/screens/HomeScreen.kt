@@ -582,7 +582,7 @@ private fun HomeNoPlanContent(
                     text = when {
                         isActivatingTrial -> if (isRu) "Активируем пробный период…" else "Activating free trial…"
                         trialAvailable -> if (isRu) "Активировать 3 дня бесплатно" else "Activate 3 days free"
-                        else -> if (isRu) "Пробный период уже использован" else "Free trial already used"
+                        else -> if (isRu) "Пробный период недоступен" else "Free trial unavailable"
                     },
                     onClick = onTrialClick,
                     enabled = trialAvailable && !isActivatingTrial,
