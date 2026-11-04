@@ -68,6 +68,7 @@ import com.example.bymevpn.components.VpnPowerButton
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.subscription.TrialActivationPolicy
 import com.example.bymevpn.data.update.AppUpdateManager
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
@@ -107,6 +108,8 @@ fun HomeScreen(
     var isAutoServerSelected by remember { mutableStateOf(true) }
     var showFaqDialog by remember { mutableStateOf(false) }
     val secureStorage = remember { SecureTokenStorage.getInstance(context) }
+    var isActivatingTrial by remember { mutableStateOf(false) }
+    var trialActivationError by remember { mutableStateOf<String?>(null) }
     var showVpnDisclosure by remember { mutableStateOf(false) }
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     val updateInfo by AppUpdateManager.updateInfo.collectAsState()
@@ -160,6 +163,23 @@ fun HomeScreen(
 
     fun refreshServers() {
         scope.launch { vpnManager.loadServers() }
+    }
+
+    fun activateTrialFromHome() {
+        if (isActivatingTrial || !TrialActivationPolicy.shouldOfferTrial(subscription)) return
+        isActivatingTrial = true
+        trialActivationError = null
+        scope.launch {
+            val result = subManager.activateTrial()
+            isActivatingTrial = false
+            result.onSuccess {
+                // The backend response is stored before this call. Fetch the locations
+                // now, after access is granted, so the home screen is ready before Connect.
+                vpnManager.loadServers()
+            }.onFailure { error ->
+                trialActivationError = com.example.bymevpn.data.api.AccountActionErrorMessages.activateTrial(error, isRu)
+            }
+        }
     }
 
     // VPN Permission Launcher
@@ -299,13 +319,11 @@ fun HomeScreen(
                 if (!hasPlan) {
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
-                        onTrialClick = onNavigateToTrial,
+                        onTrialClick = { activateTrialFromHome() },
                         onPlansClick = onNavigateToPricing,
-                        hasServers = availableServers.isNotEmpty(),
-                        onServerSelectClick = { showServerSheet = true },
-                        serversError = serversError,
-                        isLoadingServers = isLoadingServers,
-                        onRefreshServers = { refreshServers() }
+                        trialAvailable = TrialActivationPolicy.shouldOfferTrial(subscription),
+                        isActivatingTrial = isActivatingTrial,
+                        trialError = trialActivationError
                     )
                 } else if (vpnState == VpnConnectionState.ERROR) {
                     val vpnError by vpnManager.errorMessage.collectAsState()
@@ -400,11 +418,9 @@ private fun homeIsRussian(): Boolean {
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
     onPlansClick: () -> Unit,
-    hasServers: Boolean,
-    onServerSelectClick: () -> Unit,
-    serversError: String?,
-    isLoadingServers: Boolean,
-    onRefreshServers: () -> Unit
+    trialAvailable: Boolean,
+    isActivatingTrial: Boolean,
+    trialError: String?
 ) {
     val isRu = homeIsRussian()
     Column(
@@ -498,12 +514,6 @@ private fun HomeNoPlanContent(
             }
         }
 
-        // Hide server discovery until an entitlement is active, regardless of old cached nodes.
-        Text(
-            text = if (isRu) "Серверы появятся после активации подписки" else "Servers become available after activation",
-            color = AppColors.TextSecondary,
-            modifier = Modifier.padding(12.dp)
-        )
         Spacer(modifier = Modifier.weight(1f))
 
         // Action dock: Trial card + All plans link
@@ -569,10 +579,25 @@ private fun HomeNoPlanContent(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 ByMePrimaryButton(
-                    text = if (isRu) "Попробовать бесплатно" else "Try for free",
+                    text = when {
+                        isActivatingTrial -> if (isRu) "Активируем пробный период…" else "Activating free trial…"
+                        trialAvailable -> if (isRu) "Активировать 3 дня бесплатно" else "Activate 3 days free"
+                        else -> if (isRu) "Пробный период уже использован" else "Free trial already used"
+                    },
                     onClick = onTrialClick,
+                    enabled = trialAvailable && !isActivatingTrial,
                     height = 50.dp
                 )
+
+                if (!trialError.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = trialError,
+                        color = Color(0xFFFF9A9A),
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 

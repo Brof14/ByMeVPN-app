@@ -331,7 +331,15 @@ class VpnManager private constructor(private val context: Context) {
             }
 
             val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
-            val message = serverRequestError?.let { VpnConnectionErrorMapper.deviceLimitMessage(it, isRu) }
+            val currentStatus = subscriptionManager.subscriptionStatus.value
+            val message = serverRequestError?.let {
+                VpnConnectionErrorMapper.subscriptionRequiredMessage(
+                    error = it,
+                    isRussian = isRu,
+                    trialAvailable = currentStatus?.trialAvailable == true,
+                    accessActive = currentStatus?.isUsable == true
+                ) ?: VpnConnectionErrorMapper.deviceLimitMessage(it, isRu)
+            }
                 ?: if (isRu)
                     "Серверы не загрузились. Если доступа нет, проверьте лимит устройств: «Аккаунт» → «Мои устройства»."
                 else "Servers could not be loaded. If access is unavailable, check your device limit: Account → My devices."
@@ -384,7 +392,12 @@ class VpnManager private constructor(private val context: Context) {
                     coroutineContext.ensureActive()
                     if (!subscriptionManager.canConnect()) {
                         _state.value = VpnConnectionState.ERROR
-                        _errorMessage.value = "SUBSCRIPTION_REQUIRED"
+                        val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                        _errorMessage.value = VpnConnectionErrorMapper.subscriptionRequiredMessage(
+                            isRussian = isRu,
+                            trialAvailable = subscriptionManager.subscriptionStatus.value?.trialAvailable == true,
+                            accessActive = subscriptionManager.subscriptionStatus.value?.isUsable == true
+                        )
                         return@launch
                     }
                 }
@@ -418,8 +431,15 @@ class VpnManager private constructor(private val context: Context) {
                     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
                     val rawMsg = e.message ?: ""
                     val deviceLimitMessage = VpnConnectionErrorMapper.deviceLimitMessage(e, isRu)
+                    val subscriptionRequiredMessage = VpnConnectionErrorMapper.subscriptionRequiredMessage(
+                        e,
+                        isRu,
+                        subscriptionManager.subscriptionStatus.value?.trialAvailable == true,
+                        subscriptionManager.subscriptionStatus.value?.isUsable == true
+                    )
                     val msg = when {
                         deviceLimitMessage != null -> deviceLimitMessage
+                        subscriptionRequiredMessage != null -> subscriptionRequiredMessage
                         rawMsg.contains("NODE_PROVISIONING_NOT_CONFIGURED", ignoreCase = true) ||
                         rawMsg.contains("not configured", ignoreCase = true) -> {
                             if (isRu) "VPN-узлы сейчас настраиваются на сервере (VPN недоступен)"

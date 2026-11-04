@@ -8,6 +8,30 @@ import org.junit.Test
 
 class VpnConnectionErrorMapperTest {
     @Test
+    fun subscriptionRequiredIsTranslatedToAnActionForTheUser() {
+        val trial = VpnConnectionErrorMapper.subscriptionRequiredMessage(
+            ApiError("SUBSCRIPTION_REQUIRED", "subscription_required"),
+            isRussian = true,
+            trialAvailable = true
+        )
+        assertTrue(trial?.contains("активируйте бесплатный пробный период", ignoreCase = true) == true)
+
+        val paid = VpnConnectionErrorMapper.subscriptionRequiredMessage(
+            ApiError("SUBSCRIPTION_REQUIRED", "subscription_required"),
+            isRussian = false,
+            trialAvailable = false
+        )
+        assertTrue(paid?.contains("Choose a plan") == true)
+
+        val refresh = VpnConnectionErrorMapper.subscriptionRequiredMessage(
+            isRussian = true,
+            trialAvailable = false,
+            accessActive = true
+        )
+        assertTrue(refresh.contains("обновите статус подписки", ignoreCase = true))
+    }
+
+    @Test
     fun explicitDeviceLimitShowsActionableRussianMessage() {
         val message = VpnConnectionErrorMapper.deviceLimitMessage(
             ApiError("DEVICE_LIMIT_REACHED", "Too many devices"), isRussian = true
