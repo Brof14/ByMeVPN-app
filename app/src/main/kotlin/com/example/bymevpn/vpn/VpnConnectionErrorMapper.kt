@@ -4,6 +4,40 @@ import com.example.bymevpn.data.api.ApiError
 
 /** Converts device-limit rejections into a useful message without exposing raw server responses. */
 internal object VpnConnectionErrorMapper {
+    fun subscriptionRequiredMessage(
+        isRussian: Boolean,
+        trialAvailable: Boolean,
+        accessActive: Boolean = false
+    ): String =
+        if (isRussian) {
+            when {
+                accessActive -> "Подписка активна, но сервер пока не подтвердил доступ. Обновите статус подписки и список серверов."
+                trialAvailable -> "Сначала активируйте бесплатный пробный период на главном экране."
+                else -> "Для подключения нужна активная подписка. Выберите тариф в приложении."
+            }
+        } else {
+            when {
+                accessActive -> "Your subscription is active, but server access is not confirmed yet. Refresh your subscription and server list."
+                trialAvailable -> "Activate the free trial on the home screen before connecting."
+                else -> "An active subscription is required to connect. Choose a plan in the app."
+            }
+        }
+
+    fun subscriptionRequiredMessage(
+        error: Throwable,
+        isRussian: Boolean,
+        trialAvailable: Boolean,
+        accessActive: Boolean = false
+    ): String? {
+        val apiError = generateSequence(error) { it.cause }
+            .filterIsInstance<ApiError>()
+            .firstOrNull() ?: return null
+        if (!apiError.code.equals("SUBSCRIPTION_REQUIRED", ignoreCase = true) &&
+            !apiError.message.contains("subscription_required", ignoreCase = true)
+        ) return null
+        return subscriptionRequiredMessage(isRussian, trialAvailable, accessActive)
+    }
+
     fun deviceLimitMessage(error: Throwable, isRussian: Boolean): String? {
         val apiError = generateSequence(error) { it.cause }
             .filterIsInstance<ApiError>()

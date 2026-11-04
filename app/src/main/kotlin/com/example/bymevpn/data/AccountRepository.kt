@@ -47,17 +47,9 @@ object AccountRepository {
             val subscriptionManager = SubscriptionManager.getInstance(appContext)
             val statusResult = subscriptionManager.refreshStatus(forceBackend = true)
             val status = statusResult.getOrNull()
-            if (com.example.bymevpn.data.subscription.TrialActivationPolicy.shouldAutoActivate(status)) {
-                val trialResult = subscriptionManager.activateTrial()
-                if (trialResult.isSuccess) {
-                    Log.i(TAG, "Available trial activated after sign-in")
-                } else {
-                    // Keep sign-in successful; the server remains authoritative and the
-                    // account screen can offer a retry without exposing backend details.
-                    Log.w(TAG, "Automatic trial activation failed: ${trialResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"}")
-                }
+            if (status?.isUsable == true) {
+                com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
             }
-            com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
         }
     }
 
@@ -71,29 +63,15 @@ object AccountRepository {
         val subscriptionManager = SubscriptionManager.getInstance(appContext)
         val statusRefresh = async { subscriptionManager.refreshStatus(forceBackend = true) }
         val devicesRefresh = async { refreshDevices(appContext) }
-        val serversRefresh = async {
-            com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
-        }
 
-        // Fetch independent account data together; don't leave Telegram sign-in
-        // waiting through three consecutive network timeouts.
+        // Fetch status and devices together. Server configuration is access-gated,
+        // so do not request it before the refreshed status confirms usable access.
         val statusResult = statusRefresh.await()
         val status = statusResult.getOrNull()
-        if (com.example.bymevpn.data.subscription.TrialActivationPolicy.shouldAutoActivate(status)) {
-            val trialResult = subscriptionManager.activateTrial()
-            if (trialResult.isFailure) {
-                Log.w(
-                    TAG,
-                    "Automatic trial activation failed after Telegram login (${trialResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"})"
-                )
-            } else {
-                // The first server request may have completed before bootstrap
-                // activation, so refresh once after the new access is issued.
-                com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
-            }
+        if (status?.isUsable == true) {
+            com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
         }
         devicesRefresh.await()
-        serversRefresh.await()
     }
 
     fun init(context: Context) {

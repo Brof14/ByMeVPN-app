@@ -8,28 +8,28 @@ import org.junit.Test
 
 class TrialActivationPolicyTest {
     @Test
-    fun activatesOnlyWhenServerReportsTrialAvailableAndNoUsableAccess() {
+    fun offersOneTapTrialWhenEligibilityIsAvailableOrStillLoading() {
         assertTrue(
-            TrialActivationPolicy.shouldAutoActivate(
+            TrialActivationPolicy.shouldOfferTrial(
                 SubscriptionStatus(status = "none", trialAvailable = true)
             )
         )
         assertFalse(
-            TrialActivationPolicy.shouldAutoActivate(
+            TrialActivationPolicy.shouldOfferTrial(
                 SubscriptionStatus(status = "active", trialAvailable = true)
             )
         )
         assertFalse(
-            TrialActivationPolicy.shouldAutoActivate(
+            TrialActivationPolicy.shouldOfferTrial(
                 SubscriptionStatus(status = "trial", trialAvailable = true)
             )
         )
         assertFalse(
-            TrialActivationPolicy.shouldAutoActivate(
+            TrialActivationPolicy.shouldOfferTrial(
                 SubscriptionStatus(status = "none", trialAvailable = false)
             )
         )
-        assertFalse(TrialActivationPolicy.shouldAutoActivate(null))
+        assertTrue(TrialActivationPolicy.shouldOfferTrial(null))
     }
 
     @Test
