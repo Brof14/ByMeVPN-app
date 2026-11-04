@@ -478,7 +478,7 @@ class VpnManager private constructor(private val context: Context) {
             _errorMessage.value = null
             startTimer()
             if (subscriptionManager.subscriptionStatus.value?.entitlementBootstrap == true) {
-                promoteTrialBootstrapAfterConnection()
+                promoteDeviceBootstrapAfterConnection()
             }
         }
     }
@@ -487,10 +487,10 @@ class VpnManager private constructor(private val context: Context) {
      * The backend grants a short bootstrap entitlement so a new device can make
      * its first tunnel connection and register its HWID with the panel. Once the
      * panel sees that device, immediately exchange the bootstrap snapshot for the
-     * ordinary trial entitlement. Never leave the tunnel running if confirmation
+     * ordinary subscription entitlement. Never leave the tunnel running if confirmation
      * does not arrive during the bounded promotion window.
      */
-    private fun promoteTrialBootstrapAfterConnection() {
+    private fun promoteDeviceBootstrapAfterConnection() {
         bootstrapPromotionJob?.cancel()
         bootstrapPromotionJob = scope.launch {
             val retryDelaysMs = longArrayOf(0L, 1_500L, 3_000L, 6_000L, 10_000L, 15_000L)
@@ -507,7 +507,7 @@ class VpnManager private constructor(private val context: Context) {
             }
 
             if (!promoted && connectionRequested && _state.value == VpnConnectionState.CONNECTED) {
-                Log.w(TAG, "Trial device was not confirmed by the backend after bootstrap connection")
+                Log.w(TAG, "Device was not confirmed by the backend after bootstrap connection")
                 connectionRequested = false
                 bootstrapPromotionJob = null
                 ByMeVpnService.stop(context)
