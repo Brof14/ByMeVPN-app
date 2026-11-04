@@ -60,9 +60,9 @@ class SubscriptionManager private constructor(private val context: Context) {
 
         val now = System.currentTimeMillis()
         if (current.entitlementBootstrap &&
-            !TrialBootstrapPolicy.isValid(current, now / 1000)
+            !DeviceBootstrapPolicy.isValid(current, now / 1000)
         ) {
-            Log.w(TAG, "Trial bootstrap is missing or outside its short validity window.")
+            Log.w(TAG, "Device bootstrap is missing or outside its short validity window.")
             return false
         }
         val elapsedSinceSync = now - current.lastFetchedAt
@@ -256,6 +256,12 @@ class SubscriptionManager private constructor(private val context: Context) {
 
     fun clear() {
         _subscriptionStatus.value = null
+    }
+
+    /** Applies the authoritative subscription snapshot returned during login. */
+    fun setAuthenticatedSnapshot(snapshot: SubscriptionStatus?) {
+        _subscriptionStatus.value = snapshot
+        if (snapshot != null) storage.saveCachedSubscription(snapshot)
     }
 
 }

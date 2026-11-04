@@ -14,6 +14,8 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,6 +59,41 @@ object AccountRepository {
             }
             com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
         }
+    }
+
+    /**
+     * Telegram login completes from an external app. Wait for account state to
+     * refresh before reporting success so Home never opens with a blank/stale
+     * subscription and server list.
+     */
+    private suspend fun refreshAfterTelegramLogin(context: Context) = coroutineScope {
+        val appContext = context.applicationContext
+        val subscriptionManager = SubscriptionManager.getInstance(appContext)
+        val statusRefresh = async { subscriptionManager.refreshStatus(forceBackend = true) }
+        val devicesRefresh = async { refreshDevices(appContext) }
+        val serversRefresh = async {
+            com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
+        }
+
+        // Fetch independent account data together; don't leave Telegram sign-in
+        // waiting through three consecutive network timeouts.
+        val statusResult = statusRefresh.await()
+        val status = statusResult.getOrNull()
+        if (com.example.bymevpn.data.subscription.TrialActivationPolicy.shouldAutoActivate(status)) {
+            val trialResult = subscriptionManager.activateTrial()
+            if (trialResult.isFailure) {
+                Log.w(
+                    TAG,
+                    "Automatic trial activation failed after Telegram login (${trialResult.exceptionOrNull()?.javaClass?.simpleName ?: "unknown"})"
+                )
+            } else {
+                // The first server request may have completed before bootstrap
+                // activation, so refresh once after the new access is issued.
+                com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
+            }
+        }
+        devicesRefresh.await()
+        serversRefresh.await()
     }
 
     fun init(context: Context) {
@@ -170,8 +207,8 @@ object AccountRepository {
             val api = ByMeApiClient(context)
             val check = api.checkTelegramSession(token)
             if (check.status == "authenticated" && check.auth != null) {
+                refreshAfterTelegramLogin(context)
                 _currentUser.value = check.auth.user
-                refreshAfterLogin(context)
                 Result.success(check.auth.user)
             } else if (check.status == "expired") {
                 Result.failure(ApiError("SESSION_EXPIRED", "Telegram sign-in session expired", 401))

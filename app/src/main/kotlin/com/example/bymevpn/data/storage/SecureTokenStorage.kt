@@ -130,48 +130,12 @@ class SecureTokenStorage private constructor(context: Context) {
     }
 
     fun saveCachedSubscription(sub: SubscriptionStatus) {
-        val obj = JSONObject().apply {
-            put("status", sub.status)
-            put("plan_code", sub.planCode ?: "")
-            put("plan_name", sub.planName ?: "")
-            put("expires_at", sub.expiresAt ?: "")
-            put("seconds_remaining", sub.secondsRemaining)
-            put("auto_renew", sub.autoRenew)
-            put("trial_available", sub.trialAvailable)
-            put("max_devices", sub.maxDevices)
-            put("active_devices", sub.activeDevices)
-            put("entitlement", sub.entitlement ?: "")
-            put("server_time", sub.serverTime ?: "")
-            put("last_fetched_at", sub.lastFetchedAt)
-            put("display_data_version", 1)
-        }
-        prefs.edit().putString(KEY_CACHED_SUB, obj.toString()).apply()
+        prefs.edit().putString(KEY_CACHED_SUB, SubscriptionCacheCodec.encode(sub)).apply()
     }
 
     fun getCachedSubscription(): SubscriptionStatus? {
         val raw = prefs.getString(KEY_CACHED_SUB, null) ?: return null
-        return try {
-            val obj = JSONObject(raw)
-            // Older clients stored invented duration and device counts for imported subscriptions.
-            val confirmedDisplayData = obj.optInt("display_data_version", 0) >= 1
-            SubscriptionStatus(
-                status = obj.optString("status", "none"),
-                planCode = obj.optString("plan_code").ifEmpty { null },
-                planName = obj.optString("plan_name").ifEmpty { null },
-                expiresAt = obj.optString("expires_at").ifEmpty { null },
-                secondsRemaining = if (confirmedDisplayData) obj.optLong("seconds_remaining", 0L) else 0L,
-                // Older versions cached an invented value; only trust a fresh server response.
-                autoRenew = null,
-                trialAvailable = obj.optBoolean("trial_available", false),
-                maxDevices = if (confirmedDisplayData) obj.optInt("max_devices", 0) else 0,
-                activeDevices = if (confirmedDisplayData) obj.optInt("active_devices", 0) else 0,
-                entitlement = obj.optString("entitlement").ifEmpty { null },
-                serverTime = obj.optString("server_time").ifEmpty { null },
-                lastFetchedAt = obj.optLong("last_fetched_at", System.currentTimeMillis())
-            )
-        } catch (e: Exception) {
-            null
-        }
+        return SubscriptionCacheCodec.decode(raw)
     }
 
     /**
