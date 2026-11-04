@@ -258,4 +258,10 @@ class SubscriptionManager private constructor(private val context: Context) {
         _subscriptionStatus.value = null
     }
 
+    /** Applies the authoritative subscription snapshot returned during login. */
+    fun setAuthenticatedSnapshot(snapshot: SubscriptionStatus?) {
+        _subscriptionStatus.value = snapshot
+        if (snapshot != null) storage.saveCachedSubscription(snapshot)
+    }
+
 }

@@ -46,7 +46,12 @@ class ByMeApiClient(private val context: Context) {
         storage.clearTokens()
         storage.saveTokens(auth.access, auth.refresh)
         storage.saveCachedUser(auth.user)
-        auth.subscription?.let { storage.saveCachedSubscription(it) }
+        // Keep Compose observers in sync with the newly authenticated account.
+        // Persisting only to SharedPreferences leaves an already-created
+        // SubscriptionManager StateFlow showing the previous/empty snapshot.
+        com.example.bymevpn.data.subscription.SubscriptionManager
+            .getInstance(context)
+            .setAuthenticatedSnapshot(auth.subscription)
 
         // Save immediately; AccountRepository refreshes nodes in the background.
         val subUrl = auth.subscription?.subscriptionUrl
