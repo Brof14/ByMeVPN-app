@@ -282,7 +282,15 @@ class VpnManager private constructor(private val context: Context) {
                 throw e
             } catch (e: Exception) {
                 serverRequestError = e
-                Log.w(TAG, "Server list request failed: ${e.javaClass.simpleName}")
+                val apiError = e as? com.example.bymevpn.data.api.ApiError
+                if (apiError != null) {
+                    Log.w(
+                        TAG,
+                        "Server list request failed (code=${apiError.code}, status=${apiError.httpStatusCode ?: "n/a"}, correlation=${apiError.correlationId ?: "n/a"})"
+                    )
+                } else {
+                    Log.w(TAG, "Server list request failed: ${e.javaClass.simpleName}")
+                }
                 emptyList()
             }
             if (ownerId.isNotBlank() && storage.getCachedUser()?.id != ownerId) {
