@@ -73,11 +73,18 @@ jobs:
       - name: Verify APK and generate update manifest
         env:
           RELEASE_REF: ${{ github.ref_name }}
+          EXPECTED_CERT_SHA256: 0C2160CEDAFAAE98B32AAF83F8B22229A67C98513DF93A8FE759EA910B177222
         run: |
           set -euo pipefail
           apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
           test -n "$apk"
-          apksigner verify "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          cert_output="$("$apksigner" verify --print-certs "$apk")"
+          actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$actual" = "$EXPECTED_CERT_SHA256"
           mkdir -p dist
           version="${RELEASE_REF#v}"
           cp "$apk" "dist/ByMeVPN-v${version}.apk"
