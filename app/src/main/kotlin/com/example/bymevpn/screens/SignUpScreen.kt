@@ -382,6 +382,14 @@ fun SignUpScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
+                Text(
+                    text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
+                    color = AppColors.BrandGreen,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable(onClick = onSignInClick).padding(vertical = 8.dp)
+                )
+
                 // Switch to Sign In
                 val footerText = buildAnnotatedString {
                     withStyle(SpanStyle(color = AppColors.TextSecondary, fontSize = 14.sp)) {

@@ -61,9 +61,9 @@ enum class PlanDuration(
     val isPopular: Boolean = false
 ) {
     Month1("1 месяц", "за месяц", 1, 30),
-    Month4("3 + 1 месяц", "· 1 мес. в подарок", 4, 120),
-    Month8("6 + 2 месяца", "· 2 мес. в подарок", 8, 240),
-    Month15("12 + 3 месяца", "· 3 мес. в подарок", 15, 450, isPopular = true)
+    Month4("3 + 1 месяц", "· 🎁 1 мес. в подарок", 4, 120),
+    Month8("6 + 2 месяца", "· 🎁 2 мес. в подарок", 8, 240),
+    Month15("12 + 3 месяца", "· 🎁 3 мес. в подарок", 15, 450, isPopular = true)
 }
 
 private fun PlanDuration.apiCode(): String = when (this) {
@@ -331,7 +331,7 @@ fun PricingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month"),
+                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month · 🎁 ${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus month(s)"),
                                     color = Color(0xFF8FA3A4),
                                     fontSize = 11.5.sp
                                 )

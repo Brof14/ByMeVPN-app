@@ -64,7 +64,7 @@ fun VpnPowerButton(
 
     Box(
         modifier = modifier
-            .size(235.dp)
+            .size(255.dp)
             .clip(CircleShape)
             .background(Color.Transparent)
             .border(1.5.dp, ringColor.copy(alpha = 0.25f + 0.55f * progress), CircleShape)
@@ -81,7 +81,7 @@ fun VpnPowerButton(
             painter = painterResource(R.drawable.byme_connect_shield_transparent),
             contentDescription = null,
             modifier = Modifier
-                .size(202.dp)
+                .size(224.dp)
                 .graphicsLayer(
                     alpha = 0.62f + 0.38f * progress,
                     scaleX = 0.96f + 0.04f * progress,
@@ -90,7 +90,7 @@ fun VpnPowerButton(
         )
         if (connecting) {
             CircularProgressIndicator(
-                modifier = Modifier.size(224.dp),
+                modifier = Modifier.size(244.dp),
                 color = Color(0xFF35D6A3),
                 strokeWidth = 2.dp
             )

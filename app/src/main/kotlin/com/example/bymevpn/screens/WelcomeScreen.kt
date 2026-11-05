@@ -137,7 +137,7 @@ fun WelcomeScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 ShieldLogo(
-                    size = 105.dp,
+                    size = 128.dp,
                     isActive = true
                 )
 
@@ -251,7 +251,7 @@ fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
-                    text = if (isRu) "Уже есть старый аккаунт бота?" else "Have an older bot account?",
+                    text = if (isRu) "Войти или зарегистрироваться через Telegram" else "Sign in or register with Telegram",
                     color = AppColors.TextMuted,
                     fontSize = 12.sp,
                     modifier = Modifier
@@ -273,7 +273,7 @@ fun WelcomeScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     Text(
-                        text = if (isRu) "Старый аккаунт из Telegram-бота?" else "Existing Telegram bot account?",
+                        text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
                         color = Color.White,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -283,7 +283,7 @@ fun WelcomeScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     Text(
-                        text = if (isRu) "Это запасной вход для старых аккаунтов. Для нового аккаунта используйте почту." else "Legacy sign-in only. Use email to create a new account.",
+                        text = if (isRu) "Подтвердите вход в боте — новый аккаунт создастся автоматически." else "Confirm in the bot to sign in or create an account.",
                         color = AppColors.TextSecondary,
                         fontSize = 11.5.sp,
                         textAlign = TextAlign.Center
@@ -375,7 +375,7 @@ fun WelcomeScreen(
                                 TelegramLogoIcon(size = 18.dp, color = AppColors.DarkText)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isRu) "Войти в старый аккаунт через Telegram" else "Legacy sign-in with Telegram",
+                                    text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
                                     color = AppColors.DarkText,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.ExtraBold
