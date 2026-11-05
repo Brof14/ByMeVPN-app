@@ -46,6 +46,7 @@ import com.example.bymevpn.components.InfoCircleIcon
 import com.example.bymevpn.components.LegalTermsDialog
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.ShieldSecurityIcon
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.data.LocaleManager
 import androidx.compose.runtime.collectAsState
@@ -171,7 +172,7 @@ fun SupportScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = t("О приложении", "About the app"),
-                        subtitle = t("Версия 1.0.0", "Version 1.0.0"),
+                        subtitle = t("Версия ${BuildConfig.VERSION_NAME}", "Version ${BuildConfig.VERSION_NAME}"),
                         icon = { InfoCircleIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) }
                     )
