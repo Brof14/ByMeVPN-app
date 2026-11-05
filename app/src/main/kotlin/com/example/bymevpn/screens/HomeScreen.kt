@@ -552,7 +552,9 @@ private fun HomeDisconnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
+        Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -571,7 +573,7 @@ private fun HomeDisconnectedContent(
             fontSize = 13.sp
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Home Bottom Dock: Server Summary + Access Strip
         Column(
@@ -756,7 +758,9 @@ private fun HomeConnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        VpnPowerButton(connected = true, connecting = false, isRussian = isRu, onClick = onPowerClick)
+        Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            VpnPowerButton(connected = true, connecting = false, isRussian = isRu, onClick = onPowerClick)
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -791,7 +795,7 @@ private fun HomeConnectedContent(
             letterSpacing = 2.sp
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Home Bottom Dock
         Column(
