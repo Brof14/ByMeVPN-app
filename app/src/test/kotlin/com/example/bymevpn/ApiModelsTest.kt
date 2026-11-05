@@ -57,6 +57,35 @@ class ApiModelsTest {
     }
 
     @Test
+    fun serverBootstrapProofUsesItsShortLifetimeInsteadOfTheFullSubscriptionTerm() {
+        val nowMillis = 1_793_670_000_000L
+        val current = ApiJsonParsers.parseSubscriptionStatus(
+            JSONObject("""{"status":"active","plan_code":"1m_d2","max_devices":2,"seconds_remaining":2500000}""")
+        )
+        val updated = ApiJsonParsers.mergeServerAccessProof(
+            current,
+            JSONObject("""{"entitlement":"signed-proof","entitlement_bootstrap":true,"entitlement_expires_at":1793670600}"""),
+            nowMillis
+        )
+
+        assertEquals("signed-proof", updated?.entitlement)
+        assertEquals(true, updated?.entitlementBootstrap)
+        assertEquals(600L, updated?.secondsRemaining)
+        assertEquals(1793670600L, updated?.entitlementExpiresAt)
+    }
+
+    @Test
+    fun serverBootstrapProofWithoutExpiryIsRejected() {
+        val current = ApiJsonParsers.parseSubscriptionStatus(JSONObject("""{"status":"active","max_devices":2}"""))
+        assertNull(
+            ApiJsonParsers.mergeServerAccessProof(
+                current,
+                JSONObject("""{"entitlement":"signed-proof","entitlement_bootstrap":true}""")
+            )
+        )
+    }
+
+    @Test
     fun deviceParserNeverInventsDeleteIdsAndKeepsDistinctDevicesWithSameModel() {
         val devices = ApiJsonParsers.parseDevices(
             JSONArray(

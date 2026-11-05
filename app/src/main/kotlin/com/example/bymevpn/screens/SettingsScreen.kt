@@ -2,17 +2,27 @@ package com.example.bymevpn.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.TextButton
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.example.bymevpn.data.AppLanguage
@@ -23,6 +33,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -66,23 +77,87 @@ fun SettingsScreen(
     var showLanguage by remember { mutableStateOf(false) }
 
     if (showLanguage) {
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showLanguage = false },
-            title = { Text(if (isRu) "Язык" else "Language") },
-            text = {
-                Column {
-                    AppLanguage.entries.forEach { choice ->
-                        TextButton(onClick = {
-                            LocaleManager.setLanguage(choice)
-                            scope.launch { settingsRepo.setLanguage(choice.code) }
-                            showLanguage = false
-                        }) { Text(if (isRu) choice.titleRu else choice.titleEn) }
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(AppColors.CardBg)
+                    .border(1.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = if (isRu) "Язык приложения" else "App language",
+                    color = AppColors.TextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = if (isRu) "Выберите удобный язык интерфейса." else "Choose the language you prefer.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 13.sp
+                )
+
+                AppLanguage.entries.forEach { choice ->
+                    val selected = language == choice
+                    val detail = when (choice) {
+                        AppLanguage.SYSTEM -> if (isRu) "Следовать настройкам телефона" else "Follow your phone settings"
+                        AppLanguage.RUSSIAN -> if (isRu) "Полностью на русском" else "Russian interface"
+                        AppLanguage.ENGLISH -> if (isRu) "Полностью на английском" else "English interface"
                     }
-                    Text(if (isRu) "Изменение языка действует сразу." else "Language changes take effect immediately.", fontSize = 12.sp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(15.dp))
+                            .background(if (selected) AppColors.BgSurfaceElevated else AppColors.InputBg)
+                            .border(
+                                1.dp,
+                                if (selected) AppColors.BrandMint else AppColors.CardBorder,
+                                RoundedCornerShape(15.dp)
+                            )
+                            .clickable {
+                                LocaleManager.setLanguage(choice)
+                                scope.launch { settingsRepo.setLanguage(choice.code) }
+                                showLanguage = false
+                            }
+                            .padding(horizontal = 14.dp, vertical = 13.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(if (selected) AppColors.BrandMint else Color.Transparent)
+                                .border(1.5.dp, if (selected) AppColors.BrandMint else AppColors.TextMuted, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (selected) Text("✓", color = AppColors.DarkText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isRu) choice.titleRu else choice.titleEn,
+                                color = AppColors.TextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(detail, color = AppColors.TextSecondary, fontSize = 11.5.sp)
+                        }
+                    }
                 }
-            },
-            confirmButton = { TextButton(onClick = { showLanguage = false }) { Text(if (isRu) "Закрыть" else "Close") } }
-        )
+
+                Text(
+                    text = if (isRu) "Изменение применяется сразу." else "The change takes effect immediately.",
+                    color = AppColors.TextMuted,
+                    fontSize = 11.5.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
     }
 
     Box(

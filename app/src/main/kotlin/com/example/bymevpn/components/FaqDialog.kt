@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -38,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
 
@@ -105,18 +109,23 @@ val FAQ_ITEMS = listOf(
 fun FaqDialog(onDismiss: () -> Unit) {
     val currentLanguage by LocaleManager.currentLanguage.collectAsState()
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
-    var expandedIndex by remember { mutableStateOf<Int?>(null) } // First one open by default
+    var expandedIndex by remember { mutableStateOf<Int?>(null) }
 
-    Dialog(onDismissRequest = onDismiss) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxWidth(0.94f)
+                .widthIn(max = 460.dp)
+                .fillMaxHeight(0.84f)
                 .clip(RoundedCornerShape(24.dp))
                 .background(AppColors.BgSurface)
                 .border(1.2.dp, AppColors.BorderDefault, RoundedCornerShape(24.dp))
                 .padding(20.dp)
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -142,7 +151,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (isRu) "Ответы и подсказки" else "Help & Answers",
+                                text = if (isRu) "Подключение · тарифы · аккаунт" else "Connection · plans · account",
                                 color = AppColors.TextSecondary,
                                 fontSize = 12.sp
                             )
@@ -166,7 +175,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(380.dp),
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     itemsIndexed(FAQ_ITEMS) { index, item ->
@@ -195,6 +204,21 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier.weight(1f),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isExpanded) AppColors.BadgeGreenBg else AppColors.BgSurfaceAccent),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = (index + 1).toString().padStart(2, '0'),
+                                            color = AppColors.BrandMint,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(10.dp))
                                     Text(
                                         text = if (isRu) item.questionRu else item.questionEn,
                                         color = AppColors.TextPrimary,
@@ -202,12 +226,20 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
-                                Text(
-                                    text = if (isExpanded) "▲" else "▼",
-                                    color = AppColors.BrandMint,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(26.dp)
+                                        .clip(CircleShape)
+                                        .background(AppColors.BgSurfaceAccent),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (isExpanded) "−" else "+",
+                                        color = AppColors.BrandMint,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             }
 
                             AnimatedVisibility(

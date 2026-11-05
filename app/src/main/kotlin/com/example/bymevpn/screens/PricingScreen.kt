@@ -96,6 +96,7 @@ fun PricingScreen(
     var selectedPlan by remember { mutableStateOf(PlanDuration.Month15) }
     val selectedProvider = "yookassa" // Only payment method accepted by the current backend.
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
+    var displayPlans by remember { mutableStateOf(ByMeApiClient(context).getCachedPlans(2)) }
     var plansLoading by remember { mutableStateOf(true) }
     var priceError by remember { mutableStateOf(false) }
     var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
@@ -103,12 +104,15 @@ fun PricingScreen(
     var isPaying by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDeviceCount, refreshSequence) {
+        val api = ByMeApiClient(context)
         serverPlans = emptyList()
+        displayPlans = api.getCachedPlans(selectedDeviceCount)
         priceError = false
         mobileCatalogNotDeployed = false
         plansLoading = true
         try {
-            serverPlans = ByMeApiClient(context).getPlans(selectedDeviceCount)
+            serverPlans = api.getPlans(selectedDeviceCount)
+            displayPlans = serverPlans
             priceError = serverPlans.none { it.devices == selectedDeviceCount && it.priceRub > 0 }
         } catch (e: Exception) {
             serverPlans = emptyList()
@@ -121,7 +125,13 @@ fun PricingScreen(
 
     // Only a server-confirmed exact plan is eligible for actual checkout.
     val currentPlan = serverPlans.firstOrNull { selectedPlan.matchesConfirmedPlan(it, selectedDeviceCount) }
-    val currentPrice = currentPlan?.priceRub ?: 0
+    val displayedPlan = displayPlans.firstOrNull { selectedPlan.matchesConfirmedPlan(it, selectedDeviceCount) }
+    val currentPrice = displayedPlan?.priceRub ?: 0
+    val currentPriceTitle = if (currentPlan == null && displayedPlan != null) {
+        t("Последняя цена", "Last known price")
+    } else {
+        t("К оплате сейчас", "Amount due")
+    }
     val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽" else t("Цена не подтверждена", "Price not confirmed")
 
     val perMonthPrice = when (selectedPlan) {
@@ -233,7 +243,9 @@ fun PricingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 if (priceError && !plansLoading) {
                     Text(
-                        text = if (mobileCatalogNotDeployed)
+                        text = if (displayPlans.isNotEmpty())
+                            t("Показываем сохранённые цены. Для оплаты нужно обновить тарифы.", "Showing saved prices. Refresh plans before checkout.")
+                        else if (mobileCatalogNotDeployed)
                             t("Покупка пока недоступна. Попробуйте позже.", "Purchases are temporarily unavailable. Please try again later.")
                         else
                             t("Не удалось загрузить тарифы. Попробуйте ещё раз.", "Could not load plans. Please try again."),
@@ -249,8 +261,12 @@ fun PricingScreen(
                             .clickable { refreshSequence++ }
                             .padding(vertical = 12.dp)
                     )
-                } else if (plansLoading) {
-                    Text(t("Загружаем тарифы…", "Loading plans…"), color = AppColors.TextSecondary, fontSize = 12.sp)
+                    } else if (plansLoading) {
+                        Text(
+                            text = if (displayPlans.isNotEmpty()) t("Обновляем цены…", "Updating prices…") else t("Загружаем тарифы…", "Loading plans…"),
+                            color = AppColors.TextSecondary,
+                            fontSize = 12.sp
+                        )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -266,7 +282,7 @@ fun PricingScreen(
 
                 // 4 Plan options
                 PlanDuration.values().forEach { plan ->
-                    val verifiedPrice = serverPlans.firstOrNull {
+                    val verifiedPrice = displayPlans.firstOrNull {
                         plan.matchesConfirmedPlan(it, selectedDeviceCount)
                     }?.priceRub
                     val priceForPlan = verifiedPrice ?: 0
@@ -390,40 +406,16 @@ fun PricingScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF132023))
                         .border(1.dp, Color(0xFF263A3C), RoundedCornerShape(14.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(if (selectedProvider == "yookassa") Color(0xFF69D3BC) else Color.Transparent)
-                            
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = t("💳 Карта / СБП", "💳 Card / SBP"),
-                            color = if (selectedProvider == "yookassa") Color(0xFF10241E) else Color(0xFF829C9A),
-                            fontSize = 12.sp,
-                            fontWeight = if (selectedProvider == "yookassa") FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(Color.Transparent)
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = t("Криптовалюта недоступна", "Crypto unavailable"),
-                            color = Color(0xFF829C9A),
-                            fontSize = 11.sp
-                        )
-                    }
+                    Text(
+                        text = t("💳  Карта или СБП через ЮKassa", "💳  Card or SBP via YooKassa"),
+                        color = Color(0xFFB9CECA),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
@@ -438,7 +430,7 @@ fun PricingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = t("К оплате сейчас", "Amount due"),
+                        text = currentPriceTitle,
                         color = Color(0xFFA1B5B3),
                         fontSize = 13.sp
                     )
@@ -461,12 +453,12 @@ fun PricingScreen(
                 ByMePrimaryButton(
                     text = when {
                         isPaying -> t("Открываем оплату…", "Opening checkout…")
-                        currentPrice > 0 && currentPlan?.purchaseEnabled == true -> t("Оплатить · $currentPrice ₽", "Pay · $currentPrice RUB")
+                        plansLoading -> t("Проверяем цену…", "Checking price…")
+                        currentPlan?.purchaseEnabled == true -> t("Оплатить · $currentPrice ₽", "Pay · $currentPrice RUB")
                         currentPrice > 0 -> t("Оплата временно недоступна", "Checkout temporarily unavailable")
-                        plansLoading -> t("Загружаем тарифы…", "Loading plans…")
                         else -> t("Оплата пока недоступна", "Payment unavailable")
                     },
-                    enabled = currentPlan != null && currentPlan.purchaseEnabled && !isPaying,
+                    enabled = currentPlan?.purchaseEnabled == true && !plansLoading && !isPaying,
                     onClick = {
                         val confirmed = currentPlan ?: return@ByMePrimaryButton
                         isPaying = true

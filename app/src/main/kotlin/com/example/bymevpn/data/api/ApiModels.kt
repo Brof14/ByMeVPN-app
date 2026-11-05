@@ -161,6 +161,30 @@ data class DeviceItem(
 )
 
 object ApiJsonParsers {
+    /** Merge the signed access proof returned by the authenticated /servers handshake. */
+    fun mergeServerAccessProof(
+        current: SubscriptionStatus,
+        payload: JSONObject,
+        nowMillis: Long = System.currentTimeMillis()
+    ): SubscriptionStatus? {
+        val token = payload.optString("entitlement").takeIf { it.isNotBlank() } ?: return null
+        val bootstrap = payload.optBoolean("entitlement_bootstrap", false)
+        val bootstrapExpiry = payload.optLong("entitlement_expires_at", 0L).takeIf { it > 0L }
+        if (bootstrap && bootstrapExpiry == null) return null
+
+        val remaining = if (bootstrap) {
+            val bootstrapSeconds = (bootstrapExpiry!! - nowMillis / 1000L).coerceAtLeast(0L)
+            if (current.secondsRemaining > 0L) minOf(current.secondsRemaining, bootstrapSeconds) else bootstrapSeconds
+        } else current.secondsRemaining
+        return current.copy(
+            secondsRemaining = remaining,
+            entitlement = token,
+            entitlementBootstrap = bootstrap,
+            entitlementExpiresAt = bootstrapExpiry,
+            lastFetchedAt = nowMillis
+        )
+    }
+
     fun parsePlans(json: JSONObject): List<PlanItem> {
         val array = json.optJSONArray("raw_array") ?: json.optJSONArray("plans") ?: runCatching {
             json.optString("raw").takeIf { it.isNotBlank() }?.let { JSONArray(it) }
