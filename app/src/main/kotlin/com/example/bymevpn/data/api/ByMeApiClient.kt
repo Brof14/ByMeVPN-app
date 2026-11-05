@@ -285,6 +285,8 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun getServers(): List<ServerNode> {
         val json = request("GET", "/servers", null, requiresAuth = true)
+        com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
+            .acceptServerAccessProof(json)
         val subUrl = json.optString("subscription_url")
         if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl)
         val array = json.optJSONArray("servers") ?: JSONArray()

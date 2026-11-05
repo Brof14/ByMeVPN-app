@@ -396,7 +396,26 @@ class VpnManager private constructor(private val context: Context) {
             try {
                 // 1. Verify subscription entitlement
                 if (!subscriptionManager.canConnect()) {
-                    subscriptionManager.refreshStatus()
+                    // Always ask the account API for the authoritative signed snapshot.
+                    // A newly installed device may not yet have a device-bound token, so
+                    // the normal status refresh alone cannot authorize its first tunnel.
+                    subscriptionManager.refreshStatus(forceBackend = true)
+                    coroutineContext.ensureActive()
+                    if (!subscriptionManager.canConnect()) {
+                        val status = subscriptionManager.subscriptionStatus.value
+                        if (status?.isUsable == true) {
+                            // /servers is the backend's first-device bootstrap handshake:
+                            // it validates the account and panel slot and may issue a
+                            // short, device-bound entitlement. Refresh status afterward
+                            // so only the server-signed token can authorize the tunnel.
+                            val bootstrapServers = apiClient.getServers()
+                            if (bootstrapServers.isNotEmpty()) setServers(bootstrapServers)
+                            coroutineContext.ensureActive()
+                            if (!subscriptionManager.canConnect()) {
+                                subscriptionManager.refreshStatus(forceBackend = true)
+                            }
+                        }
+                    }
                     coroutineContext.ensureActive()
                     if (!subscriptionManager.canConnect()) {
                         _state.value = VpnConnectionState.ERROR

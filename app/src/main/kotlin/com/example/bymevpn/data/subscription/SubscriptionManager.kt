@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.net.HttpURLConnection
 import java.net.URL
+import org.json.JSONObject
 
 /**
  * Manages the current subscription, offline entitlement evaluation, and trial activation.
@@ -154,6 +155,15 @@ class SubscriptionManager private constructor(private val context: Context) {
         } finally {
             _isSyncing.value = false
         }
+    }
+
+    /** Cache a signed proof returned by the authenticated server-list endpoint. */
+    internal fun acceptServerAccessProof(payload: JSONObject) {
+        val current = _subscriptionStatus.value ?: storage.getCachedSubscription() ?: return
+        val updated = com.example.bymevpn.data.api.ApiJsonParsers
+            .mergeServerAccessProof(current, payload) ?: return
+        _subscriptionStatus.value = updated
+        storage.saveCachedSubscription(updated)
     }
 
     suspend fun applySubscriptionUrl(urlOrConfig: String): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
