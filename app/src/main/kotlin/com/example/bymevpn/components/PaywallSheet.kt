@@ -70,6 +70,7 @@ fun PaywallSheet(
     val scope = rememberCoroutineScope()
 
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
+    var displayPlans by remember { mutableStateOf(ByMeApiClient(context).getCachedPlans(2)) }
     var selectedPlan by remember { mutableStateOf<PlanTariff?>(null) }
     var selectedDeviceCount by remember { mutableIntStateOf(2) }
     var plansLoading by remember { mutableStateOf(true) }
@@ -80,15 +81,18 @@ fun PaywallSheet(
     var isProcessingPayment by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDeviceCount, refreshSequence) {
+        val api = ByMeApiClient(context)
         serverPlans = emptyList()
-        selectedPlan = null
+        displayPlans = api.getCachedPlans(selectedDeviceCount)
         plansUnavailable = false
         mobileCatalogNotDeployed = false
         plansLoading = true
         try {
-            serverPlans = ByMeApiClient(context).getPlans(devices = selectedDeviceCount)
+            serverPlans = api.getPlans(devices = selectedDeviceCount)
+            displayPlans = serverPlans
             plansUnavailable = serverPlans.none { it.devices == selectedDeviceCount }
         } catch (e: Exception) {
+            serverPlans = emptyList()
             plansUnavailable = true
             mobileCatalogNotDeployed = (e as? ApiError)?.httpStatusCode == 404
         } finally {
@@ -96,7 +100,7 @@ fun PaywallSheet(
         }
     }
 
-    val tariffOptions = filterPlansByDeviceCount(serverPlans, selectedDeviceCount).map { plan ->
+    val tariffOptions = filterPlansByDeviceCount(displayPlans, selectedDeviceCount).map { plan ->
         PlanTariff(
             code = plan.code,
             name = plan.name,
@@ -109,7 +113,21 @@ fun PaywallSheet(
             checkoutEnabled = plan.purchaseEnabled
         )
     }
-    LaunchedEffect(serverPlans) {
+    val confirmedTariffOptions = filterPlansByDeviceCount(serverPlans, selectedDeviceCount).map { plan ->
+        PlanTariff(
+            code = plan.code,
+            name = plan.name,
+            period = plan.period,
+            priceRub = plan.priceRub,
+            pricePerMonthRub = if (plan.days > 0) plan.priceRub * 30 / plan.days else plan.priceRub,
+            discountPercent = plan.discountPercent,
+            isBestValue = plan.isPopular,
+            days = plan.days,
+            checkoutEnabled = plan.purchaseEnabled
+        )
+    }
+    val confirmedSelectedPlan = confirmedTariffOptions.firstOrNull { it.code == selectedPlan?.code }
+    LaunchedEffect(displayPlans) {
         if (selectedPlan == null || tariffOptions.none { it.code == selectedPlan?.code }) {
             selectedPlan = tariffOptions.firstOrNull()
         }
@@ -366,7 +384,9 @@ fun PaywallSheet(
                     Spacer(modifier = Modifier.height(8.dp))
                 } else if (plansUnavailable || tariffOptions.isEmpty()) {
                     Text(
-                        text = if (mobileCatalogNotDeployed) {
+                        text = if (tariffOptions.isNotEmpty()) {
+                            if (isRu) "Показываем сохранённые цены. Обновите тарифы перед оплатой." else "Showing saved prices. Refresh plans before checkout."
+                        } else if (mobileCatalogNotDeployed) {
                             if (isRu) "Покупка пока недоступна. Попробуйте позже." else "Purchases are temporarily unavailable. Please try again later."
                         } else {
                             if (isRu) "Тарифы временно недоступны. Попробуйте позже." else "Plans are temporarily unavailable. Please try again later."
@@ -416,11 +436,11 @@ fun PaywallSheet(
                                 listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
                             )
                         )
-                        .clickable(enabled = !isProcessingPayment && !plansLoading && selectedPlan?.checkoutEnabled == true) {
+                        .clickable(enabled = !isProcessingPayment && !plansLoading && confirmedSelectedPlan?.checkoutEnabled == true) {
                             isProcessingPayment = true
                             YooKassaPaymentHandler.openCheckout(
                                 context = context,
-                                tariff = selectedPlan!!,
+                                tariff = confirmedSelectedPlan!!,
                                 onCheckoutFailed = { isProcessingPayment = false },
                                 onCheckoutLaunched = { isProcessingPayment = false }
                             )
@@ -434,8 +454,10 @@ fun PaywallSheet(
                             Text("⚡", fontSize = 16.sp)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (selectedPlan?.checkoutEnabled == true) {
-                                    if (isRu) "Оплатить через ЮKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}" else "Pay via YooKassa • ${selectedPlan?.priceRub?.let { "$it ₽" } ?: "—"}"
+                                text = if (plansLoading) {
+                                    if (isRu) "Проверяем цену…" else "Checking price…"
+                                } else if (confirmedSelectedPlan?.checkoutEnabled == true) {
+                                    if (isRu) "Оплатить через ЮKassa • ${confirmedSelectedPlan.priceRub} ₽" else "Pay via YooKassa • ${confirmedSelectedPlan.priceRub} ₽"
                                 } else {
                                     if (isRu) "Оплата временно недоступна" else "Checkout temporarily unavailable"
                                 },

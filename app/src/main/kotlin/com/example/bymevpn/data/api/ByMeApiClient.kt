@@ -5,6 +5,9 @@ import android.util.Log
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -31,6 +34,12 @@ class ByMeApiClient(private val context: Context) {
     companion object {
         private const val TAG = "ByMeApiClient"
         private const val TIMEOUT_MS = 15000
+        private const val PLAN_CATALOG_PREFS = "bymevpn_plan_catalog"
+        private const val PLAN_CATALOG_DISPLAY_MAX_AGE_MS = 14L * 24 * 60 * 60 * 1000
+        private const val PLAN_CATALOG_REFRESH_INTERVAL_MS = 24L * 60 * 60 * 1000
+
+        private fun planCatalogKey(devices: Int) = "plans_$devices"
+        private fun planCatalogTimestampKey(devices: Int) = "plans_${devices}_saved_at"
         // Shared across instances to serialize refresh-token rotation.
         private val refreshMutex = Mutex()
     }
@@ -230,7 +239,44 @@ class ByMeApiClient(private val context: Context) {
     suspend fun getPlans(devices: Int = 2): List<PlanItem> {
         require(devices in setOf(2, 5, 10)) { "Unsupported device limit" }
         val json = request("GET", "/mobile/v2/plans?devices=$devices", null, requiresAuth = true)
-        return ApiJsonParsers.parsePlans(json)
+        val plans = ApiJsonParsers.parsePlans(json)
+        if (plans.isNotEmpty() && plans.all { it.devices == devices && it.priceRub > 0 }) {
+            context.applicationContext
+                .getSharedPreferences(PLAN_CATALOG_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(planCatalogKey(devices), json.toString())
+                .putLong(planCatalogTimestampKey(devices), System.currentTimeMillis())
+                .apply()
+        }
+        return plans
+    }
+
+    /** Last server-confirmed catalog, shown immediately while a fresh quote is fetched. */
+    fun getCachedPlans(devices: Int): List<PlanItem> {
+        if (devices !in setOf(2, 5, 10)) return emptyList()
+        val prefs = context.applicationContext.getSharedPreferences(PLAN_CATALOG_PREFS, Context.MODE_PRIVATE)
+        val savedAt = prefs.getLong(planCatalogTimestampKey(devices), 0L)
+        val now = System.currentTimeMillis()
+        if (savedAt <= 0L || savedAt > now || now - savedAt > PLAN_CATALOG_DISPLAY_MAX_AGE_MS) {
+            return emptyList()
+        }
+        val raw = prefs.getString(planCatalogKey(devices), null) ?: return emptyList()
+        return runCatching { ApiJsonParsers.parsePlans(JSONObject(raw)) }
+            .getOrDefault(emptyList())
+            .filter { it.devices == devices && it.priceRub > 0 }
+    }
+
+    /** Warm all device tiers after login so the pricing screen opens with cached prices. */
+    suspend fun warmPlanCatalog() {
+        val prefs = context.applicationContext.getSharedPreferences(PLAN_CATALOG_PREFS, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val staleTiers = listOf(2, 5, 10).filter { devices ->
+            val savedAt = prefs.getLong(planCatalogTimestampKey(devices), 0L)
+            savedAt <= 0L || savedAt > now || now - savedAt >= PLAN_CATALOG_REFRESH_INTERVAL_MS
+        }
+        coroutineScope {
+            staleTiers.map { devices -> async { runCatching { getPlans(devices) } } }.awaitAll()
+        }
     }
 
     // -------------------------------------------------------------

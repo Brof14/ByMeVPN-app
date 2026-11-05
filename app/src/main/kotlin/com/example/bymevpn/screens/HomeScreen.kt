@@ -59,6 +59,7 @@ import com.example.bymevpn.components.FaqDialog
 import com.example.bymevpn.components.VpnDisclosureDialog
 import com.example.bymevpn.components.PrivacyPolicyDialog
 import com.example.bymevpn.data.storage.SecureTokenStorage
+import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.components.PowerIcon
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
@@ -114,6 +115,11 @@ fun HomeScreen(
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     val updateInfo by AppUpdateManager.updateInfo.collectAsState()
     var isInstallingUpdate by remember { mutableStateOf(false) }
+
+    // Fetch stale/missing plan prices before the user opens the pricing screen.
+    LaunchedEffect(Unit) {
+        runCatching { ByMeApiClient(context).warmPlanCatalog() }
+    }
 
     val startUpdateInstall: (com.example.bymevpn.data.update.AppUpdateInfo) -> Unit = { info ->
         scope.launch {
