@@ -160,7 +160,7 @@ fun WelcomeScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (isRu) "Скорость. Анонимность. Честность." else "Speed. Anonymity. Honesty.",
+                    text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",
                     color = AppColors.TextSecondary,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Medium

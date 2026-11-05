@@ -69,7 +69,7 @@ fun ByMeTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ShieldLogo(size = 30.dp)
+                ShieldLogo(size = 38.dp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "ByMe",

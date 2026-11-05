@@ -310,7 +310,7 @@ fun SignInScreen(
 
                     // 1. Shield Logo with ambient glowing halo
                     ShieldLogo(
-                        size = 132.dp,
+                        size = 150.dp,
                         isActive = true
                     )
 
@@ -348,7 +348,7 @@ fun SignInScreen(
 
                     // 3. Slogan: Скорость. Свобода. Простота.
                     Text(
-                        text = if (isRu) "Скорость. Свобода. Простота." else "Speed. Freedom. Simplicity.",
+                        text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",
                         color = Color(0xFF7A8B9E),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Normal,
