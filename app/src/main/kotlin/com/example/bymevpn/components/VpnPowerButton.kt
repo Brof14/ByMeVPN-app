@@ -13,7 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -64,7 +68,9 @@ fun VpnPowerButton(
 
     Box(
         modifier = modifier
-            .size(255.dp)
+            .sizeIn(maxWidth = 275.dp, maxHeight = 275.dp)
+            .aspectRatio(1f)
+            .fillMaxWidth()
             .clip(CircleShape)
             .background(Color.Transparent)
             .border(1.5.dp, ringColor.copy(alpha = 0.25f + 0.55f * progress), CircleShape)
@@ -81,7 +87,7 @@ fun VpnPowerButton(
             painter = painterResource(R.drawable.byme_connect_shield_transparent),
             contentDescription = null,
             modifier = Modifier
-                .size(224.dp)
+                .fillMaxSize(0.88f)
                 .graphicsLayer(
                     alpha = 0.62f + 0.38f * progress,
                     scaleX = 0.96f + 0.04f * progress,
@@ -90,7 +96,7 @@ fun VpnPowerButton(
         )
         if (connecting) {
             CircularProgressIndicator(
-                modifier = Modifier.size(244.dp),
+                modifier = Modifier.fillMaxSize(0.96f),
                 color = Color(0xFF35D6A3),
                 strokeWidth = 2.dp
             )
