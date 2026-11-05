@@ -328,11 +328,28 @@ fun HomeScreen(
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
                         onTrialClick = { activateTrialFromHome() },
-                        onPlansClick = onNavigateToPricing,
                         trialAvailable = TrialActivationPolicy.shouldOfferTrial(subscription),
                         isActivatingTrial = isActivatingTrial,
                         trialError = trialActivationError
                     )
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .clickable(onClick = onNavigateToPricing)
+                            .padding(horizontal = 26.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (homeIsRussian()) "Посмотреть все тарифы" else "See all plans",
+                            color = Color(0xFFB9DFD3),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        ChevronRightIcon(color = Color(0xFFB9DFD3), size = 16.dp)
+                    }
                 } else if (vpnState == VpnConnectionState.ERROR) {
                     val vpnError by vpnManager.errorMessage.collectAsState()
                     // MOCKUP 14_connection_error
@@ -425,7 +442,6 @@ private fun homeIsRussian(): Boolean {
 @Composable
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
-    onPlansClick: () -> Unit,
     trialAvailable: Boolean,
     isActivatingTrial: Boolean,
     trialError: String?
@@ -434,6 +450,7 @@ private fun HomeNoPlanContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .padding(bottom = 56.dp)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 26.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -618,25 +635,7 @@ private fun HomeNoPlanContent(
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onPlansClick)
-                    .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = if (isRu) "Посмотреть все тарифы" else "See all plans",
-                    color = Color(0xFFB9DFD3),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Spacer(modifier = Modifier.width(5.dp))
-                ChevronRightIcon(color = Color(0xFFB9DFD3), size = 16.dp)
-            }
         }
     }
 }
