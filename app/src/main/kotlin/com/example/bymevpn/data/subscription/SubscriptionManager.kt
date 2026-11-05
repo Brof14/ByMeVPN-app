@@ -194,8 +194,18 @@ class SubscriptionManager private constructor(private val context: Context) {
                 secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - System.currentTimeMillis() / 1000).coerceAtLeast(0) else 0,
                 lastFetchedAt = System.currentTimeMillis()
             )
-            _subscriptionStatus.value = status
-            storage.saveCachedSubscription(status)
+            // A panel feed supplies node configurations, never an authenticated
+            // account/device entitlement. Background imports from /servers must
+            // not erase the signed snapshot while connect() is checking it.
+            if (SubscriptionStatusSourcePolicy.shouldUseSubscriptionFeed(
+                    forceBackend = false,
+                    subscriptionUrl = trimmed,
+                    signedEntitlementsEnabled = ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()
+                )
+            ) {
+                _subscriptionStatus.value = status
+                storage.saveCachedSubscription(status)
+            }
             Result.success(parsed)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to apply subscription: ${e.javaClass.simpleName}")

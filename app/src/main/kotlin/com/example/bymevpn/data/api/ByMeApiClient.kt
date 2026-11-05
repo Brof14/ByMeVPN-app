@@ -304,12 +304,25 @@ class ByMeApiClient(private val context: Context) {
         }
         if (subUrl.isNotBlank()) {
             val subManager = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
-            if (parsed.isEmpty()) {
-                // The API has no nodes; the subscription URL is the only possible source.
+            val registeringDevice = subManager.subscriptionStatus.value?.entitlementBootstrap == true
+            if (parsed.isEmpty() || registeringDevice) {
+                // 3x-ui learns X-HWID on a subscription fetch, not from tunnel
+                // packets. Finish the first registration before starting Xray.
                 try {
-                    subManager.applySubscriptionUrl(subUrl)
+                    subManager.applySubscriptionUrl(subUrl).getOrThrow()
+                    if (registeringDevice) subManager.refreshStatus(forceBackend = true)
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     Log.w(TAG, "Subscription URL from /servers was not applied: ${safeError(e)}")
+                    if (registeringDevice) {
+                        val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+                        throw ApiError(
+                            "DEVICE_REGISTRATION_FAILED",
+                            if (isRu) "Не удалось зарегистрировать устройство на VPN-сервере. Попробуйте подключиться ещё раз."
+                            else "Could not register this device with the VPN server. Please try connecting again."
+                        )
+                    }
                 }
             } else {
                 // Nodes are already available: never delay the server list for a subscription fetch.
