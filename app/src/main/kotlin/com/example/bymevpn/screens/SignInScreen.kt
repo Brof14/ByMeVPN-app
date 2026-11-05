@@ -310,7 +310,7 @@ fun SignInScreen(
 
                     // 1. Shield Logo with ambient glowing halo
                     ShieldLogo(
-                        size = 108.dp,
+                        size = 132.dp,
                         isActive = true
                     )
 
@@ -636,7 +636,7 @@ fun SignInScreen(
 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        text = if (isRu) "Старый аккаунт из\nTelegram-бота?" else "Legacy account from\nTelegram bot?",
+                                        text = if (isRu) "Войти через Telegram" else "Continue with Telegram",
                                         color = Color.White,
                                         fontSize = 14.5.sp,
                                         fontWeight = FontWeight.Bold,
@@ -644,7 +644,7 @@ fun SignInScreen(
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = if (isRu) "Почта работает без Telegram. Это вход только для старых аккаунтов." else "Email works without Telegram. This is only for legacy accounts.",
+                                        text = if (isRu) "Подтвердите вход в боте — новый аккаунт создастся автоматически." else "Confirm in the bot to sign in or create an account.",
                                         color = Color(0xFF758A9E),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Normal
@@ -752,7 +752,7 @@ fun SignInScreen(
                                         PaperPlaneIcon(color = Color(0xFF0B2230), size = 18.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = if (isRu) "Войти в старый аккаунт через Telegram" else "Legacy sign-in with Telegram",
+                                            text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
                                             color = Color(0xFF0B2230),
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold

@@ -57,6 +57,7 @@ enum class AppScreen {
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        setTheme(R.style.AppTheme)
         super.onCreate(savedInstanceState)
         AccountRepository.init(applicationContext)
         handleIntent(intent)
