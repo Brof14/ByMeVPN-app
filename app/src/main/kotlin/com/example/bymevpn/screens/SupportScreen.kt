@@ -189,7 +189,7 @@ fun SupportScreen(
                 Spacer(modifier = Modifier.height(28.dp))
 
                 Text(
-                    text = t("ByMeVPN · Скорость. Свобода. Простота.", "ByMeVPN · Speed. Freedom. Simplicity."),
+                    text = t("Поддержка ByMeVPN", "ByMeVPN support"),
                     color = Color(0xFF617E79),
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center,

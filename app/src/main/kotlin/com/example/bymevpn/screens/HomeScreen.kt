@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -447,195 +448,72 @@ private fun HomeNoPlanContent(
     trialError: String?
 ) {
     val isRu = homeIsRussian()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(bottom = 56.dp)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 26.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize().padding(bottom = 56.dp),
+        contentAlignment = Alignment.Center
     ) {
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Center emblem with glowing halo
-        Box(
-            modifier = Modifier.size(190.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(176.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            0.0f to Color(0x1324D3A3),
-                            0.67f to Color.Transparent
-                        )
-                    )
-                    .border(1.dp, Color(0x214CB299), CircleShape)
-            )
-            ShieldLogo(size = 126.dp)
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = "ByMeVPN",
-            color = AppColors.BrandMint,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Text(
-            text = if (isRu) "Свободный интернет.\nОдно касание." else "Open internet.\nOne tap.",
-            color = AppColors.TextPrimary,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            lineHeight = 36.sp,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Text(
-            text = if (isRu) "Подключайтесь к привычным сервисам с ByMeVPN — без сложных настроек." else "Connect to the services you use with ByMeVPN.",
-            color = Color(0xFF91A4A5),
-            fontSize = 13.sp,
-            lineHeight = 19.sp,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 14.dp)
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Mini perks
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                CheckmarkIcon(color = AppColors.BrandMint, size = 15.dp)
-                Text(
-                    text = if (isRu) "Простое подключение" else "Easy connection",
-                    color = Color(0xFF89A99E),
-                    fontSize = 11.sp
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                CheckmarkIcon(color = AppColors.BrandMint, size = 15.dp)
-                Text(
-                    text = if (isRu) "Прозрачные условия" else "Clear terms",
-                    color = Color(0xFF89A99E),
-                    fontSize = 11.sp
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        // Action dock: Trial card + All plans link
+        val compact = maxHeight < 530.dp
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 18.dp)
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                .padding(horizontal = 26.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            ShieldLogo(size = if (compact) 105.dp else 145.dp)
+            Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
+            Text(
+                text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",
+                color = AppColors.TextPrimary,
+                fontSize = if (compact) 22.sp else 25.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = if (isRu) "Подключайтесь, когда вам нужен VPN." else "Connect whenever you need a VPN.",
+                color = Color(0xFF91A4A5), fontSize = 13.sp,
+                lineHeight = 18.sp, textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(if (compact) 14.dp else 22.dp))
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(21.dp))
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(21.dp))
                     .background(AppGradients.AccentCard)
                     .border(1.dp, Color(0xFF285A4C), RoundedCornerShape(21.dp))
-                    .padding(19.dp)
+                    .padding(if (compact) 16.dp else 19.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "01",
-                        color = AppColors.BrandMint,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Text(
-                        text = if (isRu) "Для новых пользователей" else "For new users",
-                        color = Color(0xFFA0C2AE),
-                        fontSize = 10.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = if (isRu) "3 дня " else "3 days ",
-                        color = AppColors.TextPrimary,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-1).sp
-                    )
-                    Text(
-                        text = if (isRu) "бесплатно" else "free",
-                        color = AppColors.BrandMint,
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-1).sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
-                    text = if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying.",
-                    color = Color(0xFFA1B4AD),
-                    fontSize = 12.sp
+                    text = if (trialAvailable) {
+                        if (isRu) "3 дня бесплатно" else "3 days free"
+                    } else {
+                        if (isRu) "Пробный период" else "Free trial"
+                    },
+                    color = AppColors.TextPrimary, fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
                 )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = if (trialAvailable) {
+                        if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying."
+                    } else {
+                        if (isRu) "Вы можете выбрать подходящий тариф." else "You can choose a plan."
+                    },
+                    color = Color(0xFFA1B4AD), fontSize = 12.sp
+                )
+                Spacer(Modifier.height(14.dp))
                 ByMePrimaryButton(
                     text = when {
-                        isActivatingTrial -> if (isRu) "Активируем пробный период…" else "Activating free trial…"
-                        trialAvailable -> if (isRu) "Активировать 3 дня бесплатно" else "Activate 3 days free"
+                        isActivatingTrial -> if (isRu) "Активируем…" else "Activating…"
+                        trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
                         else -> if (isRu) "Пробный период недоступен" else "Free trial unavailable"
                     },
                     onClick = onTrialClick,
                     enabled = trialAvailable && !isActivatingTrial,
                     height = 50.dp
                 )
-
                 if (!trialError.isNullOrBlank()) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text(
-                        text = trialError,
-                        color = Color(0xFFFF9A9A),
-                        fontSize = 11.sp,
-                        lineHeight = 15.sp
-                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(trialError, color = Color(0xFFFF9A9A), fontSize = 11.sp, lineHeight = 15.sp)
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = if (isRu) "После пробного периода можно выбрать тариф." else "Choose a plan after your trial.",
-                    color = Color(0xFF8DABA5),
-                    fontSize = 10.5.sp,
-                    lineHeight = 15.sp
-                )
             }
-
-
         }
     }
 }
@@ -674,7 +552,9 @@ private fun HomeDisconnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
+        Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -693,7 +573,7 @@ private fun HomeDisconnectedContent(
             fontSize = 13.sp
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Home Bottom Dock: Server Summary + Access Strip
         Column(
@@ -878,7 +758,9 @@ private fun HomeConnectedContent(
 
         Spacer(modifier = Modifier.height(26.dp))
 
-        VpnPowerButton(connected = true, connecting = false, isRussian = isRu, onClick = onPowerClick)
+        Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            VpnPowerButton(connected = true, connecting = false, isRussian = isRu, onClick = onPowerClick)
+        }
 
         Spacer(modifier = Modifier.height(20.dp))
 
@@ -913,7 +795,7 @@ private fun HomeConnectedContent(
             letterSpacing = 2.sp
         )
 
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Home Bottom Dock
         Column(

@@ -201,7 +201,7 @@ fun PaywallSheet(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (isRu) "Свободный интернет без ограничений и блокировок" else "Free internet without limits and censorship",
+                    text = if (isRu) "Выберите подходящий тариф" else "Choose a plan that suits you",
                     color = AppColors.TextSecondary,
                     fontSize = 13.sp,
                     textAlign = TextAlign.Center

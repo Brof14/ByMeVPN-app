@@ -527,7 +527,13 @@ fun AccountScreen(
                                 showDeleteDialog = false
                                 onLogOut()
                             } else {
-                                Toast.makeText(context, t("Сервер пока не поддерживает удаление аккаунта. Напишите на support@bymevpn.com.", "The server does not support account deletion yet. Contact support@bymevpn.com."), Toast.LENGTH_LONG).show()
+                                val apiError = result.exceptionOrNull() as? com.example.bymevpn.data.api.ApiError
+                                val message = when {
+                                    apiError?.httpStatusCode == 501 -> t("Удаление пока недоступно. Обратитесь в поддержку.", "Account deletion is not available yet. Contact support.")
+                                    apiError?.httpStatusCode == 401 -> t("Войдите в аккаунт заново и повторите попытку.", "Sign in again and try again.")
+                                    else -> t("Не удалось удалить аккаунт. Проверьте соединение и попробуйте позже.", "Could not delete the account. Check your connection and try again later.")
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             }
                         }
                     }) { Text(t("Удалить навсегда", "Delete permanently"), color = Color(0xFFFF7373)) }
