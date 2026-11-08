@@ -156,7 +156,7 @@ class VpnManager private constructor(private val context: Context) {
             servers.find { it.nodeCode == entry.key }
         }
 
-        val winner = bestNode ?: servers.firstOrNull { it.protocol.contains("reality", ignoreCase = true) } ?: servers.firstOrNull()
+        val winner = bestNode ?: servers.firstOrNull()
         winner?.also {
             withContext(Dispatchers.Main) {
                 selectServer(it)
@@ -428,7 +428,7 @@ class VpnManager private constructor(private val context: Context) {
                 var targetServer = _currentServer.value
                 if (targetServer == null) {
                     val servers = loadServers().getOrThrow()
-                    targetServer = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
+                    targetServer = servers.firstOrNull()
                         ?: throw IllegalStateException(
                             if (com.example.bymevpn.data.LocaleManager.isRussian(context))
                                 "Не удалось получить список серверов"
