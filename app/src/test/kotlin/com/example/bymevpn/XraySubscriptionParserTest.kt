@@ -9,6 +9,20 @@ import java.util.Base64
 class XraySubscriptionParserTest {
 
     @Test
+    fun preservesGrpcServiceAndMixedProtocolOrder() {
+        val uuid = "11111111-2222-3333-4444-555555555555"
+        val grpc = "vless://$uuid@example.org:443?type=grpc&serviceName=my-service&security=reality&pbk=test#first"
+        val hy2 = "hysteria2://password@example.org:444?sni=example.org#second"
+        val tcp = "vless://$uuid@example.org:445?type=tcp&security=reality&pbk=test#third"
+        val parsed = XraySubscriptionParser.parse("$grpc\n$hy2\n$tcp")
+        assertEquals(listOf("first", "second", "third"), parsed.servers.map { it.remark })
+        val config = parsed.configs.getValue(parsed.servers.first().nodeCode)
+        val stream = com.example.bymevpn.vpn.xray.XrayConfigGenerator.generateJson(config)
+            .getJSONArray("outbounds").getJSONObject(0).getJSONObject("streamSettings")
+        assertEquals("my-service", stream.getJSONObject("grpcSettings").getString("serviceName"))
+    }
+
+    @Test
     fun preservesXhttpTransportParameters() {
         val link = "vless://11111111-2222-3333-4444-555555555555@example.org:443?type=xhttp&security=tls&sni=example.org&path=%2Fvpn&host=edge.example.org&mode=stream-one"
         val parsed = XraySubscriptionParser.parse(link)
