@@ -67,6 +67,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
     /**
      * Initializes libv2ray native environment and routing assets once.
      */
+    @Synchronized
     fun initCoreEnv() {
         if (envInitialized.compareAndSet(false, true)) {
             try {
