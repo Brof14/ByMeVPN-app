@@ -76,7 +76,7 @@
         <!-- Quick Settings Tile for 1-tap notification pull-down toggle -->
         <service
             android:name=".vpn.ByMeVpnTileService"
-            android:icon="@mipmap/ic_launcher"
+            android:icon="@drawable/ic_quick_settings"
             android:label="ByMeVPN"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
             android:exported="true">

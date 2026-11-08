@@ -115,6 +115,8 @@ class VpnManager private constructor(private val context: Context) {
     private var disconnectJob: Job? = null
     @Volatile private var connectionRequested = false
     private val serverLoadMutex = Mutex()
+    @Volatile private var automaticSelection = true
+    private val pingMutex = Mutex()
 
     init {
         scope.launch {
@@ -136,54 +138,39 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     suspend fun autoSelectFastestServer(): ServerNode? = withContext(Dispatchers.IO) {
+        automaticSelection = true
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext null
-
-        val storage = SecureTokenStorage.getInstance(context)
-        val targets = servers.mapNotNull { node ->
-            val cfg = storage.getServerConfig(node.nodeCode)
-            if (cfg != null && !cfg.protocol.equals("hysteria2", true) && !cfg.protocol.equals("hy2", true)) node.nodeCode to Pair(cfg.server, cfg.port) else null
-        }
-
-        val pings = if (targets.isNotEmpty()) {
-            com.example.bymevpn.data.PingTester.measureAllConcurrent(targets, timeoutMs = 1500)
-        } else {
-            emptyMap()
-        }
+        val pings = refreshAllPings()
 
         val successfulPings = pings.filterValues { it > 0 }
-        val bestNode = if (successfulPings.isNotEmpty()) {
-            val realityPinged = servers.filter { it.protocol.contains("reality", ignoreCase = true) && successfulPings.containsKey(it.nodeCode) }
-            if (realityPinged.isNotEmpty()) {
-                realityPinged.minByOrNull { pings[it.nodeCode] ?: 9999 }
-            } else {
-                val minEntry = successfulPings.minByOrNull { it.value }
-                servers.find { it.nodeCode == minEntry?.key }
-            }
-        } else null
+        val bestNode = successfulPings.minByOrNull { it.value }?.let { entry ->
+            servers.find { it.nodeCode == entry.key }
+        }
 
-        val winner = bestNode ?: servers.firstOrNull { it.protocol.contains("reality", ignoreCase = true) } ?: servers.firstOrNull()
+        val winner = bestNode ?: servers.firstOrNull()
         winner?.also {
             withContext(Dispatchers.Main) {
-                selectServer(it)
+                if (automaticSelection) applyServerSelection(it)
             }
         }
     }
 
-    suspend fun refreshAllPings(): Map<String, Int> = withContext(Dispatchers.IO) {
+    suspend fun refreshAllPings(): Map<String, Int> = withContext(Dispatchers.IO) { pingMutex.withLock {
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext emptyMap()
 
         val storage = SecureTokenStorage.getInstance(context)
         val targets = servers.mapNotNull { node ->
             val cfg = storage.getServerConfig(node.nodeCode)
-            if (cfg != null && cfg.server.isNotBlank() && !cfg.protocol.equals("hysteria2", true) && !cfg.protocol.equals("hy2", true)) {
-                node.nodeCode to Pair(cfg.server, cfg.port)
+            if (cfg != null && cfg.server.isNotBlank()) {
+                node.nodeCode to cfg
             } else null
         }
 
         if (targets.isEmpty()) return@withContext emptyMap()
-        val pings = com.example.bymevpn.data.PingTester.measureAllConcurrent(targets, timeoutMs = 1500)
+        engine.initCoreEnv()
+        val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(targets)
         if (pings.isNotEmpty()) {
             withContext(Dispatchers.Main) {
                 // The server list may have changed while the probes were in flight.
@@ -202,20 +189,22 @@ class VpnManager private constructor(private val context: Context) {
             }
         }
         pings
-    }
+    } }
 
     fun setServers(servers: List<ServerNode>) {
-        val sorted = servers.sortedWith(
-            compareBy<ServerNode> { if (it.protocol.contains("reality", ignoreCase = true)) 0 else 1 }
-                .thenBy { it.pingMs }
-        )
+        val sorted = servers
         _availableServers.value = sorted
-        val preferred = sorted.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: sorted.firstOrNull()
+        val preferred = sorted.firstOrNull()
         if (_currentServer.value == null || !sorted.any { it.nodeCode == _currentServer.value?.nodeCode }) {
             _currentServer.value = preferred
         }
         scope.launch {
-            refreshAllPings()
+            val pings = refreshAllPings()
+            if (automaticSelection && _state.value == VpnConnectionState.DISCONNECTED) {
+                val winner = _availableServers.value.filter { (pings[it.nodeCode] ?: -1) > 0 }
+                    .minByOrNull { pings[it.nodeCode] ?: Int.MAX_VALUE }
+                if (winner != null) applyServerSelection(winner)
+            }
         }
     }
 
@@ -365,6 +354,11 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun selectServer(server: ServerNode) {
+        automaticSelection = false
+        applyServerSelection(server)
+    }
+
+    private fun applyServerSelection(server: ServerNode) {
         val prevServer = _currentServer.value
         _currentServer.value = server
 
@@ -437,7 +431,7 @@ class VpnManager private constructor(private val context: Context) {
                 var targetServer = _currentServer.value
                 if (targetServer == null) {
                     val servers = loadServers().getOrThrow()
-                    targetServer = servers.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: servers.firstOrNull()
+                    targetServer = servers.firstOrNull()
                         ?: throw IllegalStateException(
                             if (com.example.bymevpn.data.LocaleManager.isRussian(context))
                                 "Не удалось получить список серверов"
