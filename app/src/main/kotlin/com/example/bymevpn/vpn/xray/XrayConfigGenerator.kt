@@ -192,6 +192,12 @@ object XrayConfigGenerator {
 
                 val streamSettings = JSONObject().apply {
                     put("network", config.network.ifEmpty { "tcp" })
+                    if (config.network.equals("grpc", ignoreCase = true)) {
+                        put("grpcSettings", JSONObject().apply {
+                            put("serviceName", config.transportPath)
+                            if (config.transportMode.equals("multi", ignoreCase = true)) put("multiMode", true)
+                        })
+                    }
                     if (config.network.equals("xhttp", ignoreCase = true)) {
                         put("xhttpSettings", JSONObject().apply {
                             if (config.transportPath.isNotBlank()) put("path", config.transportPath)

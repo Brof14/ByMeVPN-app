@@ -152,15 +152,9 @@ class VpnManager private constructor(private val context: Context) {
         }
 
         val successfulPings = pings.filterValues { it > 0 }
-        val bestNode = if (successfulPings.isNotEmpty()) {
-            val realityPinged = servers.filter { it.protocol.contains("reality", ignoreCase = true) && successfulPings.containsKey(it.nodeCode) }
-            if (realityPinged.isNotEmpty()) {
-                realityPinged.minByOrNull { pings[it.nodeCode] ?: 9999 }
-            } else {
-                val minEntry = successfulPings.minByOrNull { it.value }
-                servers.find { it.nodeCode == minEntry?.key }
-            }
-        } else null
+        val bestNode = successfulPings.minByOrNull { it.value }?.let { entry ->
+            servers.find { it.nodeCode == entry.key }
+        }
 
         val winner = bestNode ?: servers.firstOrNull { it.protocol.contains("reality", ignoreCase = true) } ?: servers.firstOrNull()
         winner?.also {
@@ -205,12 +199,9 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     fun setServers(servers: List<ServerNode>) {
-        val sorted = servers.sortedWith(
-            compareBy<ServerNode> { if (it.protocol.contains("reality", ignoreCase = true)) 0 else 1 }
-                .thenBy { it.pingMs }
-        )
+        val sorted = servers
         _availableServers.value = sorted
-        val preferred = sorted.firstOrNull { storage.getServerConfig(it.nodeCode)?.security == "reality" } ?: sorted.firstOrNull()
+        val preferred = sorted.firstOrNull()
         if (_currentServer.value == null || !sorted.any { it.nodeCode == _currentServer.value?.nodeCode }) {
             _currentServer.value = preferred
         }

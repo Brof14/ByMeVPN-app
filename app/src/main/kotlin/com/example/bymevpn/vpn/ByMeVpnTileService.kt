@@ -2,16 +2,16 @@ package com.example.bymevpn.vpn
 
 import android.app.PendingIntent
 import android.content.Intent
-import android.graphics.drawable.Icon
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.annotation.RequiresApi
 import com.example.bymevpn.MainActivity
-import com.example.bymevpn.R
+import com.example.bymevpn.data.storage.SecureTokenStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 /**
@@ -21,10 +21,21 @@ import kotlinx.coroutines.launch
 class ByMeVpnTileService : TileService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private var stateObserver: Job? = null
 
     override fun onStartListening() {
         super.onStartListening()
         updateTileState()
+        stateObserver?.cancel()
+        stateObserver = serviceScope.launch {
+            VpnManager.getInstance(applicationContext).state.collect { updateTileState() }
+        }
+    }
+
+    override fun onStopListening() {
+        stateObserver?.cancel()
+        stateObserver = null
+        super.onStopListening()
     }
 
     override fun onClick() {
@@ -38,7 +49,8 @@ class ByMeVpnTileService : TileService() {
                 updateTileState(Tile.STATE_INACTIVE)
             }
             VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR, VpnConnectionState.DISCONNECTING -> {
-                if (VpnManager.isVpnPrepared(applicationContext)) {
+                if (VpnManager.isVpnPrepared(applicationContext) &&
+                    SecureTokenStorage.getInstance(applicationContext).isVpnDisclosureAccepted()) {
                     VpnManager.startVpn(applicationContext)
                     // The tile reflects tunnel callbacks, not an optimistic connection attempt.
                     updateTileState(Tile.STATE_INACTIVE)
@@ -64,7 +76,7 @@ class ByMeVpnTileService : TileService() {
 
     private fun updateTileState(forcedState: Int? = null) {
         val tile = qsTile ?: return
-        val isRunning = ByMeVpnService.isServiceRunning
+        val isRunning = VpnManager.getInstance(applicationContext).state.value == VpnConnectionState.CONNECTED
         val targetState = forcedState ?: if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
 
         tile.state = targetState
