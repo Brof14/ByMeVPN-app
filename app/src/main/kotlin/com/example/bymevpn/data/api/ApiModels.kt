@@ -377,7 +377,7 @@ object ApiJsonParsers {
             shortId = json.optString("short_id", ""),
             fingerprint = json.optString("fingerprint", "chrome"),
             network = json.optString("network", "tcp"),
-            transportPath = json.optString("path", ""),
+            transportPath = json.optString("serviceName", json.optString("service_name", json.optString("path", ""))),
             transportHost = json.optString("host", ""),
             transportMode = json.optString("mode", ""),
             expiresAt = json.optString("expires_at").ifEmpty { null }
