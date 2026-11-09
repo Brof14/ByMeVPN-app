@@ -5,6 +5,8 @@ import android.util.Log
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.api.VpnSessionConfig
 import java.net.URLDecoder
+import java.net.URI
+import java.util.Locale
 
 data class ParsedSubscription(
     val servers: List<ServerNode>,
@@ -109,7 +111,7 @@ object XraySubscriptionParser {
             }
             if (bytes != null) {
                 val decoded = String(bytes, Charsets.UTF_8)
-                if (decoded.contains("vless://", ignoreCase = true) || decoded.contains("hysteria2://", ignoreCase = true)) decoded else trimmed
+                if (decoded.contains("vless://", ignoreCase = true) || decoded.contains("hysteria2://", ignoreCase = true) || decoded.contains("hy2://", ignoreCase = true)) decoded else trimmed
             } else {
                 trimmed
             }
@@ -119,36 +121,12 @@ object XraySubscriptionParser {
     }
 
     private fun parseHysteria2Uri(uriString: String, index: Int): Pair<ServerNode, VpnSessionConfig> {
-        val cleanUri = uriString.removePrefix("hysteria2://").removePrefix("hy2://")
-        val hashSplit = cleanUri.split("#", limit = 2)
-        val mainPart = hashSplit[0]
-        val rawRemark = if (hashSplit.size > 1) hashSplit[1] else "Hysteria 2 - Server ${index + 1}"
-        val remark = try { URLDecoder.decode(rawRemark, "UTF-8") } catch (e: Exception) { rawRemark }
-
-        val atSplit = mainPart.split("@", limit = 2)
-        val password = atSplit[0]
-        val hostAndRest = atSplit[1]
-
-        val questionSplit = hostAndRest.split("?", limit = 2)
-        val hostPortPart = questionSplit[0]
-        val queryString = if (questionSplit.size > 1) questionSplit[1] else ""
-
-        val hpSplit = hostPortPart.split(":")
-        val rawHost = hpSplit[0]
-        val host = rawHost
-        val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
-
-        val queryParams = mutableMapOf<String, String>()
-        if (queryString.isNotEmpty()) {
-            queryString.split("&").forEach { param ->
-                val kv = param.split("=", limit = 2)
-                val key = kv[0].lowercase()
-                val value = if (kv.size > 1) {
-                    try { URLDecoder.decode(kv[1], "UTF-8") } catch (e: Exception) { kv[1] }
-                } else ""
-                queryParams[key] = value
-            }
-        }
+        val parts = parseProxyUri(uriString)
+        val remark = parts.remark.ifBlank { "Hysteria 2 - Server ${index + 1}" }
+        val password = parts.userInfo
+        val host = parts.host
+        val port = parts.port
+        val queryParams = parts.queryParams
 
         val sni = queryParams["sni"] ?: host
         val obfs = queryParams["obfs"] ?: ""
@@ -198,36 +176,12 @@ object XraySubscriptionParser {
     }
 
     private fun parseVlessUri(uriString: String, index: Int): Pair<ServerNode, VpnSessionConfig> {
-        val withoutScheme = uriString.removePrefix("vless://").removePrefix("VLESS://")
-        val hashSplit = withoutScheme.split("#", limit = 2)
-        val mainPart = hashSplit[0]
-        val rawRemark = if (hashSplit.size > 1) hashSplit[1] else "Server ${index + 1}"
-        val remark = try { URLDecoder.decode(rawRemark, "UTF-8") } catch (e: Exception) { rawRemark }
-
-        val atSplit = mainPart.split("@", limit = 2)
-        val uuid = atSplit[0]
-        val hostAndRest = atSplit[1]
-
-        val questionSplit = hostAndRest.split("?", limit = 2)
-        val hostPortPart = questionSplit[0]
-        val queryString = if (questionSplit.size > 1) questionSplit[1] else ""
-
-        val hpSplit = hostPortPart.split(":")
-        val rawHost = hpSplit[0]
-        val host = rawHost
-        val port = hpSplit.getOrNull(1)?.toIntOrNull() ?: 443
-
-        val queryParams = mutableMapOf<String, String>()
-        if (queryString.isNotEmpty()) {
-            queryString.split("&").forEach { param ->
-                val kv = param.split("=", limit = 2)
-                val key = kv[0].lowercase()
-                val value = if (kv.size > 1) {
-                    try { URLDecoder.decode(kv[1], "UTF-8") } catch (e: Exception) { kv[1] }
-                } else ""
-                queryParams[key] = value
-            }
-        }
+        val parts = parseProxyUri(uriString)
+        val remark = parts.remark.ifBlank { "Server ${index + 1}" }
+        val uuid = parts.userInfo
+        val host = parts.host
+        val port = parts.port
+        val queryParams = parts.queryParams
 
         val security = queryParams["security"] ?: if (queryParams.containsKey("pbk")) "reality" else "tls"
         val flow = queryParams["flow"] ?: ""
@@ -285,6 +239,47 @@ object XraySubscriptionParser {
 
         return Pair(serverNode, config)
     }
+
+    private data class ProxyUriParts(
+        val userInfo: String,
+        val host: String,
+        val port: Int,
+        val remark: String,
+        val queryParams: Map<String, String>
+    )
+
+    /**
+     * Read the actual endpoint from the URI. Splitting on ':' corrupts IPv6, and
+     * silently defaulting a malformed/missing port to 443 may target the HTTPS API.
+     */
+    private fun parseProxyUri(raw: String): ProxyUriParts {
+        val uri = URI(raw)
+        require(uri.scheme?.lowercase(Locale.ROOT) in setOf("vless", "hysteria2", "hy2")) {
+            "Unsupported subscription protocol"
+        }
+        val user = uri.rawUserInfo?.let(::decodeUriPart).orEmpty()
+        require(user.isNotBlank()) { "VPN credentials missing from URI" }
+        val host = uri.host?.removePrefix("[")?.removeSuffix("]")?.takeIf { it.isNotBlank() }
+            ?: throw IllegalArgumentException("VPN host missing or malformed")
+        require(uri.port in 1..65535) { "VPN port missing or invalid" }
+        val query = mutableMapOf<String, String>()
+        uri.rawQuery?.split("&")?.filter { it.isNotEmpty() }?.forEach { param ->
+            val pair = param.split("=", limit = 2)
+            val key = decodeUriPart(pair[0]).lowercase(Locale.ROOT)
+            query[key] = if (pair.size == 2) decodeUriPart(pair[1]) else ""
+        }
+        return ProxyUriParts(
+            userInfo = user,
+            host = host,
+            port = uri.port,
+            remark = uri.rawFragment?.let(::decodeUriPart).orEmpty(),
+            queryParams = query
+        )
+    }
+
+    // URLDecoder treats '+' as a form-space; URI components use it literally.
+    private fun decodeUriPart(value: String): String =
+        URLDecoder.decode(value.replace("+", "%2B"), "UTF-8")
 
     private fun detectLocation(remark: String): Triple<String, String, String> {
         val flagList = listOf(
