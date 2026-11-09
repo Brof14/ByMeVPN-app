@@ -259,6 +259,14 @@ class SecureTokenStorage private constructor(context: Context) {
         prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
     }
 
+    /** Remove an endpoint omitted by a successful authenticated server refresh. */
+    fun removeServerConfig(nodeCode: String) {
+        val root = try { JSONObject(prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: "{}") }
+            catch (_: Exception) { JSONObject() }
+        root.remove(nodeCode)
+        prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
+    }
+
     fun getServerConfigs(): Map<String, com.example.bymevpn.data.api.VpnSessionConfig> {
         val raw = prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: return emptyMap()
         return try {
