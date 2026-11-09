@@ -154,7 +154,10 @@ object XrayConfigGenerator {
                     val tlsSettings = JSONObject().apply {
                         if (config.serverName.isNotBlank()) put("serverName", config.serverName)
                         put("fingerprint", config.fingerprint.ifEmpty { "firefox" })
-                        put("alpn", JSONArray().apply { put("h3") })
+                        put("alpn", JSONArray().apply {
+                            (config.alpn.ifBlank { "h3" }).split(",").map { it.trim() }
+                                .filter { it.isNotEmpty() }.forEach { put(it) }
+                        })
                     }
                     put("tlsSettings", tlsSettings)
 
@@ -257,10 +260,12 @@ object XrayConfigGenerator {
                         val tlsSettings = JSONObject().apply {
                             if (tlsSni.isNotBlank()) put("serverName", tlsSni)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
-                            put("alpn", JSONArray().apply {
-                                put("h2")
-                                put("http/1.1")
-                            })
+                            if (config.alpn.isNotBlank()) {
+                                put("alpn", JSONArray().apply {
+                                    config.alpn.split(",").map { it.trim() }
+                                        .filter { it.isNotEmpty() }.forEach { put(it) }
+                                })
+                            }
                         }
                         put("tlsSettings", tlsSettings)
                     }
