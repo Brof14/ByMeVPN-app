@@ -119,6 +119,22 @@ class VpnConfigRegressionTest {
     }
 
     @Test
+    fun tlsAlpnFromSubscriptionIsPreservedWithoutInventedEntries() {
+        val uri = "vless://$id@vpn.example.org:8443?security=tls&sni=vpn.example.org&alpn=h2%2Chttp%2F1.1"
+        val cfg = XraySubscriptionParser.parse(uri).configs.values.single()
+        val stream = XrayConfigGenerator.generateJson(cfg).getJSONArray("outbounds")
+            .getJSONObject(0).getJSONObject("streamSettings")
+        val alpn = stream.getJSONObject("tlsSettings").getJSONArray("alpn")
+        assertEquals("h2", alpn.getString(0))
+        assertEquals("http/1.1", alpn.getString(1))
+        assertEquals(2, alpn.length())
+        val api = ApiJsonParsers.parseVpnSessionConfig(JSONObject(
+            """{"protocol":"vless","server":"vpn.example.org","port":8443,"uuid":"$id","security":"tls","server_name":"vpn.example.org","alpn":["h2"]}"""
+        ))
+        assertEquals("h2", api.alpn)
+    }
+
+    @Test
     fun websocketAndHttpUpgradeDoNotLosePathOrHost() {
         for (network in listOf("ws", "httpupgrade")) {
             val config = VpnSessionConfig(protocol = "vless", server = "vpn.example.org", port = 8443,
