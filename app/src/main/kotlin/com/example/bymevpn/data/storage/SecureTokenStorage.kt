@@ -308,10 +308,10 @@ class SecureTokenStorage private constructor(context: Context) {
         return com.example.bymevpn.data.api.VpnSessionConfig(
             protocol = obj.optString("protocol", "vless"),
             server = obj.optString("server", ""),
-            port = obj.optInt("port", 443),
+            port = obj.optInt("port", 0),
             uuid = obj.optString("uuid", ""),
             encryption = obj.optString("encryption", "none"),
-            flow = obj.optString("flow", "xtls-rprx-vision"),
+            flow = obj.optString("flow", ""),
             security = obj.optString("security", "reality"),
             serverName = obj.optString("serverName", ""),
             publicKey = obj.optString("publicKey", ""),
