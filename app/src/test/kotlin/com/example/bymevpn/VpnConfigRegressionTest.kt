@@ -53,6 +53,19 @@ class VpnConfigRegressionTest {
     }
 
     @Test
+    fun vlessIpv6EndpointPreservesPortInsteadOfSplittingColons() {
+        val uri = "vless://$id@[2001:db8::9]:54662?security=reality&pbk=testkey&sni=edge.example.org"
+        val parsed = XraySubscriptionParser.parse(uri)
+        val cfg = parsed.configs.getValue(parsed.servers.single().nodeCode)
+        assertEquals("2001:db8::9", cfg.server)
+        assertEquals(54662, cfg.port)
+        val endpoint = XrayConfigGenerator.generateJson(cfg).getJSONArray("outbounds")
+            .getJSONObject(0).getJSONObject("settings").getJSONArray("vnext").getJSONObject(0)
+        assertEquals("2001:db8::9", endpoint.getString("address"))
+        assertEquals(54662, endpoint.getInt("port"))
+    }
+
+    @Test
     fun base64Hy2OnlyFeedDecodes() {
         val uri = "hy2://password@example.org:59763?sni=example.org#hy2"
         val encoded = Base64.getEncoder().encodeToString(uri.toByteArray(Charsets.UTF_8))
