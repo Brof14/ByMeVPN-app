@@ -124,11 +124,17 @@ object XrayConfigGenerator {
         // owned by the subscription/backend and may change independently.
         val serverAddress = config.server.trim()
         require(serverAddress.isNotEmpty()) { "VPN server address is missing from the subscription" }
+        require(config.port in 1..65535) { "VPN port is missing or invalid" }
+        require(config.uuid.isNotBlank()) { "VPN credentials are missing" }
+        val protocol = config.protocol.lowercase()
+        require(protocol in setOf("vless", "hysteria2", "hy2")) {
+            "Unsupported VPN protocol"
+        }
 
         // Main proxy outbound
         val proxyOutbound = JSONObject().apply {
             put("tag", "proxy")
-            val proto = config.protocol.lowercase()
+            val proto = protocol
 
             if (proto == "hysteria2" || proto == "hy2") {
                 put("protocol", "hysteria")
@@ -146,7 +152,7 @@ object XrayConfigGenerator {
                         put("auth", config.uuid)
                     })
                     val tlsSettings = JSONObject().apply {
-                        put("serverName", config.serverName)
+                        if (config.serverName.isNotBlank()) put("serverName", config.serverName)
                         put("fingerprint", config.fingerprint.ifEmpty { "firefox" })
                         put("alpn", JSONArray().apply { put("h3") })
                     }
@@ -165,14 +171,27 @@ object XrayConfigGenerator {
                 put("streamSettings", streamSettings)
 
             } else {
-                // Default: VLESS
+                // VLESS is selected only for a supported protocol, never as a fallback.
+                val security = config.security.lowercase()
+                require(security in setOf("none", "tls", "reality")) { "Unsupported VLESS security" }
+                val network = config.network.ifBlank { "tcp" }.lowercase()
+                require(network in setOf("tcp", "raw", "grpc", "xhttp", "ws", "websocket", "httpupgrade")) {
+                    "Unsupported VLESS transport"
+                }
+                require(security != "reality" || network in setOf("tcp", "raw", "grpc", "xhttp")) {
+                    "Unsupported Reality transport"
+                }
+                if (security == "reality") {
+                    require(config.serverName.isNotBlank()) { "Reality SNI is missing" }
+                    require(config.publicKey.isNotBlank()) { "Reality public key is missing" }
+                }
                 put("protocol", "vless")
 
                 val usersArray = JSONArray().apply {
                     put(JSONObject().apply {
                         put("id", config.uuid)
                         put("encryption", config.encryption.ifEmpty { "none" })
-                        if (config.flow.isNotBlank() && !config.flow.contains("kw54")) {
+                        if (config.flow.isNotBlank()) {
                             put("flow", config.flow)
                         }
                     })
@@ -191,21 +210,35 @@ object XrayConfigGenerator {
                 })
 
                 val streamSettings = JSONObject().apply {
-                    put("network", config.network.ifEmpty { "tcp" })
-                    if (config.network.equals("grpc", ignoreCase = true)) {
+                    put("network", network)
+                    if (network == "grpc") {
                         put("grpcSettings", JSONObject().apply {
                             put("serviceName", config.transportPath)
                             if (config.transportMode.equals("multi", ignoreCase = true)) put("multiMode", true)
                         })
                     }
-                    if (config.network.equals("xhttp", ignoreCase = true)) {
+                    if (network == "xhttp") {
                         put("xhttpSettings", JSONObject().apply {
                             if (config.transportPath.isNotBlank()) put("path", config.transportPath)
                             if (config.transportHost.isNotBlank()) put("host", config.transportHost)
                             if (config.transportMode.isNotBlank()) put("mode", config.transportMode)
                         })
                     }
-                    val sec = config.security.lowercase()
+                    if (network == "ws" || network == "websocket") {
+                        put("wsSettings", JSONObject().apply {
+                            if (config.transportPath.isNotBlank()) put("path", config.transportPath)
+                            if (config.transportHost.isNotBlank()) {
+                                put("headers", JSONObject().put("Host", config.transportHost))
+                            }
+                        })
+                    }
+                    if (network == "httpupgrade") {
+                        put("httpupgradeSettings", JSONObject().apply {
+                            if (config.transportPath.isNotBlank()) put("path", config.transportPath)
+                            if (config.transportHost.isNotBlank()) put("host", config.transportHost)
+                        })
+                    }
+                    val sec = security
                     put("security", sec)
 
                     if (sec == "reality") {
@@ -220,9 +253,9 @@ object XrayConfigGenerator {
                         }
                         put("realitySettings", realitySettings)
                     } else if (sec == "tls") {
-                        val tlsSni = config.serverName.ifEmpty { "bymevpn.duckdns.org" }
+                        val tlsSni = config.serverName
                         val tlsSettings = JSONObject().apply {
-                            put("serverName", tlsSni)
+                            if (tlsSni.isNotBlank()) put("serverName", tlsSni)
                             put("fingerprint", config.fingerprint.ifEmpty { "chrome" })
                             put("alpn", JSONArray().apply {
                                 put("h2")
