@@ -283,7 +283,7 @@ class ByMeApiClient(private val context: Context) {
     // SERVERS & VPN SESSION
     // -------------------------------------------------------------
 
-    suspend fun getServers(): List<ServerNode> {
+    suspend fun getServers(awaitSubscriptionRefresh: Boolean = false): List<ServerNode> {
         val json = request("GET", "/servers", null, requiresAuth = true)
         com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             .acceptServerAccessProof(json)
@@ -295,7 +295,7 @@ class ByMeApiClient(private val context: Context) {
         val parsed = ApiJsonParsers.parseServers(array)
         for (i in 0 until array.length()) {
             val sObj = array.getJSONObject(i)
-            val code = sObj.optString("node_code")
+            val code = sObj.optString("node_code", sObj.optString("code"))
             val cfgObj = sObj.optJSONObject("config")
             if (code.isNotBlank() && cfgObj != null) {
                 val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
@@ -305,7 +305,7 @@ class ByMeApiClient(private val context: Context) {
         if (subUrl.isNotBlank()) {
             val subManager = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             val registeringDevice = subManager.subscriptionStatus.value?.entitlementBootstrap == true
-            if (parsed.isEmpty() || registeringDevice) {
+            if (parsed.isEmpty() || registeringDevice || awaitSubscriptionRefresh) {
                 // 3x-ui learns X-HWID on a subscription fetch, not from tunnel
                 // packets. Finish the first registration before starting Xray.
                 try {
