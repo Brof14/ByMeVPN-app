@@ -367,10 +367,10 @@ object ApiJsonParsers {
         return VpnSessionConfig(
             protocol = json.optString("protocol", "vless"),
             server = json.optString("server", json.optString("endpoint", "")),
-            port = json.optInt("port", 443),
+            port = json.optInt("port", 0),
             uuid = json.optString("uuid", json.optString("id", "")),
             encryption = json.optString("encryption", "none"),
-            flow = json.optString("flow", "xtls-rprx-vision"),
+            flow = json.optString("flow", ""),
             security = json.optString("security", "reality"),
             serverName = json.optString("server_name", json.optString("sni", "")),
             publicKey = json.optString("public_key", json.optString("server_public_key", "")),
