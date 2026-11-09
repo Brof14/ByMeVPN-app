@@ -113,6 +113,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
         bypassRussianTraffic: Boolean = true,
         dnsMode: String = "cloudflare"
     ): Result<Unit> = withContext(Dispatchers.IO) {
+        var startupStage = "config"
         try {
             _state.value = VpnConnectionState.CONNECTING
             activeConfig = config
@@ -130,6 +131,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             Log.d(TAG, "Starting Xray-core with TUN")
 
             // Stop any currently running instance first
+            startupStage = "core"
             stopCoreInternal()
 
             val callback = object : CoreCallbackHandler {
@@ -170,6 +172,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                 throw IllegalStateException("Xray core loop failed to start (isRunning=false)")
             }
 
+            startupStage = "probe"
             // A running core only means that the local listeners started. Verify a real
             // HTTPS request through its SOCKS inbound before reporting a VPN connection.
             if (!probeProxy()) {
@@ -192,9 +195,18 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             Log.e(TAG, "Failed to start Xray tunnel (${e.javaClass.simpleName})")
             _state.value = VpnConnectionState.ERROR
             stopCoreInternal()
-            val message = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
-                "Не удалось запустить VPN. Проверьте соединение или выберите другой сервер."
-            else "Could not start VPN. Check your connection or choose another server."
+            val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
+            val message = when (startupStage) {
+                "config" -> if (isRu)
+                    "Ошибка конфигурации VPN из подписки/API. Проверьте параметры узла."
+                else "Invalid VPN configuration from subscription/API. Check the node parameters."
+                "core" -> if (isRu)
+                    "Не удалось запустить движок Xray или открыть TUN FD."
+                else "Could not start Xray core or open the TUN file descriptor."
+                else -> if (isRu)
+                    "Xray запущен, но проверка соединения через прокси не прошла. Возможны недоступность узла или ошибка TLS/Reality."
+                else "Xray started, but the proxy connectivity check failed. The node or TLS/Reality may be unavailable."
+            }
             Result.failure(IllegalStateException(message))
         }
     }
@@ -235,7 +247,9 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                     tls.inputStream.bufferedReader(Charsets.US_ASCII).readLine()?.startsWith("HTTP/") == true
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            // Class only: exceptions can include addresses, tokens or raw config.
+            Log.w(TAG, "Proxy connectivity probe failed: ${e.javaClass.simpleName}")
             false
         }
     }
