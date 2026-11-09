@@ -300,6 +300,10 @@ class ByMeApiClient(private val context: Context) {
             if (code.isNotBlank() && cfgObj != null) {
                 val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
                 storage.saveServerConfig(code, cfg)
+            } else if (code.isNotBlank() && awaitSubscriptionRefresh) {
+                // A fresh API response without a config is not confirmation of
+                // an old cached endpoint. Let the subscription/session API supply it.
+                storage.removeServerConfig(code)
             }
         }
         if (subUrl.isNotBlank()) {
@@ -309,8 +313,11 @@ class ByMeApiClient(private val context: Context) {
                 // 3x-ui learns X-HWID on a subscription fetch, not from tunnel
                 // packets. Finish the first registration before starting Xray.
                 try {
-                    subManager.applySubscriptionUrl(subUrl).getOrThrow()
+                    val imported = subManager.applySubscriptionUrl(subUrl).getOrThrow()
                     if (registeringDevice) subManager.refreshStatus(forceBackend = true)
+                    if (awaitSubscriptionRefresh && imported.servers.isNotEmpty()) {
+                        return imported.servers
+                    }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
