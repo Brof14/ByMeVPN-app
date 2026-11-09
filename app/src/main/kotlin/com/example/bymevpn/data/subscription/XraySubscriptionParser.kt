@@ -169,7 +169,8 @@ object XraySubscriptionParser {
             publicKey = "",
             shortId = "",
             fingerprint = queryParams["fp"] ?: "firefox",
-            network = "udp"
+            network = "udp",
+            alpn = queryParams["alpn"] ?: ""
         )
 
         return Pair(serverNode, config)
@@ -234,7 +235,8 @@ object XraySubscriptionParser {
             network = type,
             transportPath = queryParams["servicename"] ?: queryParams["path"] ?: "",
             transportHost = queryParams["host"] ?: "",
-            transportMode = queryParams["mode"] ?: ""
+            transportMode = queryParams["mode"] ?: "",
+            alpn = queryParams["alpn"] ?: ""
         )
 
         return Pair(serverNode, config)
