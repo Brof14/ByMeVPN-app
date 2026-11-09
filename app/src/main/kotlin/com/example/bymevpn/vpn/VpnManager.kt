@@ -461,7 +461,8 @@ class VpnManager private constructor(private val context: Context) {
                 }
                 coroutineContext.ensureActive()
                 if (latestServers.isNotEmpty()) {
-                    targetServer = latestServers.firstOrNull { it.nodeCode == targetServer.nodeCode }
+                    val preferredCode = targetServer.nodeCode
+                    targetServer = latestServers.firstOrNull { it.nodeCode == preferredCode }
                         ?: latestServers.first()
                     setServers(latestServers)
                     _currentServer.value = targetServer
