@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.lifecycleScope
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,6 +21,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.auth.isTelegramLoginHandoff
+import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
+import com.example.bymevpn.data.auth.TelegramLinkOpener
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.update.AppUpdateManager
@@ -38,6 +42,8 @@ import com.example.bymevpn.theme.ByMeVPNTheme
 import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 enum class AppScreen {
@@ -55,6 +61,7 @@ enum class AppScreen {
 }
 
 class MainActivity : ComponentActivity() {
+    private var telegramLoginJob: Job? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme)
@@ -77,6 +84,10 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIntent(intent: Intent?) {
         val data = intent?.data ?: return
+        if (isTelegramLoginHandoff(data.toString())) {
+            startTelegramLoginFromConnection()
+            return
+        }
         if (data.scheme == "bymevpn" && data.host == "payment") {
             val planCode = data.getQueryParameter("plan") ?: "1m"
             val days = data.getQueryParameter("days")?.toIntOrNull() ?: 30
@@ -106,6 +117,85 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(applicationContext, (if (com.example.bymevpn.data.LocaleManager.isRussian()) "Ошибка добавления подписки: " else "Could not import subscription: ") + result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
                 }
             }
+        }
+    }
+
+    private fun startTelegramLoginFromConnection() {
+        if (!SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank()) {
+            Toast.makeText(
+                applicationContext,
+                if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                    "В ByMeVPN уже выполнен вход. Для смены аккаунта сначала выйдите из него."
+                } else {
+                    "ByMeVPN is already signed in. Sign out first to switch accounts."
+                },
+                Toast.LENGTH_LONG,
+            ).show()
+            return
+        }
+        if (telegramLoginJob?.isActive == true) return
+
+        telegramLoginJob = lifecycleScope.launch {
+            val sessionResult = AccountRepository.createTelegramAuthSession(applicationContext)
+            if (sessionResult.isFailure) {
+                val message = if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                    "Не удалось начать вход через Telegram. Попробуйте ещё раз."
+                } else {
+                    "Could not start Telegram sign-in. Please try again."
+                }
+                Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+            val session = sessionResult.getOrThrow()
+            if (!TelegramLinkOpener.open(this@MainActivity, session.botUrl)) {
+                val message = if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                    "Не удалось открыть Telegram. Установите Telegram и попробуйте снова."
+                } else {
+                    "Could not open Telegram. Install it and try again."
+                }
+                Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+
+            val waitingMessage = if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                "Подтвердите вход в ByMeVPN Bot. Аккаунт и подписка загрузятся в приложение."
+            } else {
+                "Confirm sign-in in ByMeVPN Bot. Your account and subscription will load in the app."
+            }
+            Toast.makeText(applicationContext, waitingMessage, Toast.LENGTH_LONG).show()
+            var transientFailures = 0
+            for (attempt in 1..40) {
+                val result = AccountRepository.checkTelegramAuthSession(applicationContext, session.sessionToken)
+                if (result.isSuccess && result.getOrNull() != null) {
+                    val message = if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                        "Вход через Telegram выполнен."
+                    } else {
+                        "Signed in with Telegram."
+                    }
+                    Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                val error = result.exceptionOrNull()
+                if (error != null) {
+                    if (!TelegramAuthPollPolicy.shouldRetry(error, transientFailures)) {
+                        val message = if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                            "Не удалось подтвердить вход. Откройте ByMeVPN и попробуйте снова."
+                        } else {
+                            "Could not confirm sign-in. Open ByMeVPN and try again."
+                        }
+                        Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+                        return@launch
+                    }
+                    transientFailures++
+                }
+                delay(1500)
+            }
+            val message = if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                "Время ожидания истекло. Откройте ByMeVPN и попробуйте снова."
+            } else {
+                "Sign-in timed out. Open ByMeVPN and try again."
+            }
+            Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
         }
     }
 
