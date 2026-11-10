@@ -259,6 +259,14 @@ class SecureTokenStorage private constructor(context: Context) {
         prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
     }
 
+    /** Remove an endpoint omitted by a successful authenticated server refresh. */
+    fun removeServerConfig(nodeCode: String) {
+        val root = try { JSONObject(prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: "{}") }
+            catch (_: Exception) { JSONObject() }
+        root.remove(nodeCode)
+        prefs.edit().putString(KEY_CUSTOM_CONFIGS, root.toString()).apply()
+    }
+
     fun getServerConfigs(): Map<String, com.example.bymevpn.data.api.VpnSessionConfig> {
         val raw = prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: return emptyMap()
         return try {
@@ -296,6 +304,7 @@ class SecureTokenStorage private constructor(context: Context) {
         put("transportPath", cfg.transportPath)
         put("transportHost", cfg.transportHost)
         put("transportMode", cfg.transportMode)
+        put("alpn", cfg.alpn)
         put(KEY_CONFIG_SAVED_AT, savedAt)
     }
 
@@ -308,10 +317,10 @@ class SecureTokenStorage private constructor(context: Context) {
         return com.example.bymevpn.data.api.VpnSessionConfig(
             protocol = obj.optString("protocol", "vless"),
             server = obj.optString("server", ""),
-            port = obj.optInt("port", 443),
+            port = obj.optInt("port", 0),
             uuid = obj.optString("uuid", ""),
             encryption = obj.optString("encryption", "none"),
-            flow = obj.optString("flow", "xtls-rprx-vision"),
+            flow = obj.optString("flow", ""),
             security = obj.optString("security", "reality"),
             serverName = obj.optString("serverName", ""),
             publicKey = obj.optString("publicKey", ""),
@@ -320,7 +329,8 @@ class SecureTokenStorage private constructor(context: Context) {
             network = obj.optString("network", "tcp"),
             transportPath = obj.optString("transportPath", ""),
             transportHost = obj.optString("transportHost", ""),
-            transportMode = obj.optString("transportMode", "")
+            transportMode = obj.optString("transportMode", ""),
+            alpn = obj.optString("alpn", "")
         )
     }
 

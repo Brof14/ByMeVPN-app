@@ -441,7 +441,35 @@ class VpnManager private constructor(private val context: Context) {
                     _currentServer.value = targetServer
                 }
 
-                // 3. Obtain VLESS+Reality session configuration from backend or local subscription store
+                // 3. Refresh the actual VPN endpoints before reading a cached session.
+                // An authenticated /servers response may update addresses, ports or
+                // subscription links even while the old six-hour cache is "fresh".
+                // Offline operation remains possible with a valid signed entitlement
+                // and the existing bounded configuration cache.
+                val latestServers = try {
+                    apiClient.getServers(awaitSubscriptionRefresh = true)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    val apiError = e as? com.example.bymevpn.data.api.ApiError
+                    val transientApiFailure = apiError?.code in setOf(
+                        "NETWORK_ERROR", "HTTP_502", "HTTP_503", "HTTP_504"
+                    )
+                    if (!transientApiFailure && e !is java.io.IOException) throw e
+                    Log.w(TAG, "Endpoint refresh unavailable; using time-limited offline configuration")
+                    emptyList()
+                }
+                coroutineContext.ensureActive()
+                if (latestServers.isNotEmpty()) {
+                    val preferredCode = targetServer.nodeCode
+                    targetServer = latestServers.firstOrNull { it.nodeCode == preferredCode }
+                        ?: latestServers.first()
+                    setServers(latestServers)
+                    _currentServer.value = targetServer
+                }
+
+                // 4. Use the freshly imported subscription/API session (if present);
+                // otherwise ask for a session. Never manufacture a VPN endpoint.
                 val sessionConfig = storage.getServerConfig(targetServer.nodeCode) ?: try {
                     // Refresh expired or legacy endpoint data before connecting. This
                     // lets DNS/backend changes take effect without keeping old IPs forever.
@@ -483,7 +511,7 @@ class VpnManager private constructor(private val context: Context) {
                     throw RuntimeException(msg, e)
                 }
 
-                // 4. Start foreground Android VpnService which builds TUN and launches native Xray-core
+                // 5. Start foreground Android VpnService which builds TUN and launches native Xray-core
                 coroutineContext.ensureActive()
                 ByMeVpnService.start(
                     context = context,
