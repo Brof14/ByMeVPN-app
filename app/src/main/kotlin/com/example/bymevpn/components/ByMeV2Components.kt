@@ -69,19 +69,19 @@ fun ByMeTopBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ShieldLogo(size = 38.dp)
+                ShieldLogo(size = 44.dp)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "ByMe",
                         color = AppColors.TextPrimary,
-                        fontSize = 21.sp,
+                        fontSize = 23.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.95).sp
                     )
                     Text(
                         text = "VPN",
                         color = AppColors.BrandMintAccent,
-                        fontSize = 21.sp,
+                        fontSize = 23.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = (-0.95).sp
                     )

@@ -55,52 +55,38 @@ data class FaqItem(
 
 val FAQ_ITEMS = listOf(
     FaqItem(
-        "VPN отключается, когда экран заблокирован",
-        "VPN drops when the screen is locked",
-        "Android и оболочки производителей ограничивают фоновую работу. Откройте «Настройки» → «Защита в фоне» и разрешите приложению работать без ограничений батареи; на Xiaomi, Huawei и Samsung дополнительно отключите оптимизацию в системных настройках батареи.",
-        "Android and vendor skins limit background work. Open Settings → Background protection and allow the app to run without battery restrictions; on Xiaomi, Huawei and Samsung also disable battery optimisation in system settings.",
+        "Не удаётся подключиться",
+        "I can't connect",
+        "Выберите другой сервер и попробуйте ещё раз. Если ошибка повторяется, переключитесь между Wi‑Fi и мобильной сетью и отправьте код ошибки в поддержку.",
+        "Choose another server and try again. If it still fails, switch between Wi‑Fi and mobile data, then send the error code to support.",
         ""
     ),
     FaqItem(
-        "Сайт не открывается, хотя VPN включён",
-        "A site won't open while the VPN is on",
-        "Сначала проверьте, открывается ли сайт без VPN. Затем смените сервер или протокол: Hysteria 2 лучше на нестабильных сетях, VLESS Reality — на сетях с блокировками. Если не работает только банк или госуслуги, включите «Российские сайты напрямую» в настройках.",
-        "First check whether the site opens without the VPN. Then switch the server or protocol: Hysteria 2 copes better with unstable networks, VLESS Reality with filtering. If only a bank or local service fails, enable “Russian sites directly” in Settings.",
+        "VPN отключается при блокировке экрана",
+        "VPN disconnects when the screen locks",
+        "Разрешите ByMeVPN работу без ограничений батареи в настройках телефона. На Xiaomi также включите автозапуск и закрепите приложение в недавних.",
+        "Allow ByMeVPN to run without battery restrictions. On Xiaomi, also enable autostart and lock the app in Recents.",
         ""
     ),
     FaqItem(
-        "Почему пинг у сервера иногда «Нет ответа»?",
-        "Why does server latency sometimes show “No response”?",
-        "Пинг — это проверка доступности узла по TCP. Провайдер или сеть могут блокировать такие проверки, а Hysteria 2 работает по UDP и по TCP не проверяется. Поэтому ориентируйтесь на фактическое подключение: если VPN запускается и трафик идёт, сервер доступен.",
-        "Latency is a TCP reachability probe. Carriers may block such probes, and Hysteria 2 runs over UDP, so TCP cannot test it. Judge by the real connection: if the VPN starts and traffic flows, the server is reachable.",
+        "Достигнут лимит устройств",
+        "I've reached the device limit",
+        "Удалите старое устройство в разделе «Устройства» или выберите тариф на 5 либо 10 устройств прямо там.",
+        "Remove an old device in Devices, or choose a plan for 5 or 10 devices there.",
         ""
     ),
     FaqItem(
-        "Что такое лимит устройств?",
-        "What is the device limit?",
-        "Сервер считает устройства по установленному приложению, а не по IP-адресу. В разделе «Мои устройства» видно, какие устройства подтвердил сервер. Если телефон не появился в списке, значит сервер ещё не зарегистрировал его, а не то, что место закончилось.",
-        "The server counts devices by app installation, not by IP address. “My devices” shows what the server has confirmed. If your phone is missing there, the server has not registered it yet — it does not mean the limit is full.",
+        "Как включить пробный период?",
+        "How do I start the free trial?",
+        "Нажмите «Активировать 3 дня бесплатно» на главном экране. Пробный период доступен один раз на аккаунт. Если появится ошибка, повторите попытку позже и сообщите поддержке код ошибки.",
+        "Tap “Activate 3 days free” on Home. The trial is available once per account. If an error appears, try again later and send the error code to support.",
         ""
     ),
     FaqItem(
-        "Как перенести подписку на новый телефон",
-        "How do I move my subscription to a new phone?",
-        "Войдите в тот же аккаунт по почте. Старое устройство при необходимости удалите в разделе «Мои устройства», чтобы освободить место в лимите тарифа. Аккаунты, созданные только через бота, пока входят прежним способом.",
-        "Sign in to the same email account on the new phone. If needed, remove the old device in “My devices” to free a slot in your plan's limit. Accounts created only through the bot still use their original sign-in method.",
-        ""
-    ),
-    FaqItem(
-        "Как проверить или отключить автопродление",
-        "How to check or disable automatic renewal",
-        "Откройте «Аккаунт» → «Настройки аккаунта». Там показан подтверждённый сервером статус. Если стоит «нет данных», приложение не выдумывает значение: управление автопродлением ещё не подключено к серверу.",
-        "Open Account → Account settings. The server-confirmed status is shown there. If it says “no data”, the app does not invent a value: renewal management is not connected to the server yet.",
-        ""
-    ),
-    FaqItem(
-        "Не получается войти в аккаунт",
-        "I can't sign in to my account",
-        "Проверьте адрес почты и пароль. Если аккаунт раньше создавался через бота, используйте раздел «Старый аккаунт из Telegram-бота?» на экране входа. Восстановление пароля через приложение пока не поддерживается.",
-        "Check your email and password. If the account was created through the bot, use “Legacy account from Telegram bot?” on the sign-in screen. In-app password recovery is not available yet.",
+        "Не получается войти",
+        "I can't sign in",
+        "Войдите тем же способом, которым регистрировались. Для старого аккаунта из Telegram-бота выберите на экране входа вариант для прежних аккаунтов.",
+        "Use the same sign-in method you registered with. For an older Telegram-bot account, choose the legacy account option on the sign-in screen.",
         ""
     )
 )
@@ -151,7 +137,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = if (isRu) "Подключение · тарифы · аккаунт" else "Connection · plans · account",
+                                text = if (isRu) "Короткие ответы по делу" else "Quick answers",
                                 color = AppColors.TextSecondary,
                                 fontSize = 12.sp
                             )
