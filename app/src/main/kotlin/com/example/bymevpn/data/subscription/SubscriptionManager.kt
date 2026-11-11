@@ -263,7 +263,7 @@ class SubscriptionManager private constructor(private val context: Context) {
                     return@withLock Result.success(cached!!)
                 }
 
-                val activeStatus = try {
+                var activeStatus = try {
                     apiClient.activateTrial()
                 } catch (activationError: Exception) {
                     // A login may already have activated the trial, or the server may
@@ -275,6 +275,13 @@ class SubscriptionManager private constructor(private val context: Context) {
                     } else {
                         throw activationError
                     }
+                }
+                if (!TrialActivationPolicy.isConfirmedActiveTrial(activeStatus, System.currentTimeMillis())) {
+                    val refreshed = apiClient.getSubscriptionStatus()
+                    if (!TrialActivationPolicy.isConfirmedActiveTrial(refreshed, System.currentTimeMillis())) {
+                        throw IllegalStateException("The server did not confirm an active trial")
+                    }
+                    activeStatus = refreshed
                 }
                 _subscriptionStatus.value = activeStatus
                 storage.saveCachedSubscription(activeStatus)

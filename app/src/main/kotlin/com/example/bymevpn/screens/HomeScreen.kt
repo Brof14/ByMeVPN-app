@@ -61,6 +61,7 @@ import com.example.bymevpn.components.CountryFlagView
 import com.example.bymevpn.components.FaqDialog
 import com.example.bymevpn.components.VpnDisclosureDialog
 import com.example.bymevpn.components.PrivacyPolicyDialog
+import com.example.bymevpn.components.TrialActivatedDialog
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.components.PowerIcon
@@ -80,6 +81,7 @@ import com.example.bymevpn.vpn.VpnConnectionState
 import com.example.bymevpn.vpn.VpnManager
 import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -116,11 +118,23 @@ fun HomeScreen(
     var showFaqDialog by remember { mutableStateOf(false) }
     val secureStorage = remember { SecureTokenStorage.getInstance(context) }
     var isActivatingTrial by remember { mutableStateOf(false) }
+    var isPreparingTrialServers by remember { mutableStateOf(false) }
     var trialActivationError by remember { mutableStateOf<String?>(null) }
+    var showTrialSuccessDialog by remember { mutableStateOf(false) }
+    var trialServersReady by remember { mutableStateOf(false) }
+    var vpnSuccessPulseKey by remember { mutableStateOf(0) }
+    var previousVpnState by remember { mutableStateOf(vpnState) }
     var showVpnDisclosure by remember { mutableStateOf(false) }
     var showPrivacyPolicy by remember { mutableStateOf(false) }
     val updateInfo by AppUpdateManager.updateInfo.collectAsState()
     var isInstallingUpdate by remember { mutableStateOf(false) }
+
+    LaunchedEffect(vpnState) {
+        if (vpnState == VpnConnectionState.CONNECTED && previousVpnState != VpnConnectionState.CONNECTED) {
+            vpnSuccessPulseKey++
+        }
+        previousVpnState = vpnState
+    }
 
     // Fetch stale/missing plan prices before the user opens the pricing screen.
     LaunchedEffect(Unit) {
@@ -192,14 +206,31 @@ fun HomeScreen(
         isActivatingTrial = true
         trialActivationError = null
         scope.launch {
-            val result = subManager.activateTrial()
-            isActivatingTrial = false
-            result.onSuccess {
-                // The backend response is stored before this call. Fetch the locations
-                // now, after access is granted, so the home screen is ready before Connect.
-                vpnManager.loadServers()
-            }.onFailure { error ->
+            try {
+                val result = subManager.activateTrial()
+                result.onSuccess {
+                    // Keep the home screen in a calm preparation state while the newly
+                    // granted device bootstrap propagates to the server list endpoint.
+                    isPreparingTrialServers = true
+                    var loaded = false
+                    for (attempt in 0..1) {
+                        val serverResult = runCatching { vpnManager.loadServers() }.getOrNull()
+                        if (serverResult?.getOrNull()?.isNotEmpty() == true) {
+                            loaded = true
+                            break
+                        }
+                        if (attempt == 0) delay(750)
+                    }
+                    trialServersReady = loaded
+                    showTrialSuccessDialog = true
+                }.onFailure { error ->
+                    trialActivationError = com.example.bymevpn.data.api.AccountActionErrorMessages.activateTrial(error, isRu)
+                }
+            } catch (error: Exception) {
                 trialActivationError = com.example.bymevpn.data.api.AccountActionErrorMessages.activateTrial(error, isRu)
+            } finally {
+                isPreparingTrialServers = false
+                isActivatingTrial = false
             }
         }
     }
@@ -338,12 +369,14 @@ fun HomeScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                if (!hasPlan) {
+                if (!hasPlan || isActivatingTrial) {
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
                         onTrialClick = { activateTrialFromHome() },
-                        trialAvailable = TrialActivationPolicy.shouldOfferTrial(subscription),
+                        onChoosePlanClick = onNavigateToPricing,
+                        trialAvailable = isActivatingTrial || TrialActivationPolicy.shouldOfferTrial(subscription),
                         isActivatingTrial = isActivatingTrial,
+                        isPreparingTrialServers = isPreparingTrialServers,
                         trialError = trialActivationError
                     )
                     Row(
@@ -385,7 +418,8 @@ fun HomeScreen(
                         remainingDays = remainingDays,
                         serversError = serversError,
                         isLoadingServers = isLoadingServers,
-                        onRefreshServers = { refreshServers() }
+                        onRefreshServers = { refreshServers() },
+                        successPulseKey = vpnSuccessPulseKey
                     )
                 } else {
                     // MOCKUP 04_home_off (also handles connecting)
@@ -441,6 +475,13 @@ fun HomeScreen(
         if (showFaqDialog) {
             FaqDialog(onDismiss = { showFaqDialog = false })
         }
+        if (showTrialSuccessDialog) {
+            TrialActivatedDialog(
+                isRussian = isRu,
+                serversReady = trialServersReady,
+                onDismiss = { showTrialSuccessDialog = false }
+            )
+        }
     }
 }
 
@@ -456,8 +497,10 @@ private fun homeIsRussian(): Boolean {
 @Composable
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
+    onChoosePlanClick: () -> Unit,
     trialAvailable: Boolean,
     isActivatingTrial: Boolean,
+    isPreparingTrialServers: Boolean,
     trialError: String?
 ) {
     val isRu = homeIsRussian()
@@ -507,24 +550,25 @@ private fun HomeNoPlanContent(
                     text = if (trialAvailable) {
                         if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying."
                     } else {
-                        if (isRu) "Вы можете выбрать подходящий тариф." else "You can choose a plan."
+                        if (isRu) "Выберите удобный вариант доступа." else "Choose the access plan that works for you."
                     },
                     color = Color(0xFFA1B4AD), fontSize = 12.sp
                 )
                 Spacer(Modifier.height(14.dp))
                 ByMePrimaryButton(
                     text = when {
-                        isActivatingTrial -> if (isRu) "Активируем…" else "Activating…"
+                        isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
+                        isActivatingTrial -> if (isRu) "Подключаем пробный период…" else "Activating your trial…"
                         trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
-                        else -> if (isRu) "Пробный период недоступен" else "Free trial unavailable"
+                        else -> if (isRu) "Посмотреть тарифы" else "View plans"
                     },
-                    onClick = onTrialClick,
-                    enabled = trialAvailable && !isActivatingTrial,
+                    onClick = if (trialAvailable) onTrialClick else onChoosePlanClick,
+                    enabled = !isActivatingTrial,
                     height = 50.dp
                 )
                 if (!trialError.isNullOrBlank()) {
                     Spacer(Modifier.height(10.dp))
-                    Text(trialError, color = Color(0xFFFF9A9A), fontSize = 11.sp, lineHeight = 15.sp)
+                    Text(trialError, color = Color(0xFFE8BC84), fontSize = 11.sp, lineHeight = 15.sp)
                 }
             }
         }
@@ -745,7 +789,8 @@ private fun HomeConnectedContent(
     remainingDays: Long?,
     serversError: String?,
     isLoadingServers: Boolean,
-    onRefreshServers: () -> Unit
+    onRefreshServers: () -> Unit,
+    successPulseKey: Int
 ) {
     val isRu = homeIsRussian()
     val hours = connectedSeconds / 3600
@@ -772,7 +817,13 @@ private fun HomeConnectedContent(
         Spacer(modifier = Modifier.height(26.dp))
 
         Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
-            VpnPowerButton(connected = true, connecting = false, isRussian = isRu, onClick = onPowerClick)
+            VpnPowerButton(
+                connected = true,
+                connecting = false,
+                isRussian = isRu,
+                onClick = onPowerClick,
+                successPulseKey = successPulseKey
+            )
         }
 
         Spacer(modifier = Modifier.height(20.dp))

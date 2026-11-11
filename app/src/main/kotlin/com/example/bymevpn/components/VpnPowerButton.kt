@@ -24,9 +24,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,6 +36,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.bymevpn.R
+import kotlinx.coroutines.launch
 
 @Composable
 fun VpnPowerButton(
@@ -45,7 +44,8 @@ fun VpnPowerButton(
     connecting: Boolean,
     isRussian: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    successPulseKey: Int = 0
 ) {
     val progress by animateFloatAsState(
         targetValue = if (connected) 1f else 0f,
@@ -71,16 +71,24 @@ fun VpnPowerButton(
         scale
     } else 1f
     val successScale = remember { Animatable(1f) }
-    var previouslyConnected by remember { mutableStateOf(connected) }
-    LaunchedEffect(connected) {
-        if (connected && !previouslyConnected) {
+    val successRipple = remember { Animatable(1f) }
+    val successRippleAlpha = remember { Animatable(0f) }
+    LaunchedEffect(successPulseKey) {
+        if (successPulseKey > 0) {
+            successRipple.snapTo(0.72f)
+            successRippleAlpha.snapTo(0.72f)
             successScale.snapTo(0.86f)
-            successScale.animateTo(1.08f, animationSpec = tween(220, easing = FastOutSlowInEasing))
-            successScale.animateTo(1f, animationSpec = tween(260, easing = FastOutSlowInEasing))
-        } else {
+            launch {
+                successRipple.animateTo(1.42f, tween(760, easing = FastOutSlowInEasing))
+            }
+            launch {
+                successRippleAlpha.animateTo(0f, tween(760, easing = FastOutSlowInEasing))
+            }
+            successScale.animateTo(1.1f, animationSpec = tween(260, easing = FastOutSlowInEasing))
+            successScale.animateTo(1f, animationSpec = tween(360, easing = FastOutSlowInEasing))
+        } else if (!connected) {
             successScale.snapTo(1f)
         }
-        previouslyConnected = connected
     }
 
     Box(
@@ -100,6 +108,18 @@ fun VpnPowerButton(
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
+        if (successRippleAlpha.value > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer(
+                        scaleX = successRipple.value,
+                        scaleY = successRipple.value,
+                        alpha = successRippleAlpha.value
+                    )
+                    .border(3.dp, Color(0xFF35D6A3), CircleShape)
+            )
+        }
         Image(
             painter = painterResource(R.drawable.byme_connect_shield_transparent),
             contentDescription = null,
