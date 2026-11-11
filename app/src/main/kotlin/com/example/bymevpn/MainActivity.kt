@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.auth.isTelegramLoginHandoff
 import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
