@@ -90,6 +90,7 @@ fun AccountScreen(
     val devices by AccountRepository.userDevices.collectAsState()
 
     val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
+    val subscriptionUnknown = subscription == null || subscription?.isUndetermined == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.count { !it.isCurrent } + 1
@@ -169,7 +170,11 @@ fun AccountScreen(
                             .padding(horizontal = 9.dp, vertical = 7.dp)
                     ) {
                         Text(
-                            text = if (isActive) t("Активен", "Active") else t("Без подписки", "No subscription"),
+                            text = when {
+                                isActive -> t("Активен", "Active")
+                                subscriptionUnknown -> t("Проверяем", "Checking")
+                                else -> t("Без подписки", "No subscription")
+                            },
                             color = if (isActive) Color(0xFF8CDECA) else Color(0xFFE3A29A),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium

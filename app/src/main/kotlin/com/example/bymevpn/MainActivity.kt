@@ -86,7 +86,9 @@ class MainActivity : ComponentActivity() {
                     showStartup = false
                 }
                 Box(Modifier.fillMaxSize()) {
-                    MainAppNav()
+                    MainAppNav(onRestoreViaTelegram = {
+                        startTelegramLoginFromConnection(allowAccountSwitch = true)
+                    })
                     AnimatedVisibility(
                         visible = showStartup,
                         enter = fadeIn(tween(80)),
@@ -143,8 +145,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTelegramLoginFromConnection() {
-        if (!SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank()) {
+    private fun startTelegramLoginFromConnection(allowAccountSwitch: Boolean = false) {
+        if (telegramLoginJob?.isActive == true) return
+        if (!allowAccountSwitch &&
+            !SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank()
+        ) {
             Toast.makeText(
                 applicationContext,
                 if (com.example.bymevpn.data.LocaleManager.isRussian()) {
@@ -156,7 +161,6 @@ class MainActivity : ComponentActivity() {
             ).show()
             return
         }
-        if (telegramLoginJob?.isActive == true) return
 
         telegramLoginJob = lifecycleScope.launch {
             val sessionResult = AccountRepository.createTelegramAuthSession(applicationContext)
@@ -253,7 +257,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainAppNav() {
+fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
     val context = LocalContext.current
     val currentUser by AccountRepository.currentUser.collectAsState()
     LaunchedEffect(Unit) {
@@ -318,6 +322,7 @@ fun MainAppNav() {
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
                     onNavigateToPricing = { openPricing() },
                     onNavigateToSupport = { currentScreen = AppScreen.Support },
+                    onRestoreViaTelegram = onRestoreViaTelegram,
                     onLogOut = {
                         VpnManager.stopVpn(context)
                         AccountRepository.logout(context)

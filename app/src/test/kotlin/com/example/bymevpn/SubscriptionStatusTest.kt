@@ -54,6 +54,16 @@ class SubscriptionStatusTest {
     }
 
     @Test
+    fun unknownSubscriptionIsNotAConfirmedMissingPlan() {
+        val undetermined = SubscriptionStatus(status = "unknown")
+        assertTrue(undetermined.isUndetermined)
+        assertFalse(undetermined.isUsable)
+        assertFalse(SubscriptionStatus(status = "none").isUndetermined)
+        assertFalse(SubscriptionStatus(status = "expired").isUndetermined)
+        assertFalse(SubscriptionStatus(status = "active").isUndetermined)
+    }
+
+    @Test
     fun testOfflineDuration_72HoursRule() {
         val now = System.currentTimeMillis()
         val within72h = SubscriptionStatus(
