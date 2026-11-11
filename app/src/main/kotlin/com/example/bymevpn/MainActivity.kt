@@ -143,8 +143,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startTelegramLoginFromConnection() {
-        if (!SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank()) {
+    private fun startTelegramLoginFromConnection(allowAccountSwitch: Boolean = false) {
+        if (telegramLoginJob?.isActive == true) return
+        if (!allowAccountSwitch &&
+            !SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank()
+        ) {
             Toast.makeText(
                 applicationContext,
                 if (com.example.bymevpn.data.LocaleManager.isRussian()) {
@@ -156,7 +159,6 @@ class MainActivity : ComponentActivity() {
             ).show()
             return
         }
-        if (telegramLoginJob?.isActive == true) return
 
         telegramLoginJob = lifecycleScope.launch {
             val sessionResult = AccountRepository.createTelegramAuthSession(applicationContext)
@@ -318,6 +320,7 @@ fun MainAppNav() {
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
                     onNavigateToPricing = { openPricing() },
                     onNavigateToSupport = { currentScreen = AppScreen.Support },
+                    onRestoreViaTelegram = { startTelegramLoginFromConnection(allowAccountSwitch = true) },
                     onLogOut = {
                         VpnManager.stopVpn(context)
                         AccountRepository.logout(context)
