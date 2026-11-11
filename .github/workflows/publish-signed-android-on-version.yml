@@ -1,0 +1,121 @@
+name: Publish signed Android release on version bump
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - app/build.gradle.kts
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bymevpn-android-version-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Verify version and unique release
+        id: release_version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os, re
+          from pathlib import Path
+          content = Path("app/build.gradle.kts").read_text()
+          name = re.search(r'versionName\s*=\s*"(\d+\.\d+\.\d+)"', content)
+          code = re.search(r'versionCode\s*=\s*(\d+)', content)
+          if not name or not code or int(code.group(1)) < 20:
+              raise SystemExit("Expected a new Android versionName and versionCode >= 20")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
+              stream.write(f"version={name.group(1)}\n")
+              stream.write(f"code={code.group(1)}\n")
+          PY
+          tag="v${{ steps.release_version.outputs.version }}"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists. Refusing to overwrite it."
+            exit 1
+          fi
+
+      - name: Run Android unit tests
+        run: gradle :app:testDebugUnitTest --no-daemon
+
+      - name: Prepare existing release signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_BASE64" && test -n "$KEYSTORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD"
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/bymevpn-release.jks"
+          chmod 600 "$RUNNER_TEMP/bymevpn-release.jks"
+
+      - name: Build signed production APK
+        env:
+          KEYSTORE_PATH: ${{ runner.temp }}/bymevpn-release.jks
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY || secrets.SERVER_ES256_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$SERVER_ES256_PUBLIC_KEY"
+          gradle :app:assembleRelease --no-daemon
+
+      - name: Verify APK signature and fingerprint
+        env:
+          VERSION: ${{ steps.release_version.outputs.version }}
+          EXPECTED_CERT_SHA256: 0C2160CEDAFAAE98B32AAF83F8B22229A67C98513DF93A8FE759EA910B177222
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          output="$("$apksigner" verify --print-certs "$apk")"
+          actual="$(printf '%s\n' "$output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$actual" = "$EXPECTED_CERT_SHA256"
+          mkdir -p dist
+          cp "$apk" "dist/ByMeVPN-v$VERSION.apk"
+          sha256sum "dist/ByMeVPN-v$VERSION.apk" > dist/SHA256SUMS.txt
+
+      - name: Publish verified APK to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.release_version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > dist/release-notes.md <<'EOF'
+          Android update: subscription state recovery.
+          - Unknown server state is not misreported as an inactive subscription.
+          - Existing Telegram subscribers can explicitly sign in with Telegram from the account recovery link.
+          - Subscription verification, device limits and signed entitlements remain required.
+
+          Android unit tests and release-certificate verification passed.
+          Live VPN tunneling and individual customer accounts require real-device verification before broad rollout.
+          EOF
+          gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" \
+            --target "$GITHUB_SHA" \
+            --title "ByMeVPN v$VERSION (Android)" \
+            --notes-file dist/release-notes.md
