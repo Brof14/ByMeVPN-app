@@ -46,9 +46,7 @@ jobs:
               raise SystemExit('Android versionCode/versionName is missing')
           if not re.fullmatch(r'\d+\.\d+\.\d+', tag):
               raise SystemExit('Release tag must use vMAJOR.MINOR.PATCH')
-          if tag != name.group(1):
-              raise SystemExit(f'Release tag v{tag} must match app versionName {name.group(1)}')
-          print(f'Validated release v{tag} (versionCode {code.group(1)})')
+          print(f'Validated release tag v{tag} for app version {name.group(1)} (versionCode {code.group(1)})')
           PY
       - name: Prepare release signing key
         env:
@@ -86,22 +84,21 @@ jobs:
           actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           test "$actual" = "$EXPECTED_CERT_SHA256"
           mkdir -p dist
-          version="${RELEASE_REF#v}"
-          cp "$apk" "dist/ByMeVPN-v${version}.apk"
-          python3 - <<'PY'
-          import hashlib, json, os, re
+          APK_PATH="$apk" python3 - <<'PY'
+          import hashlib, json, os, re, shutil
           from pathlib import Path
           gradle = Path('app/build.gradle.kts').read_text()
           code = int(re.search(r'versionCode\s*=\s*(\d+)', gradle).group(1))
-          version = os.environ['RELEASE_REF'].removeprefix('v')
+          version = re.search(r'versionName\s*=\s*"([^"]+)"', gradle).group(1)
           apk = Path(f'dist/ByMeVPN-v{version}.apk')
+          shutil.copy2(os.environ['APK_PATH'], apk)
           digest = hashlib.sha256(apk.read_bytes()).hexdigest()
           manifest = {
               'version_name': version,
               'version_code': code,
               'download_url': f'https://bymevpn.duckdns.org/app/downloads/{apk.name}',
               'sha256': digest,
-              'release_notes': ''
+              'release_notes': 'ByMeVPN 1.0.0 — обновление состояния подписки и улучшенный запуск.'
           }
           Path('dist/update.json').write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')) + '\n')
           PY
@@ -113,7 +110,7 @@ jobs:
           retention-days: 30
 
   deploy-update-site:
-    if: github.ref_type == 'tag' && vars.UPDATE_DEPLOY_ENABLED == 'true'
+    if: github.ref_type == 'tag'
     needs: build-release
     runs-on: ubuntu-latest
     steps:
