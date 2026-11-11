@@ -3,12 +3,4 @@
     <item>
         <color android:color="#0B0F12" />
     </item>
-    <item
-        android:width="96dp"
-        android:height="96dp"
-        android:gravity="center">
-        <bitmap
-            android:gravity="center"
-            android:src="@drawable/ic_launcher_foreground" />
-    </item>
 </layer-list>
