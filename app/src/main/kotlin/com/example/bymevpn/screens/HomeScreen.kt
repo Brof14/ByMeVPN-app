@@ -62,6 +62,7 @@ import com.example.bymevpn.components.FaqDialog
 import com.example.bymevpn.components.VpnDisclosureDialog
 import com.example.bymevpn.components.PrivacyPolicyDialog
 import com.example.bymevpn.components.TrialActivatedDialog
+import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.components.PowerIcon
@@ -92,6 +93,7 @@ fun HomeScreen(
     onNavigateToTrial: () -> Unit = {},
     onNavigateToPricing: () -> Unit = {},
     onNavigateToSupport: () -> Unit = {},
+    onRestoreViaTelegram: () -> Unit = {},
     onLogOut: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -110,6 +112,10 @@ fun HomeScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
     val isCheckingSubscription by subManager.isSyncing.collectAsState()
+    val currentUser by AccountRepository.currentUser.collectAsState()
+    val subscriptionUnknown = subscription == null || subscription?.isUndetermined == true
+    val offerTelegramRecovery = subscription?.status == "none" &&
+        (currentUser?.isGoogle == true || !currentUser?.email.isNullOrBlank())
 
     val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
@@ -181,6 +187,21 @@ fun HomeScreen(
                 if (isRu) "Разрешите установку обновлений для ByMeVPN." else "Allow ByMeVPN to install updates.",
                 Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    // Login can return status=unknown when the backend or panel is temporarily
+    // unavailable. Retry a bounded number of times, never treating unknown as
+    // an expired subscription or bypassing the server's entitlement proof.
+    LaunchedEffect(subscription?.status) {
+        if (subscription?.isUndetermined != true) return@LaunchedEffect
+        for (backoffMs in listOf(1_500L, 3_500L, 7_500L)) {
+            delay(backoffMs)
+            val fresh = subManager.refreshStatus(forceBackend = true).getOrNull()
+            if (fresh != null && !fresh.isUndetermined) {
+                if (fresh.isUsable) vpnManager.loadServers()
+                break
+            }
         }
     }
 
@@ -375,20 +396,22 @@ fun HomeScreen(
                     HomeNoPlanContent(
                         onTrialClick = { activateTrialFromHome() },
                         onChoosePlanClick = onNavigateToPricing,
+                        onRestoreViaTelegram = onRestoreViaTelegram,
                         onRetrySubscription = {
                             scope.launch {
                                 val refreshed = subManager.refreshStatus(forceBackend = true).getOrNull()
                                 if (refreshed?.isUsable == true) vpnManager.loadServers()
                             }
                         },
-                        subscriptionUnknown = subscription == null,
+                        subscriptionUnknown = subscriptionUnknown,
+                        offerTelegramRecovery = offerTelegramRecovery,
                         isCheckingSubscription = isCheckingSubscription,
                         trialAvailable = isActivatingTrial || TrialActivationPolicy.shouldOfferTrial(subscription),
                         isActivatingTrial = isActivatingTrial,
                         isPreparingTrialServers = isPreparingTrialServers,
                         trialError = trialActivationError
                     )
-                    Row(
+                    if (!subscriptionUnknown) Row(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -507,8 +530,10 @@ private fun homeIsRussian(): Boolean {
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
     onChoosePlanClick: () -> Unit,
+    onRestoreViaTelegram: () -> Unit,
     onRetrySubscription: () -> Unit,
     subscriptionUnknown: Boolean,
+    offerTelegramRecovery: Boolean,
     isCheckingSubscription: Boolean,
     trialAvailable: Boolean,
     isActivatingTrial: Boolean,
@@ -586,6 +611,20 @@ private fun HomeNoPlanContent(
                     enabled = !isActivatingTrial && !isCheckingSubscription,
                     height = 50.dp
                 )
+                if (offerTelegramRecovery && !subscriptionUnknown) {
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = if (isRu) "Подписка оформлена в Telegram? Войти через Telegram"
+                            else "Subscribed in Telegram? Sign in with Telegram",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onRestoreViaTelegram)
+                            .padding(vertical = 6.dp),
+                        textAlign = TextAlign.Center,
+                        color = AppColors.BrandMint,
+                        fontSize = 12.sp
+                    )
+                }
                 if (!trialError.isNullOrBlank()) {
                     Spacer(Modifier.height(10.dp))
                     Text(trialError, color = Color(0xFFE8BC84), fontSize = 11.sp, lineHeight = 15.sp)
