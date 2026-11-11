@@ -79,6 +79,9 @@ data class SubscriptionStatus(
         get() = status == "active" || status == "trial" || status == "grace"
     val isActive: Boolean
         get() = isUsable
+    /** The backend could not determine access; this is not a confirmed missing subscription. */
+    val isUndetermined: Boolean
+        get() = status == "unknown"
     fun daysRemainingAt(nowMillis: Long): Long? {
         if (secondsRemaining <= 0) return null
         // A slightly slower wall clock right after a fetch must not hide the remaining
