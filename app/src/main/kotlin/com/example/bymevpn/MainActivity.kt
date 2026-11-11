@@ -2,6 +2,7 @@ package com.example.bymevpn
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -9,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
@@ -20,6 +23,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.auth.isTelegramLoginHandoff
 import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
@@ -43,6 +49,8 @@ import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -62,6 +70,7 @@ enum class AppScreen {
 
 class MainActivity : ComponentActivity() {
     private var telegramLoginJob: Job? = null
+    private var lastAccountRefreshAt = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme)
@@ -71,7 +80,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ByMeVPNTheme {
-                MainAppNav()
+                var showStartup by remember { mutableStateOf(true) }
+                LaunchedEffect(Unit) {
+                    delay(280)
+                    showStartup = false
+                }
+                Box(Modifier.fillMaxSize()) {
+                    MainAppNav()
+                    AnimatedVisibility(
+                        visible = showStartup,
+                        enter = fadeIn(tween(80)),
+                        exit = fadeOut(tween(180))
+                    ) {
+                        com.example.bymevpn.components.AppStartupOverlay()
+                    }
+                }
             }
         }
     }
@@ -202,18 +225,28 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         VpnManager.getInstance(applicationContext).syncWithServiceState()
-        CoroutineScope(Dispatchers.IO).launch {
+        lifecycleScope.launch(Dispatchers.IO) {
             val appContext = applicationContext
             AppUpdateManager.checkForUpdates(appContext)
             com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(appContext)
 
-            // Bot/admin changes are reflected as soon as the user returns to the app.
-            // Entitlements are always fetched from the API; server-list caching remains independent.
-            if (!SecureTokenStorage.getInstance(appContext).getAccessToken().isNullOrBlank()) {
-                AccountRepository.refreshProfile(appContext)
-                AccountRepository.refreshDevices(appContext)
-                SubscriptionManager.getInstance(appContext).refreshStatus(forceBackend = true)
-                VpnManager.getInstance(appContext).loadServers()
+            val now = SystemClock.elapsedRealtime()
+            val hasSession = !SecureTokenStorage.getInstance(appContext).getAccessToken().isNullOrBlank()
+            if (hasSession && telegramLoginJob?.isActive != true &&
+                (lastAccountRefreshAt == 0L || now - lastAccountRefreshAt >= 20_000L)
+            ) {
+                lastAccountRefreshAt = now
+                coroutineScope {
+                    val profile = async { AccountRepository.refreshProfile(appContext) }
+                    val devices = async { AccountRepository.refreshDevices(appContext) }
+                    val status = SubscriptionManager.getInstance(appContext)
+                        .refreshStatus(forceBackend = true).getOrNull()
+                    // /servers is entitlement-gated. Fetch it only after the
+                    // current account's authoritative status confirms access.
+                    if (status?.isUsable == true) VpnManager.getInstance(appContext).loadServers()
+                    profile.await()
+                    devices.await()
+                }
             }
         }
     }

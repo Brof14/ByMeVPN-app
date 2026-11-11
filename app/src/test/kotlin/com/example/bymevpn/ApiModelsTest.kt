@@ -44,6 +44,14 @@ class ApiModelsTest {
     }
 
     @Test
+    fun subscriptionStatusIsNormalizedBeforeAccessAndTrialDecisions() {
+        assertEquals(
+            "active",
+            ApiJsonParsers.parseSubscriptionStatus(JSONObject("{\"status\":\" ACTIVE \"}")).status
+        )
+    }
+
+    @Test
     fun trialBootstrapMetadataIsParsedAndMissingFieldsStayDisabled() {
         val bootstrap = ApiJsonParsers.parseSubscriptionStatus(
             JSONObject("""{"status":"trial","max_devices":2,"seconds_remaining":600,"entitlement_bootstrap":true,"entitlement_expires_at":1793670000}""")

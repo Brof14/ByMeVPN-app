@@ -109,6 +109,7 @@ fun HomeScreen(
 
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
+    val isCheckingSubscription by subManager.isSyncing.collectAsState()
 
     val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
@@ -374,6 +375,14 @@ fun HomeScreen(
                     HomeNoPlanContent(
                         onTrialClick = { activateTrialFromHome() },
                         onChoosePlanClick = onNavigateToPricing,
+                        onRetrySubscription = {
+                            scope.launch {
+                                val refreshed = subManager.refreshStatus(forceBackend = true).getOrNull()
+                                if (refreshed?.isUsable == true) vpnManager.loadServers()
+                            }
+                        },
+                        subscriptionUnknown = subscription == null,
+                        isCheckingSubscription = isCheckingSubscription,
                         trialAvailable = isActivatingTrial || TrialActivationPolicy.shouldOfferTrial(subscription),
                         isActivatingTrial = isActivatingTrial,
                         isPreparingTrialServers = isPreparingTrialServers,
@@ -498,6 +507,9 @@ private fun homeIsRussian(): Boolean {
 private fun HomeNoPlanContent(
     onTrialClick: () -> Unit,
     onChoosePlanClick: () -> Unit,
+    onRetrySubscription: () -> Unit,
+    subscriptionUnknown: Boolean,
+    isCheckingSubscription: Boolean,
     trialAvailable: Boolean,
     isActivatingTrial: Boolean,
     isPreparingTrialServers: Boolean,
@@ -537,33 +549,41 @@ private fun HomeNoPlanContent(
                     .padding(if (compact) 16.dp else 19.dp)
             ) {
                 Text(
-                    text = if (trialAvailable) {
-                        if (isRu) "3 дня бесплатно" else "3 days free"
-                    } else {
-                        if (isRu) "Пробный период" else "Free trial"
+                    text = when {
+                        subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем подписку…" else "Checking subscription…"
+                        subscriptionUnknown -> if (isRu) "Не удалось проверить подписку" else "Could not check subscription"
+                        trialAvailable -> if (isRu) "3 дня бесплатно" else "3 days free"
+                        else -> if (isRu) "Подписка не активна" else "Subscription inactive"
                     },
                     color = AppColors.TextPrimary, fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = if (trialAvailable) {
-                        if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying."
-                    } else {
-                        if (isRu) "Выберите удобный вариант доступа." else "Choose the access plan that works for you."
+                    text = when {
+                        subscriptionUnknown && isCheckingSubscription -> if (isRu) "Загружаем данные аккаунта." else "Loading account details."
+                        subscriptionUnknown -> if (isRu) "Повторите проверку, чтобы обновить данные аккаунта." else "Retry to refresh your account details."
+                        trialAvailable -> if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying."
+                        else -> if (isRu) "Выберите подходящий тариф." else "Choose a plan that works for you."
                     },
                     color = Color(0xFFA1B4AD), fontSize = 12.sp
                 )
                 Spacer(Modifier.height(14.dp))
                 ByMePrimaryButton(
                     text = when {
+                        subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем…" else "Checking…"
+                        subscriptionUnknown -> if (isRu) "Повторить проверку" else "Retry status check"
                         isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
                         isActivatingTrial -> if (isRu) "Подключаем пробный период…" else "Activating your trial…"
                         trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
                         else -> if (isRu) "Посмотреть тарифы" else "View plans"
                     },
-                    onClick = if (trialAvailable) onTrialClick else onChoosePlanClick,
-                    enabled = !isActivatingTrial,
+                    onClick = when {
+                        subscriptionUnknown -> onRetrySubscription
+                        trialAvailable -> onTrialClick
+                        else -> onChoosePlanClick
+                    },
+                    enabled = !isActivatingTrial && !isCheckingSubscription,
                     height = 50.dp
                 )
                 if (!trialError.isNullOrBlank()) {

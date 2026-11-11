@@ -84,14 +84,9 @@ object AccountRepository {
             _currentUser.value = cachedUser
         }
 
-        // Check if token exists, try refreshing profile & devices
-        if (!storage.getAccessToken().isNullOrBlank()) {
-            repoScope.launch {
-                refreshProfile(context)
-                refreshDevices(context)
-                SubscriptionManager.getInstance(context).refreshStatus()
-            }
-        }
+        // Network refresh is coordinated from MainActivity.onResume. Starting a
+        // second independent refresh here duplicated profile/device/status calls
+        // on every cold launch and could race the entitlement-gated server fetch.
     }
 
     suspend fun loginWithEmail(context: Context, email: String, pass: String): Result<UserProfile> {

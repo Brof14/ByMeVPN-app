@@ -260,7 +260,7 @@ object ApiJsonParsers {
             ?.let { Regex("(?:^|_)d(2|5|10)$").find(it)?.groupValues?.get(1)?.toIntOrNull() }
 
         return SubscriptionStatus(
-            status = target.optString("status", "none"),
+            status = target.optString("status", "none").trim().lowercase(java.util.Locale.ROOT),
             planCode = planCode,
             planName = optNullableString("plan_name"),
             expiresAt = optNullableString("expires_at"),
