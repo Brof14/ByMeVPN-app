@@ -8,7 +8,7 @@ import org.junit.Test
 
 class TrialActivationPolicyTest {
     @Test
-    fun offersOneTapTrialWhenEligibilityIsAvailableOrStillLoading() {
+    fun offersOneTapTrialOnlyAfterServerConfirmsEligibility() {
         assertTrue(
             TrialActivationPolicy.shouldOfferTrial(
                 SubscriptionStatus(status = "none", trialAvailable = true)
@@ -29,7 +29,7 @@ class TrialActivationPolicyTest {
                 SubscriptionStatus(status = "none", trialAvailable = false)
             )
         )
-        assertTrue(TrialActivationPolicy.shouldOfferTrial(null))
+        assertFalse(TrialActivationPolicy.shouldOfferTrial(null))
     }
 
     @Test

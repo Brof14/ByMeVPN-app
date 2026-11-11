@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android"
-    android:shape="rectangle">
-    <!-- Match the launch background so Android 12+ shows no static app mark. -->
-    <size
-        android:width="1dp"
-        android:height="1dp" />
-    <solid android:color="#0B0F12" />
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <color android:color="#0B0F12" />
+    </item>
+    <item
+        android:drawable="@drawable/ic_launcher_foreground"
+        android:gravity="center"
+        android:width="72dp"
+        android:height="72dp" />
+</layer-list>
