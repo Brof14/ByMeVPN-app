@@ -441,13 +441,14 @@ class VpnManager private constructor(private val context: Context) {
                     _currentServer.value = targetServer
                 }
 
-                // 3. Refresh the actual VPN endpoints before reading a cached session.
-                // An authenticated /servers response may update addresses, ports or
-                // subscription links even while the old six-hour cache is "fresh".
-                // Offline operation remains possible with a valid signed entitlement
-                // and the existing bounded configuration cache.
+                // 3. Refresh actual VPN endpoints before reading a cached session.
+                // Existing devices can use configurations returned directly by
+                // /servers; only a first-device bootstrap must wait for the feed
+                // fetch that registers its HWID with the panel.
                 val latestServers = try {
-                    apiClient.getServers(awaitSubscriptionRefresh = true)
+                    val needsPanelRegistration =
+                        subscriptionManager.subscriptionStatus.value?.entitlementBootstrap == true
+                    apiClient.getServers(awaitSubscriptionRefresh = needsPanelRegistration)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
