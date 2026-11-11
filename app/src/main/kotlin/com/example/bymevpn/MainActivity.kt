@@ -86,7 +86,9 @@ class MainActivity : ComponentActivity() {
                     showStartup = false
                 }
                 Box(Modifier.fillMaxSize()) {
-                    MainAppNav()
+                    MainAppNav(onRestoreViaTelegram = {
+                        startTelegramLoginFromConnection(allowAccountSwitch = true)
+                    })
                     AnimatedVisibility(
                         visible = showStartup,
                         enter = fadeIn(tween(80)),
@@ -255,7 +257,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainAppNav() {
+fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
     val context = LocalContext.current
     val currentUser by AccountRepository.currentUser.collectAsState()
     LaunchedEffect(Unit) {
@@ -320,7 +322,7 @@ fun MainAppNav() {
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
                     onNavigateToPricing = { openPricing() },
                     onNavigateToSupport = { currentScreen = AppScreen.Support },
-                    onRestoreViaTelegram = { startTelegramLoginFromConnection(allowAccountSwitch = true) },
+                    onRestoreViaTelegram = onRestoreViaTelegram,
                     onLogOut = {
                         VpnManager.stopVpn(context)
                         AccountRepository.logout(context)
