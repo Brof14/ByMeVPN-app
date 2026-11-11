@@ -232,6 +232,11 @@ fun MainAppNav() {
     var currentScreen by remember {
         mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.SignIn)
     }
+    var pricingDeviceCount by remember { mutableStateOf(2) }
+    fun openPricing(deviceCount: Int = 2) {
+        pricingDeviceCount = deviceCount
+        currentScreen = AppScreen.Pricing
+    }
 
     LaunchedEffect(currentUser) {
         val user = currentUser
@@ -278,7 +283,7 @@ fun MainAppNav() {
                     onNavigateToAccount = { currentScreen = AppScreen.Account },
                     onNavigateToSettings = { currentScreen = AppScreen.Settings },
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
-                    onNavigateToPricing = { currentScreen = AppScreen.Pricing },
+                    onNavigateToPricing = { openPricing() },
                     onNavigateToSupport = { currentScreen = AppScreen.Support },
                     onLogOut = {
                         VpnManager.stopVpn(context)
@@ -312,7 +317,7 @@ fun MainAppNav() {
                     onNavigateToRenewal = { currentScreen = AppScreen.Renewal },
                     onNavigateToSupport = { currentScreen = AppScreen.Support },
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
-                    onNavigateToPricing = { currentScreen = AppScreen.Pricing },
+                    onNavigateToPricing = { openPricing() },
                     onLogOut = {
                         VpnManager.stopVpn(context)
                         AccountRepository.logout(context)
@@ -325,7 +330,8 @@ fun MainAppNav() {
                     onBackClick = { currentScreen = AppScreen.Account },
                     onNavigateToHome = { currentScreen = AppScreen.Home },
                     onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                    onNavigateToAccount = { currentScreen = AppScreen.Account },
+                    onNavigateToPricing = { devices -> openPricing(devices) }
                 )
             }
             AppScreen.Renewal -> {
@@ -353,7 +359,8 @@ fun MainAppNav() {
             }
             AppScreen.Pricing -> {
                 PricingScreen(
-                    onBackClick = { currentScreen = AppScreen.Home }
+                    onBackClick = { currentScreen = AppScreen.Home },
+                    initialDeviceCount = pricingDeviceCount
                 )
             }
         }

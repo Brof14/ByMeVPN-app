@@ -1,6 +1,7 @@
 package com.example.bymevpn.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloat
@@ -21,7 +22,11 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -65,10 +70,22 @@ fun VpnPowerButton(
         )
         scale
     } else 1f
+    val successScale = remember { Animatable(1f) }
+    var previouslyConnected by remember { mutableStateOf(connected) }
+    LaunchedEffect(connected) {
+        if (connected && !previouslyConnected) {
+            successScale.snapTo(0.86f)
+            successScale.animateTo(1.08f, animationSpec = tween(220, easing = FastOutSlowInEasing))
+            successScale.animateTo(1f, animationSpec = tween(260, easing = FastOutSlowInEasing))
+        } else {
+            successScale.snapTo(1f)
+        }
+        previouslyConnected = connected
+    }
 
     Box(
         modifier = modifier
-            .sizeIn(maxWidth = 300.dp, maxHeight = 300.dp)
+            .sizeIn(maxWidth = 340.dp, maxHeight = 340.dp)
             .aspectRatio(1f)
             .fillMaxWidth()
             .clip(CircleShape)
@@ -87,11 +104,11 @@ fun VpnPowerButton(
             painter = painterResource(R.drawable.byme_connect_shield_transparent),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxSize(0.88f)
+                .fillMaxSize(0.93f)
                 .graphicsLayer(
                     alpha = 0.62f + 0.38f * progress,
-                    scaleX = 0.96f + 0.04f * progress,
-                    scaleY = 0.96f + 0.04f * progress
+                    scaleX = (0.96f + 0.04f * progress) * successScale.value,
+                    scaleY = (0.96f + 0.04f * progress) * successScale.value
                 )
         )
         if (connecting) {

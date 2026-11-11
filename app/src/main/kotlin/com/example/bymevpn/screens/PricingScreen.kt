@@ -83,6 +83,7 @@ internal fun PlanDuration.matchesConfirmedPlan(plan: PlanItem, devices: Int): Bo
 @Composable
 fun PricingScreen(
     onBackClick: () -> Unit,
+    initialDeviceCount: Int = 2,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -92,7 +93,9 @@ fun PricingScreen(
     val scope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
-    var selectedDeviceCount by remember { mutableIntStateOf(2) } // 2, 5, 10
+    var selectedDeviceCount by remember(initialDeviceCount) {
+        mutableIntStateOf(initialDeviceCount.takeIf { it in setOf(2, 5, 10) } ?: 2)
+    }
     var selectedPlan by remember { mutableStateOf(PlanDuration.Month15) }
     val selectedProvider = "yookassa" // Only payment method accepted by the current backend.
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }

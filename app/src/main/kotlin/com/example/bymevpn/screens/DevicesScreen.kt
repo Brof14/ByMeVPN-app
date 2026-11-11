@@ -55,6 +55,7 @@ fun DevicesScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
+    onNavigateToPricing: (Int) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -263,6 +264,77 @@ fun DevicesScreen(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
+
+                if (effectiveMax != null) {
+                    val upgradeTiers = when (effectiveMax) {
+                        2 -> listOf(5, 10)
+                        5 -> listOf(10)
+                        else -> emptyList()
+                    }
+                    if (upgradeTiers.isNotEmpty()) {
+                        val isFull = effectiveConnected >= effectiveMax
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(17.dp))
+                                .background(if (isFull) Color(0xFF1A2D3C) else Color(0xFF142538))
+                                .border(
+                                    1.dp,
+                                    if (isFull) AppColors.BrandMint.copy(alpha = 0.65f) else Color(0xFF294455),
+                                    RoundedCornerShape(17.dp)
+                                )
+                                .padding(18.dp)
+                        ) {
+                            Text(
+                                text = if (isFull) {
+                                    if (isRu) "ЛИМИТ УСТРОЙСТВ ДОСТИГНУТ" else "DEVICE LIMIT REACHED"
+                                } else {
+                                    if (isRu) "НУЖНО БОЛЬШЕ УСТРОЙСТВ?" else "NEED MORE DEVICES?"
+                                },
+                                color = if (isFull) AppColors.BrandMint else Color(0xFF8FBBCA),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 1.1.sp
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                text = if (isFull) {
+                                    if (isRu) "Выберите тариф с большим лимитом, чтобы подключить ещё устройства."
+                                    else "Choose a plan with a higher limit to connect more devices."
+                                } else {
+                                    if (isRu) "Увеличьте лимит устройств в любое время."
+                                    else "You can increase your device limit at any time."
+                                },
+                                color = Color(0xFF9DB6AC),
+                                fontSize = 12.5.sp,
+                                lineHeight = 18.sp
+                            )
+                            Spacer(Modifier.height(14.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                upgradeTiers.forEach { tier ->
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(AppColors.BgSurfaceAccent)
+                                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(12.dp))
+                                            .clickable { onNavigateToPricing(tier) }
+                                            .padding(vertical = 12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = if (isRu) "До $tier устройств" else "Up to $tier devices",
+                                            color = AppColors.BrandMint,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(14.dp))
+                    }
+                }
 
                 // Info Box "ДОБАВИТЬ УСТРОЙСТВО"
                 Column(

@@ -78,7 +78,10 @@ import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import com.example.bymevpn.vpn.VpnConnectionState
 import com.example.bymevpn.vpn.VpnManager
+import com.example.bymevpn.vpn.xray.XrayVpnEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun HomeScreen(
@@ -122,6 +125,16 @@ fun HomeScreen(
     // Fetch stale/missing plan prices before the user opens the pricing screen.
     LaunchedEffect(Unit) {
         runCatching { ByMeApiClient(context).warmPlanCatalog() }
+    }
+
+    // Initialize the native core while the home screen is idle so a cold first
+    // connection does not pay the asset-copy and library setup cost after the tap.
+    LaunchedEffect(hasPlan) {
+        if (hasPlan) {
+            withContext(Dispatchers.IO) {
+                runCatching { XrayVpnEngine.getInstance(context).initCoreEnv() }
+            }
+        }
     }
 
     val startUpdateInstall: (com.example.bymevpn.data.update.AppUpdateInfo) -> Unit = { info ->
