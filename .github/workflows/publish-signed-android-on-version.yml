@@ -99,6 +99,26 @@ jobs:
           mkdir -p dist
           cp "$apk" "dist/ByMeVPN-v$VERSION.apk"
           sha256sum "dist/ByMeVPN-v$VERSION.apk" > dist/SHA256SUMS.txt
+          APK_PATH="dist/ByMeVPN-v$VERSION.apk" python3 - <<'PY'
+          import hashlib, json, os, re
+          from pathlib import Path
+
+          gradle = Path("app/build.gradle.kts").read_text()
+          version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle).group(1)
+          version_code = int(re.search(r"versionCode\s*=\s*(\d+)", gradle).group(1))
+          apk_path = Path(os.environ["APK_PATH"])
+          manifest = {
+              "version_name": version_name,
+              "version_code": version_code,
+              "download_url": f"https://github.com/Brof14/ByMeVPN-app/releases/download/v{version_name}/{apk_path.name}",
+              "sha256": hashlib.sha256(apk_path.read_bytes()).hexdigest(),
+              "release_notes": f"ByMeVPN {version_name} — исправления стабильности приложения и подписки."
+          }
+          Path("dist/update.json").write_text(
+              json.dumps(manifest, ensure_ascii=False, separators=(",", ":")) + "\n",
+              encoding="utf-8"
+          )
+          PY
 
       - name: Publish verified APK to GitHub Releases
         env:
@@ -115,7 +135,7 @@ jobs:
           Android unit tests and release-certificate verification passed.
           Live VPN tunneling and individual customer accounts require real-device verification before broad rollout.
           EOF
-          gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" \
+          gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" "dist/update.json" \
             --target "$GITHUB_SHA" \
             --title "ByMeVPN v$VERSION (Android)" \
             --notes-file dist/release-notes.md
