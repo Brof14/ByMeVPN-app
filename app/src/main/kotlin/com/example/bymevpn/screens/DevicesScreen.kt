@@ -48,7 +48,7 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
 
 internal fun visibleDeviceCount(devices: List<com.example.bymevpn.data.api.DeviceItem>): Int =
-    devices.count { !it.isCurrent } + 1
+    devices.size
 
 @Composable
 fun DevicesScreen(
@@ -120,8 +120,8 @@ fun DevicesScreen(
                     text = if (deviceListUnavailable) {
                         if (isRu) "Не удалось получить подтверждённый список с сервера." else "Could not retrieve the confirmed device list."
                     } else if (effectiveMax == null) {
-                        if (otherDevices.isEmpty()) {
-                            if (isRu) "Пока отображается только это устройство." else "Only this device is shown for now."
+                        if (devicesList.isEmpty()) {
+                            if (isRu) "Зарегистрированных устройств пока нет." else "No registered devices yet."
                         } else {
                             if (isRu) "Сейчас отображается $effectiveConnected устройств." else "$effectiveConnected devices are shown now."
                         }
@@ -191,8 +191,8 @@ fun DevicesScreen(
                     .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
                 val localOs = "Android ${android.os.Build.VERSION.RELEASE}"
 
-                // The phone in your hand is always shown with its OS and model, even when
-                // the backend has not confirmed it in the device list yet.
+                // This local device can be shown before the server registers it, but
+                // it must not be counted or presented as confirmed until it is listed.
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -237,7 +237,11 @@ fun DevicesScreen(
                                     .background(Color(0xFF69D3BC))
                             )
                             Text(
-                                text = if (isRu) "Это устройство" else "This device",
+                                text = if (devicesList.any { it.isCurrent }) {
+                                    if (isRu) "Это устройство" else "This device"
+                                } else {
+                                    if (isRu) "Ещё не подтверждено сервером" else "Not yet confirmed by the server"
+                                },
                                 color = Color(0xFF8CDECA),
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Medium

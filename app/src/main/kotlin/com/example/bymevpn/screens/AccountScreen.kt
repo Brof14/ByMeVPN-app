@@ -96,7 +96,7 @@ fun AccountScreen(
     val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
-    val activeDevicesCount = devices.count { !it.isCurrent } + 1
+    val activeDevicesCount = devices.size
     val effectiveDevicesText = maxDevices?.let {
         t("Устройств: $activeDevicesCount из $it", "Devices: $activeDevicesCount of $it")
     } ?: t("Устройств сейчас: $activeDevicesCount", "Devices shown: $activeDevicesCount")

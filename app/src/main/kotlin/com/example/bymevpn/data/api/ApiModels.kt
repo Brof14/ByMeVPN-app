@@ -165,6 +165,12 @@ data class DeviceItem(
 )
 
 object ApiJsonParsers {
+    fun parseDeviceResponse(json: JSONObject, currentInstallId: String? = null): List<DeviceItem> {
+        val devices = json.optJSONArray("devices")
+            ?: throw IllegalArgumentException("Device list missing from server response")
+        return parseDevices(devices, currentInstallId)
+    }
+
     /** Merge the signed access proof returned by the authenticated /servers handshake. */
     fun mergeServerAccessProof(
         current: SubscriptionStatus,

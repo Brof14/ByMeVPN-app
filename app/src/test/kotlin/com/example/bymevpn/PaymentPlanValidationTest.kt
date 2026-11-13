@@ -14,10 +14,10 @@ import org.junit.Test
 
 class PaymentPlanValidationTest {
     @Test
-    fun deviceCounterAlwaysIncludesThisPhoneAndDoesNotDoubleCountIt() {
-        assertEquals(1, visibleDeviceCount(emptyList()))
+    fun deviceCounterOnlyIncludesServerListedDevices() {
+        assertEquals(0, visibleDeviceCount(emptyList()))
         assertEquals(1, visibleDeviceCount(listOf(DeviceItem("phone", "Pixel", "Android", "now", isCurrent = true))))
-        assertEquals(2, visibleDeviceCount(listOf(DeviceItem("tablet", "Tablet", "Android", "now"))))
+        assertEquals(1, visibleDeviceCount(listOf(DeviceItem("tablet", "Tablet", "Android", "now"))))
         assertEquals(2, visibleDeviceCount(listOf(
             DeviceItem("phone", "Pixel", "Android", "now", isCurrent = true),
             DeviceItem("tablet", "Tablet", "Android", "now")

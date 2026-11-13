@@ -9,6 +9,7 @@ import org.json.JSONArray
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApiModelsTest {
@@ -110,6 +111,14 @@ class ApiModelsTest {
         assertEquals(listOf("41", "42"), devices.map { it.id })
         assertEquals(2, devices.size)
         assertEquals(devices[0].deviceModel, devices[1].deviceModel)
+    }
+
+    @Test
+    fun missingDeviceListIsNotTreatedAsEmpty() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            ApiJsonParsers.parseDeviceResponse(JSONObject("{}"))
+        }
+        assertTrue(ApiJsonParsers.parseDeviceResponse(JSONObject("{\"devices\":[]}")).isEmpty())
     }
 
     @Test
