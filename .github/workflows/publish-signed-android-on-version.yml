@@ -127,9 +127,9 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Android update: device list accuracy.
-          - Device counts use only entries returned by the server.
-          - An incomplete server response is shown as an error instead of an empty list.
+          Android update: clearer free trial status.
+          - The home screen explains when the free trial has already been used.
+          - Trial activation eligibility is refreshed with the server before activation.
 
           Android unit tests and release-certificate verification passed.
           Live VPN tunneling and individual customer accounts require real-device verification before broad rollout.
