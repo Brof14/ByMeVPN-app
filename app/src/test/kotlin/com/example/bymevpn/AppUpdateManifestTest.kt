@@ -37,6 +37,17 @@ class AppUpdateManifestTest {
     }
 
     @Test
+    fun githubHostDoesNotTrustNonReleasePaths() {
+        val update = parseUpdateManifest(
+            manifest(url = "https://github.com/Brof14/ByMeVPN-app/releases/latest/download/ByMeVPN.apk"),
+            currentVersionCode = 0,
+            currentVersion = "1.0.0",
+            expectedHost = "github.com"
+        )
+        assertNull(update)
+    }
+
+    @Test
     fun ignoresCurrentOrOlderVersion() {
         val current = manifest(versionCode = 1)
         val older = manifest(versionCode = 0)

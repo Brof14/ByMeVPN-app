@@ -216,9 +216,9 @@ internal fun String.isTrustedUpdateUrl(expectedHost: String = "bymevpn.duckdns.o
     val uri = URI(this)
     val secureOrigin = uri.scheme.equals("https", ignoreCase = true) &&
         uri.userInfo == null && (uri.port == -1 || uri.port == 443)
-    val bymeOrigin = uri.host.equals(expectedHost, ignoreCase = true) &&
-        uri.path.startsWith("/app/downloads/")
+    val legacyBymeOrigin = expectedHost.equals("bymevpn.duckdns.org", ignoreCase = true) &&
+        uri.host.equals(expectedHost, ignoreCase = true)
     val githubRelease = uri.host.equals("github.com", ignoreCase = true) &&
         uri.path.matches(Regex("/Brof14/ByMeVPN-app/releases/download/v\\d+\\.\\d+\\.\\d+/ByMeVPN-v\\d+\\.\\d+\\.\\d+\\.apk"))
-    secureOrigin && (bymeOrigin || githubRelease)
+    secureOrigin && (legacyBymeOrigin || githubRelease)
 }.getOrDefault(false)
