@@ -121,6 +121,10 @@ fun HomeScreen(
     val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
 
+    LaunchedEffect(currentUser?.id) {
+        if (subscription?.isUsable != true) subManager.refreshStatus(forceBackend = true)
+    }
+
     var showServerSheet by remember { mutableStateOf(false) }
     var isAutoServerSelected by remember { mutableStateOf(true) }
     var showFaqDialog by remember { mutableStateOf(false) }
@@ -230,6 +234,8 @@ fun HomeScreen(
         trialActivationError = null
         scope.launch {
             try {
+                val fresh = subManager.refreshStatus(forceBackend = true).getOrThrow()
+                if (!TrialActivationPolicy.shouldOfferTrial(fresh)) return@launch
                 val result = subManager.activateTrial()
                 result.onSuccess {
                     // Keep the home screen in a calm preparation state while the newly
@@ -408,6 +414,7 @@ fun HomeScreen(
                         offerTelegramRecovery = offerTelegramRecovery,
                         isCheckingSubscription = isCheckingSubscription,
                         trialAvailable = isActivatingTrial || TrialActivationPolicy.shouldOfferTrial(subscription),
+                        trialUnavailableReason = subscription?.trialUnavailableReason,
                         isActivatingTrial = isActivatingTrial,
                         isPreparingTrialServers = isPreparingTrialServers,
                         trialError = trialActivationError
@@ -537,6 +544,7 @@ private fun HomeNoPlanContent(
     offerTelegramRecovery: Boolean,
     isCheckingSubscription: Boolean,
     trialAvailable: Boolean,
+    trialUnavailableReason: String?,
     isActivatingTrial: Boolean,
     isPreparingTrialServers: Boolean,
     trialError: String?
@@ -579,6 +587,8 @@ private fun HomeNoPlanContent(
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем подписку…" else "Checking subscription…"
                         subscriptionUnknown -> if (isRu) "Не удалось проверить подписку" else "Could not check subscription"
                         trialAvailable -> if (isRu) "3 дня бесплатно" else "3 days free"
+                        trialUnavailableReason == "trial_already_used" -> if (isRu) "Пробный период использован" else "Free trial already used"
+                        trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Проверяем активацию" else "Checking activation"
                         else -> if (isRu) "Подписка не активна" else "Subscription inactive"
                     },
                     color = AppColors.TextPrimary, fontSize = 24.sp,
@@ -590,6 +600,9 @@ private fun HomeNoPlanContent(
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Загружаем данные аккаунта." else "Loading account details."
                         subscriptionUnknown -> if (isRu) "Повторите проверку, чтобы обновить данные аккаунта." else "Retry to refresh your account details."
                         trialAvailable -> if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying."
+                        trialUnavailableReason == "trial_already_used" -> if (isRu) "Выберите тариф, чтобы продолжить пользоваться VPN." else "Choose a plan to continue using VPN."
+                        trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Обновите статус через некоторое время." else "Refresh your status in a little while."
+                        trialUnavailableReason in setOf("eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> if (isRu) "Не удалось проверить доступность пробного периода. Попробуйте ещё раз." else "Could not check trial availability. Please try again."
                         else -> if (isRu) "Выберите подходящий тариф." else "Choose a plan that works for you."
                     },
                     color = Color(0xFFA1B4AD), fontSize = 12.sp
@@ -602,11 +615,13 @@ private fun HomeNoPlanContent(
                         isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
                         isActivatingTrial -> if (isRu) "Подключаем пробный период…" else "Activating your trial…"
                         trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
+                        trialUnavailableReason in setOf("trial_activation_pending", "eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> if (isRu) "Обновить статус" else "Refresh status"
                         else -> if (isRu) "Посмотреть тарифы" else "View plans"
                     },
                     onClick = when {
                         subscriptionUnknown -> onRetrySubscription
                         trialAvailable -> onTrialClick
+                        trialUnavailableReason in setOf("trial_activation_pending", "eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> onRetrySubscription
                         else -> onChoosePlanClick
                     },
                     enabled = !isActivatingTrial && !isCheckingSubscription,

@@ -13,6 +13,7 @@ internal object SubscriptionCacheCodec {
         put("seconds_remaining", status.secondsRemaining)
         put("auto_renew", status.autoRenew)
         put("trial_available", status.trialAvailable)
+        put("trial_unavailable_reason", status.trialUnavailableReason ?: "")
         put("max_devices", status.maxDevices)
         put("active_devices", status.activeDevices)
         put("entitlement", status.entitlement ?: "")
@@ -37,7 +38,9 @@ internal object SubscriptionCacheCodec {
             secondsRemaining = if (confirmedDisplayData) json.optLong("seconds_remaining", 0L) else 0L,
             // Older clients cached an invented value; only trust a fresh server response.
             autoRenew = null,
-            trialAvailable = json.optBoolean("trial_available", false),
+            // Eligibility can change on another device; refresh before offering a trial.
+            trialAvailable = false,
+            trialUnavailableReason = optionalString("trial_unavailable_reason"),
             maxDevices = if (confirmedDisplayData) json.optInt("max_devices", 0) else 0,
             activeDevices = if (confirmedDisplayData) json.optInt("active_devices", 0) else 0,
             entitlement = optionalString("entitlement"),
