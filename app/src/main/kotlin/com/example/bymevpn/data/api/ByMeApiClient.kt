@@ -375,8 +375,7 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun getDevices(): List<DeviceItem> {
         val json = request("GET", "/devices", null, requiresAuth = true)
-        val array = json.optJSONArray("devices") ?: JSONArray()
-        return ApiJsonParsers.parseDevices(array, storage.getInstallId(context))
+        return ApiJsonParsers.parseDeviceResponse(json, storage.getInstallId(context))
     }
 
     suspend fun deleteDevice(deviceId: String) {
