@@ -61,6 +61,7 @@ import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.subscription.SubscriptionPresentationPolicy
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
 
@@ -87,10 +88,12 @@ fun AccountScreen(
     val currentUser by AccountRepository.currentUser.collectAsState()
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
+    val isCheckingSubscription by subManager.isSyncing.collectAsState()
     val devices by AccountRepository.userDevices.collectAsState()
+    val deviceListUnavailable by AccountRepository.deviceListUnavailable.collectAsState()
 
     val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
-    val subscriptionUnknown = subscription == null || subscription?.isUndetermined == true
+    val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.count { !it.isCurrent } + 1
@@ -104,6 +107,26 @@ fun AccountScreen(
     var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val accountSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    fun refreshAccountData() {
+        if (refreshingAccount) return
+        refreshingAccount = true
+        scope.launch {
+            try {
+                AccountRepository.refreshProfile(context)
+                AccountRepository.refreshDevices(context)
+                val result = subManager.refreshStatus(forceBackend = true)
+                Toast.makeText(
+                    context,
+                    if (result.isSuccess) t("Данные обновлены", "Account refreshed")
+                    else t("Не удалось обновить данные. Попробуйте позже.", "Could not refresh account. Try again later."),
+                    Toast.LENGTH_SHORT
+                ).show()
+            } finally {
+                refreshingAccount = false
+            }
+        }
+    }
 
     LaunchedEffect(Unit) {
         AccountRepository.refreshProfile(context)
@@ -157,7 +180,7 @@ fun AccountScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: t("Локальная подписка", "Local subscription"),
+                            text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: t("Аккаунт ByMeVPN", "ByMeVPN account"),
                             color = Color(0xFF8CA5A2),
                             fontSize = 11.5.sp
                         )
@@ -256,6 +279,56 @@ fun AccountScreen(
                             onClick = onNavigateToPricing
                         )
                     }
+                } else if (subscriptionUnknown) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(21.dp))
+                            .background(Color(0xFF1A2D40))
+                            .border(1.dp, Color(0xFF34566A), RoundedCornerShape(21.dp))
+                            .padding(21.dp)
+                    ) {
+                        Text(
+                            text = t("СТАТУС ДОСТУПА", "ACCESS STATUS"),
+                            color = Color(0xFF8FBBCA),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.2.sp
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = if (isCheckingSubscription || refreshingAccount) {
+                                t("Проверяем подписку", "Checking subscription")
+                            } else {
+                                t("Не удалось проверить подписку", "Could not verify subscription")
+                            },
+                            color = AppColors.TextPrimary,
+                            fontSize = 21.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = t(
+                                "Доступ пока не подтверждён. Обновите данные аккаунта; пробный период и подписка не менялись.",
+                                "Access is not confirmed yet. Refresh your account; your trial and subscription have not been changed."
+                            ),
+                            color = Color(0xFF96B0A6),
+                            fontSize = 12.5.sp,
+                            lineHeight = 18.sp
+                        )
+                        Spacer(modifier = Modifier.height(20.dp))
+                        ByMePrimaryButton(
+                            text = if (isCheckingSubscription || refreshingAccount) {
+                                t("Проверяем…", "Checking…")
+                            } else {
+                                t("Повторить проверку", "Retry status check")
+                            },
+                            onClick = { refreshAccountData() },
+                            enabled = !isCheckingSubscription && !refreshingAccount,
+                            height = 50.dp,
+                            showArrow = false
+                        )
+                    }
                 } else {
                     // Inactive Plan Card
                     Column(
@@ -328,7 +401,9 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = t("Мои устройства", "My devices"),
-                        subtitle = if (devices.isNotEmpty()) {
+                        subtitle = if (deviceListUnavailable) {
+                            t("Не удалось загрузить список устройств", "Could not load your devices")
+                        } else if (devices.isNotEmpty()) {
                             effectiveDevicesText
                         } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Сервер не передал лимит тарифа", "Server did not provide the plan limit"),
                         icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
@@ -481,26 +556,8 @@ fun AccountScreen(
 
                     ByMeSecondaryButton(
                         text = if (refreshingAccount) t("Обновляем…", "Refreshing…") else t("Обновить данные", "Refresh account"),
-                        onClick = {
-                            if (!refreshingAccount) {
-                                refreshingAccount = true
-                                scope.launch {
-                                    try {
-                                        AccountRepository.refreshProfile(context)
-                                        AccountRepository.refreshDevices(context)
-                                        val result = subManager.refreshStatus(forceBackend = true)
-                                        Toast.makeText(
-                                            context,
-                                            if (result.isSuccess) t("Данные обновлены", "Account refreshed")
-                                            else t("Не удалось обновить данные. Попробуйте позже.", "Could not refresh account. Try again later."),
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    } finally {
-                                        refreshingAccount = false
-                                    }
-                                }
-                            }
-                        }
+                        onClick = { refreshAccountData() },
+                        enabled = !refreshingAccount
                     )
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

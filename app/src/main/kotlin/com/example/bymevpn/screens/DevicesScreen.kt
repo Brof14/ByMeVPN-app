@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
+import com.example.bymevpn.components.ByMePrimaryButton
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.components.SmartphoneIcon
 import com.example.bymevpn.data.AccountRepository
@@ -62,11 +63,13 @@ fun DevicesScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
     val devicesList by AccountRepository.userDevices.collectAsState()
+    val deviceListUnavailable by AccountRepository.deviceListUnavailable.collectAsState()
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
     val scope = rememberCoroutineScope()
     var pendingRemoveId by remember { mutableStateOf<String?>(null) }
     var isRemoving by remember { mutableStateOf(false) }
+    var isRefreshingDevices by remember { mutableStateOf(false) }
     val otherDevices = devicesList.filterNot { it.isCurrent }
 
     LaunchedEffect(Unit) {
@@ -98,7 +101,7 @@ fun DevicesScreen(
                 // Large device count display matching mockup 15_devices
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = "$effectiveConnected",
+                        text = if (deviceListUnavailable) "—" else "$effectiveConnected",
                         color = AppColors.TextPrimary,
                         fontSize = 60.sp,
                         fontWeight = FontWeight.Bold,
@@ -114,7 +117,9 @@ fun DevicesScreen(
                 }
 
                 Text(
-                    text = if (effectiveMax == null) {
+                    text = if (deviceListUnavailable) {
+                        if (isRu) "Не удалось получить подтверждённый список с сервера." else "Could not retrieve the confirmed device list."
+                    } else if (effectiveMax == null) {
                         if (otherDevices.isEmpty()) {
                             if (isRu) "Пока отображается только это устройство." else "Only this device is shown for now."
                         } else {
@@ -126,13 +131,59 @@ fun DevicesScreen(
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
 
-                if (effectiveMax != null) {
+                if (effectiveMax != null && !deviceListUnavailable) {
                     androidx.compose.material3.LinearProgressIndicator(
                         progress = { (effectiveConnected.toFloat() / effectiveMax).coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth().height(4.dp),
                         color = AppColors.BrandMint,
                         trackColor = AppColors.CardBorder
                     )
+                    Spacer(Modifier.height(20.dp))
+                }
+
+                if (deviceListUnavailable) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(17.dp))
+                            .background(Color(0xFF142638))
+                            .border(1.dp, Color(0xFF294453), RoundedCornerShape(17.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = if (isRu) "Список устройств временно недоступен" else "Device list is temporarily unavailable",
+                            color = AppColors.TextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = if (isRu) "Мы не меняли лимит и не удаляли устройства. Повторите загрузку." else "Your device limit and registered devices were not changed. Try loading again.",
+                            color = Color(0xFF92A9A5),
+                            fontSize = 12.sp
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        ByMePrimaryButton(
+                            text = if (isRefreshingDevices) {
+                                if (isRu) "Загружаем…" else "Loading…"
+                            } else {
+                                if (isRu) "Повторить" else "Retry"
+                            },
+                            onClick = {
+                                if (!isRefreshingDevices) scope.launch {
+                                    isRefreshingDevices = true
+                                    try {
+                                        AccountRepository.refreshDevices(context)
+                                    } finally {
+                                        isRefreshingDevices = false
+                                    }
+                                }
+                            },
+                            enabled = !isRefreshingDevices,
+                            height = 46.dp,
+                            showArrow = false
+                        )
+                    }
                     Spacer(Modifier.height(20.dp))
                 }
 

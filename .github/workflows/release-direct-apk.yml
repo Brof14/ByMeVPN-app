@@ -15,6 +15,8 @@ concurrency:
 jobs:
   build-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,6 +48,8 @@ jobs:
               raise SystemExit('Android versionCode/versionName is missing')
           if not re.fullmatch(r'\d+\.\d+\.\d+', tag):
               raise SystemExit('Release tag must use vMAJOR.MINOR.PATCH')
+          if name.group(1) != tag:
+              raise SystemExit(f'Release tag v{tag} does not match app version {name.group(1)}')
           print(f'Validated release tag v{tag} for app version {name.group(1)} (versionCode {code.group(1)})')
           PY
       - name: Prepare release signing key
@@ -96,56 +100,24 @@ jobs:
           manifest = {
               'version_name': version,
               'version_code': code,
-              'download_url': f'https://bymevpn.duckdns.org/app/downloads/{apk.name}',
+              'download_url': f'https://github.com/Brof14/ByMeVPN-app/releases/download/v{version}/{apk.name}',
               'sha256': digest,
-              'release_notes': 'ByMeVPN 1.0.0 — обновление состояния подписки и улучшенный запуск.'
+              'release_notes': f'ByMeVPN {version} — исправления стабильности авторизации и состояния подписки.'
           }
           Path('dist/update.json').write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')) + '\n')
           PY
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_REF: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_REF" dist/*.apk dist/update.json \
+            --verify-tag \
+            --title "ByMeVPN $RELEASE_REF" \
+            --notes "Исправления стабильности входа, загрузки подписки и списка устройств."
       - uses: actions/upload-artifact@v4
         with:
           name: ByMeVPN-direct-${{ github.ref_name }}
           path: dist/*
           if-no-files-found: error
           retention-days: 30
-
-  deploy-update-site:
-    if: github.ref_type == 'tag'
-    needs: build-release
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: ByMeVPN-direct-${{ github.ref_name }}
-          path: dist
-      - name: Deploy APK and atomically publish update manifest
-        env:
-          UPDATE_SSH_HOST: ${{ secrets.UPDATE_SSH_HOST }}
-          UPDATE_SSH_USER: ${{ secrets.UPDATE_SSH_USER }}
-          UPDATE_SSH_KEY: ${{ secrets.UPDATE_SSH_KEY }}
-          UPDATE_SSH_KNOWN_HOSTS: ${{ secrets.UPDATE_SSH_KNOWN_HOSTS }}
-        run: |
-          set -euo pipefail
-          test -n "$UPDATE_SSH_HOST" && test -n "$UPDATE_SSH_USER" && test -n "$UPDATE_SSH_KEY" && test -n "$UPDATE_SSH_KNOWN_HOSTS"
-          mkdir -p "$HOME/.ssh"
-          chmod 700 "$HOME/.ssh"
-          printf '%s\n' "$UPDATE_SSH_KEY" > "$HOME/.ssh/update_deploy_key"
-          printf '%s\n' "$UPDATE_SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/update_deploy_key" "$HOME/.ssh/known_hosts"
-          apk="$(find dist -maxdepth 1 -name '*.apk' -print -quit)"
-          test -n "$apk"
-          apk_name="$(basename "$apk")"
-          {
-            printf 'put "%s" "app/downloads/%s.part"\n' "$apk" "$apk_name"
-            printf -- '-rm "app/downloads/%s"\n' "$apk_name"
-            printf 'rename "app/downloads/%s.part" "app/downloads/%s"\n' "$apk_name" "$apk_name"
-            printf 'chmod 0644 "app/downloads/%s"\n' "$apk_name"
-            printf -- '-rm "app/update.json.new"\n'
-            printf 'put "dist/update.json" "app/update.json.new"\n'
-            printf 'chmod 0644 "app/update.json.new"\n'
-            # OpenSSH's sftp CLI command is `rename`; it uses the POSIX rename
-            # extension automatically when the server advertises support.
-            printf 'rename "app/update.json.new" "app/update.json"\n'
-          } > "$HOME/.ssh/upload.batch"
-          chmod 600 "$HOME/.ssh/upload.batch"
-          sftp -b "$HOME/.ssh/upload.batch" -i "$HOME/.ssh/update_deploy_key" -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes "$UPDATE_SSH_USER@$UPDATE_SSH_HOST"
