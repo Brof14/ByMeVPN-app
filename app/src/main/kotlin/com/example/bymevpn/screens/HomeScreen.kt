@@ -74,6 +74,7 @@ import com.example.bymevpn.components.VpnPowerButton
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.subscription.SubscriptionPresentationPolicy
 import com.example.bymevpn.data.subscription.TrialActivationPolicy
 import com.example.bymevpn.data.update.AppUpdateManager
 import com.example.bymevpn.theme.AppColors
@@ -113,7 +114,7 @@ fun HomeScreen(
     val subscription by subManager.subscriptionStatus.collectAsState()
     val isCheckingSubscription by subManager.isSyncing.collectAsState()
     val currentUser by AccountRepository.currentUser.collectAsState()
-    val subscriptionUnknown = subscription == null || subscription?.isUndetermined == true
+    val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
     val offerTelegramRecovery = subscription?.status == "none" &&
         (currentUser?.isGoogle == true || !currentUser?.email.isNullOrBlank())
 

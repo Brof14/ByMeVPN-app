@@ -25,6 +25,29 @@ class AppUpdateManifestTest {
     }
 
     @Test
+    fun acceptsExactSignedReleaseAssetOnGitHub() {
+        val update = parseUpdateManifest(
+            """{"version_code":21,"version_name":"1.0.20","download_url":"https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.20/ByMeVPN-v1.0.20.apk","sha256":"$checksum","release_notes":"Fixes"}""",
+            currentVersionCode = 20,
+            currentVersion = "1.0.19",
+            expectedHost = "github.com"
+        )
+        assertNotNull(update)
+        assertEquals("1.0.20", update?.latestVersion)
+    }
+
+    @Test
+    fun githubHostDoesNotTrustNonReleasePaths() {
+        val update = parseUpdateManifest(
+            manifest(url = "https://github.com/Brof14/ByMeVPN-app/releases/latest/download/ByMeVPN.apk"),
+            currentVersionCode = 0,
+            currentVersion = "1.0.0",
+            expectedHost = "github.com"
+        )
+        assertNull(update)
+    }
+
+    @Test
     fun ignoresCurrentOrOlderVersion() {
         val current = manifest(versionCode = 1)
         val older = manifest(versionCode = 0)
@@ -37,6 +60,8 @@ class AppUpdateManifestTest {
         assertNull(parse(manifest(checksum = "")))
         assertNull(parse(manifest(url = "http://bymevpn.duckdns.org/app/update.apk")))
         assertNull(parse(manifest(url = "https://github.com/Brof14/ByMeVPN-app/releases/latest")))
+        assertNull(parse(manifest(url = "https://github.com/attacker/other/releases/download/v1.0.20/ByMeVPN-v1.0.20.apk")))
+        assertNull(parse(manifest(url = "https://github.com/Brof14/ByMeVPN-app/releases/download/v1.0.20/other.apk")))
         assertNull(parse(manifest(url = "https://bymevpn.duckdns.org.attacker.example/update.apk")))
     }
 

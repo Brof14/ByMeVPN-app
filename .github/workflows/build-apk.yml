@@ -83,9 +83,20 @@ jobs:
           printf '%s\n' "$cert_output"
           actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           test "$actual" = "$EXPECTED_CERT_SHA256"
+      - name: Read app version
+        id: app-version
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import re
+          from pathlib import Path
+          text = Path('app/build.gradle.kts').read_text()
+          version = re.search(r'versionName\s*=\s*"([^"]+)"', text).group(1)
+          print(f'version={version}')
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: bymevpn-signed-1.0.0
+          name: bymevpn-signed-${{ steps.app-version.outputs.version }}
           path: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab

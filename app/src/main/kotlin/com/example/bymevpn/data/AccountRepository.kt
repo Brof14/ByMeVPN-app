@@ -14,8 +14,6 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +32,9 @@ object AccountRepository {
     private val _userDevices = MutableStateFlow<List<DeviceItem>>(emptyList())
     val userDevices: StateFlow<List<DeviceItem>> = _userDevices.asStateFlow()
 
+    private val _deviceListUnavailable = MutableStateFlow(false)
+    val deviceListUnavailable: StateFlow<Boolean> = _deviceListUnavailable.asStateFlow()
+
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
@@ -51,27 +52,6 @@ object AccountRepository {
                 com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
             }
         }
-    }
-
-    /**
-     * Telegram login completes from an external app. Wait for account state to
-     * refresh before reporting success so Home never opens with a blank/stale
-     * subscription and server list.
-     */
-    private suspend fun refreshAfterTelegramLogin(context: Context) = coroutineScope {
-        val appContext = context.applicationContext
-        val subscriptionManager = SubscriptionManager.getInstance(appContext)
-        val statusRefresh = async { subscriptionManager.refreshStatus(forceBackend = true) }
-        val devicesRefresh = async { refreshDevices(appContext) }
-
-        // Fetch status and devices together. Server configuration is access-gated,
-        // so do not request it before the refreshed status confirms usable access.
-        val statusResult = statusRefresh.await()
-        val status = statusResult.getOrNull()
-        if (status?.isUsable == true) {
-            com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
-        }
-        devicesRefresh.await()
     }
 
     fun init(context: Context) {
@@ -180,8 +160,11 @@ object AccountRepository {
             val api = ByMeApiClient(context)
             val check = api.checkTelegramSession(token)
             if (check.status == "authenticated" && check.auth != null) {
-                refreshAfterTelegramLogin(context)
                 _currentUser.value = check.auth.user
+                // Do not hold Telegram login on status and device calls. Those
+                // are refreshed in the background, so a panel outage cannot
+                // turn a completed one-time login exchange into a login error.
+                refreshAfterLogin(context)
                 Result.success(check.auth.user)
             } else if (check.status == "expired") {
                 Result.failure(ApiError("SESSION_EXPIRED", "Telegram sign-in session expired", 401))
@@ -204,7 +187,8 @@ object AccountRepository {
             val user = api.getMe()
             _currentUser.value = user
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh profile: ${e.javaClass.simpleName}")
+            logRequestFailure("Failed to refresh profile", e)
+            clearExpiredSession(context, e)
         }
     }
 
@@ -214,14 +198,37 @@ object AccountRepository {
             val api = ByMeApiClient(context)
             val devices = api.getDevices()
             _userDevices.value = devices
+            _deviceListUnavailable.value = false
             storage.saveRegisteredDevices(devices)
             return
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh devices from API: ${e.javaClass.simpleName}")
+            logRequestFailure("Failed to refresh devices from API", e)
+            clearExpiredSession(context, e)
+            _deviceListUnavailable.value = true
         }
 
         // Do not display old locally fabricated devices as a current server response.
         _userDevices.value = emptyList()
+    }
+
+    private fun clearExpiredSession(context: Context, error: Exception) {
+        if (!AccountSessionPolicy.isExpired(error)) return
+
+        // ByMeApiClient has already cleared persisted credentials after refresh
+        // failed. Clear the in-memory identity as well, so the UI cannot keep
+        // presenting a cached profile as an authenticated account.
+        _currentUser.value = null
+        _userDevices.value = emptyList()
+        _deviceListUnavailable.value = false
+        SubscriptionManager.getInstance(context.applicationContext).clear()
+    }
+
+    private fun logRequestFailure(action: String, error: Exception) {
+        val apiError = error as? ApiError
+        Log.w(
+            TAG,
+            "$action (code=${apiError?.code ?: error.javaClass.simpleName}, status=${apiError?.httpStatusCode ?: "n/a"}, correlation=${apiError?.correlationId ?: "n/a"})"
+        )
     }
 
     suspend fun removeDevice(context: Context, deviceId: String): Result<Unit> {
@@ -247,6 +254,7 @@ object AccountRepository {
         SubscriptionManager.getInstance(appContext).clear()
         _currentUser.value = null
         _userDevices.value = emptyList()
+        _deviceListUnavailable.value = false
         com.example.bymevpn.vpn.VpnManager.getInstance(appContext).disconnect()
         if (!tokenToRevoke.isNullOrBlank()) {
             repoScope.launch {
@@ -266,6 +274,7 @@ object AccountRepository {
             SubscriptionManager.getInstance(context).clear()
             _currentUser.value = null
             _userDevices.value = emptyList()
+            _deviceListUnavailable.value = false
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

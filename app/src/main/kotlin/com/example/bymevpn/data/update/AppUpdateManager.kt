@@ -30,8 +30,9 @@ data class AppUpdateInfo(
 
 object AppUpdateManager {
     private const val TAG = "AppUpdateManager"
-    private const val UPDATE_ORIGIN = "https://bymevpn.duckdns.org"
-    private const val MANIFEST_URL = "$UPDATE_ORIGIN/app/update.json"
+    // GitHub Releases is the canonical update source. This avoids making app
+    // updates depend on the VPS upload host or its SSH deployment key.
+    private const val MANIFEST_URL = "https://github.com/Brof14/ByMeVPN-app/releases/latest/download/update.json"
     private const val MAX_APK_BYTES = 200L * 1024L * 1024L
 
     private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
@@ -46,7 +47,7 @@ object AppUpdateManager {
         try {
             val activeConnection = (URL(MANIFEST_URL).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
-                instanceFollowRedirects = false
+                instanceFollowRedirects = true
                 connectTimeout = 8000
                 readTimeout = 8000
                 setRequestProperty("Accept", "application/json")
@@ -60,7 +61,7 @@ object AppUpdateManager {
             require(activeConnection.contentLengthLong in 0..32_768L) { "Update manifest is too large" }
             val manifestText = activeConnection.inputStream.bufferedReader().use { it.readText() }
             val current = currentAppVersion(context)
-            val update = parseUpdateManifest(manifestText, current.first, current.second, "bymevpn.duckdns.org")
+            val update = parseUpdateManifest(manifestText, current.first, current.second, "github.com")
             _updateInfo.value = update
             update
         } catch (e: Exception) {
@@ -82,7 +83,8 @@ object AppUpdateManager {
         val apk = File(updatesDir, "bymevpn-update.apk")
         val connection = (URL(update.downloadUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
-            instanceFollowRedirects = false
+            // GitHub release assets redirect to its signed asset CDN.
+            instanceFollowRedirects = true
             connectTimeout = 15000
             readTimeout = 30000
             setRequestProperty("User-Agent", "ByMeVPN-Android")
@@ -212,6 +214,11 @@ internal fun parseUpdateManifest(
 
 internal fun String.isTrustedUpdateUrl(expectedHost: String = "bymevpn.duckdns.org"): Boolean = runCatching {
     val uri = URI(this)
-    uri.scheme.equals("https", ignoreCase = true) && uri.host.equals(expectedHost, ignoreCase = true) &&
+    val secureOrigin = uri.scheme.equals("https", ignoreCase = true) &&
         uri.userInfo == null && (uri.port == -1 || uri.port == 443)
+    val legacyBymeOrigin = expectedHost.equals("bymevpn.duckdns.org", ignoreCase = true) &&
+        uri.host.equals(expectedHost, ignoreCase = true)
+    val githubRelease = uri.host.equals("github.com", ignoreCase = true) &&
+        uri.path.matches(Regex("/Brof14/ByMeVPN-app/releases/download/v\\d+\\.\\d+\\.\\d+/ByMeVPN-v\\d+\\.\\d+\\.\\d+\\.apk"))
+    secureOrigin && (legacyBymeOrigin || githubRelease)
 }.getOrDefault(false)
