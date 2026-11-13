@@ -7,4 +7,3 @@ internal object SubscriptionPresentationPolicy {
     fun isUnknown(status: SubscriptionStatus?): Boolean =
         status == null || status.isUndetermined
 }
-}
