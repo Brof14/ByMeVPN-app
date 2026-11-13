@@ -127,10 +127,9 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Android update: subscription state recovery.
-          - Unknown server state is not misreported as an inactive subscription.
-          - Existing Telegram subscribers can explicitly sign in with Telegram from the account recovery link.
-          - Subscription verification, device limits and signed entitlements remain required.
+          Android update: device list accuracy.
+          - Device counts use only entries returned by the server.
+          - An incomplete server response is shown as an error instead of an empty list.
 
           Android unit tests and release-certificate verification passed.
           Live VPN tunneling and individual customer accounts require real-device verification before broad rollout.
