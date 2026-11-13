@@ -127,9 +127,10 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Android update: clearer free trial status.
-          - The home screen explains when the free trial has already been used.
-          - Trial activation eligibility is refreshed with the server before activation.
+          Android update: clearer account and trial status.
+          - The account screen respects the server-reported trial eligibility.
+          - The home screen logo is larger when there is no active subscription.
+          - The account settings no longer offer unavailable account deletion or account ID copying.
 
           Android unit tests and release-certificate verification passed.
           Live VPN tunneling and individual customer accounts require real-device verification before broad rollout.

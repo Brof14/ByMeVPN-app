@@ -15,6 +15,8 @@ import com.example.bymevpn.components.ByMePrimaryButton
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.subscription.TrialActivationPolicy
 import kotlinx.coroutines.launch
 
 @Composable
@@ -23,16 +25,30 @@ fun TrialScreen(onBackClick: () -> Unit, onChoosePlanClick: () -> Unit, onTrialA
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
     val scope = rememberCoroutineScope()
+    val subManager = remember { SubscriptionManager.getInstance(context) }
+    val subscription by subManager.subscriptionStatus.collectAsState()
+    val checking by subManager.isSyncing.collectAsState()
+    LaunchedEffect(Unit) { subManager.refreshStatus(forceBackend = true) }
     var activating by remember { mutableStateOf(false) }
     Column(modifier.fillMaxSize().background(AppColors.BgCanvas)) {
-        ByMeTopBar(title = if (isRu) "3 дня бесплатно" else "3 days free", onBackClick = onBackClick, onMoreClick = null)
+        ByMeTopBar(title = if (isRu) "Пробный период" else "Free trial", onBackClick = onBackClick, onMoreClick = null)
         Column(Modifier.padding(26.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
-            Text(if (isRu) "Попробуйте VPN бесплатно" else "Try VPN for free", color = AppColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(if (isRu) "Пробный доступ на 3 дня, если он ещё не использован. После окончания выберите тариф, чтобы продолжить." else "Get 3 days of free access if your trial has not been used. Choose a plan to continue afterwards.", color = AppColors.TextPrimary, fontSize = 15.sp)
-            ByMePrimaryButton(text = if (activating) (if (isRu) "Подключаем…" else "Activating…") else (if (isRu) "Активировать бесплатно" else "Activate free trial"), onClick = {
+            Text(if (subscription?.trialUnavailableReason == "trial_already_used") {
+                if (isRu) "Пробный период использован" else "Free trial already used"
+            } else if (isRu) "Пробный период" else "Free trial", color = AppColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            Text(if (isRu) "Доступность пробного периода зависит от аккаунта." else "Trial availability depends on your account.", color = AppColors.TextPrimary, fontSize = 15.sp)
+            if (subscription?.trialUnavailableReason == "trial_already_used") {
+                Text(if (isRu) "Пробный период уже использован." else "The free trial has already been used.", color = AppColors.TextSecondary, fontSize = 15.sp)
+            }
+            if (TrialActivationPolicy.shouldOfferTrial(subscription)) ByMePrimaryButton(text = if (activating) (if (isRu) "Подключаем…" else "Activating…") else (if (isRu) "Активировать бесплатно" else "Activate free trial"), enabled = !checking && !activating, onClick = {
                 if (!activating) {
                     activating = true
                     scope.launch {
+                        val fresh = subManager.refreshStatus(forceBackend = true).getOrNull()
+                        if (!TrialActivationPolicy.shouldOfferTrial(fresh)) {
+                            activating = false
+                            return@launch
+                        }
                         val result = YooKassaPaymentHandler.activateTrial(context)
                         activating = false
                         if (result.isSuccess) onTrialActivated()

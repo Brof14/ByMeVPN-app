@@ -54,7 +54,6 @@ import kotlinx.coroutines.launch
 /**
  * Premium Paywall Sheet (Happ & Top VPN style).
  * Offers:
- * 1) 3-Day Free Trial activation in 1 tap (no credit card required)
  * 2) YooKassa subscription plans (SBP, SberPay, T-Pay, Mir cards)
  * 3) Payments are created and confirmed through the app backend.
  */
@@ -77,7 +76,6 @@ fun PaywallSheet(
     var plansUnavailable by remember { mutableStateOf(false) }
     var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
     var refreshSequence by remember { mutableIntStateOf(0) }
-    var isActivatingTrial by remember { mutableStateOf(false) }
     var isProcessingPayment by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDeviceCount, refreshSequence) {
@@ -243,90 +241,9 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Free Trial Banner (1-tap trial)
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF0F261D), AppColors.CardBgElevated)
-                            )
-                        )
-                        .border(1.3.dp, AppColors.BrandGreen, RoundedCornerShape(18.dp))
-                        .padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎁", fontSize = 22.sp)
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = if (isRu) "Попробуйте 3 дня бесплатно" else "Try 3 days for free",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (isRu) "Без привязки карты • Все серверы сразу" else "No card needed • All servers unlocked",
-                                color = AppColors.TextSecondary,
-                                fontSize = 11.5.sp
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(AppColors.BrandGreen)
-                            .clickable(enabled = !isActivatingTrial) {
-                                isActivatingTrial = true
-                                scope.launch {
-                                    val res = YooKassaPaymentHandler.activateTrial(context)
-                                    isActivatingTrial = false
-                                    if (res.isSuccess) {
-                                        Toast.makeText(
-                                            context,
-                                            if (isRu) "Пробный период 3 дня активирован! Все серверы открыты." else "3-day trial activated! All servers unlocked.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                        onSubscriptionActivated()
-                                        onDismissRequest()
-                                    } else {
-                                        Toast.makeText(
-                                            context,
-                                            com.example.bymevpn.data.api.AccountActionErrorMessages.activateTrial(
-                                                res.exceptionOrNull(), isRu
-                                            ),
-                                            Toast.LENGTH_LONG
-                                        ).show()
-                                    }
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isActivatingTrial) {
-                            CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text(
-                                text = if (isRu) "Активировать 3 дня бесплатно" else "Activate 3 Days Free",
-                                color = AppColors.DarkText,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-
                 // Tariff selection header
                 Text(
-                    text = if (isRu) "Или выберите тариф:" else "Or choose a subscription plan:",
+                    text = if (isRu) "Выберите тариф:" else "Choose a subscription plan:",
                     color = AppColors.TextSecondary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
