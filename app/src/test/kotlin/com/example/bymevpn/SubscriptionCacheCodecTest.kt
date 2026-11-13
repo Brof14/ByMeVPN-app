@@ -10,6 +10,14 @@ import org.junit.Test
 
 class SubscriptionCacheCodecTest {
     @Test
+    fun cachedEligibilityRequiresFreshServerConfirmation() {
+        val available = SubscriptionStatus(status = "none", trialAvailable = true)
+        assertFalse(SubscriptionCacheCodec.decode(SubscriptionCacheCodec.encode(available))!!.trialAvailable)
+
+        val used = SubscriptionStatus(status = "none", trialUnavailableReason = "trial_already_used")
+        assertEquals("trial_already_used", SubscriptionCacheCodec.decode(SubscriptionCacheCodec.encode(used))!!.trialUnavailableReason)
+    }
+    @Test
     fun preservesShortLivedTrialBootstrapAcrossProcessRestart() {
         val original = SubscriptionStatus(
             status = "trial",

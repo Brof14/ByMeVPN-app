@@ -13,6 +13,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApiModelsTest {
+    @Test
+    fun preservesTrialUnavailabilityReason() {
+        val status = ApiJsonParsers.parseSubscriptionStatus(JSONObject("""{"status":"none","trial_available":false,"trial_unavailable_reason":"trial_already_used"}"""))
+        assertEquals("trial_already_used", status.trialUnavailableReason)
+    }
 
     @Test
     fun telegramSessionStatusRejectsMissingOrUnexpectedServerResponses() {
