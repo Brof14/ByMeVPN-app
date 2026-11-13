@@ -555,12 +555,13 @@ private fun HomeNoPlanContent(
         contentAlignment = Alignment.Center
     ) {
         val compact = maxHeight < 530.dp
+        val logoSize = if (compact) 130.dp else minOf(210.dp, maxHeight * 0.30f)
         Column(
             modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
                 .padding(horizontal = 26.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ShieldLogo(size = if (compact) 105.dp else 145.dp)
+            ShieldLogo(size = logoSize)
             Spacer(Modifier.height(if (compact) 8.dp else 14.dp))
             Text(
                 text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",

@@ -299,7 +299,7 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
 
     AnimatedContent(
         targetState = currentScreen,
-        transitionSpec = { fadeIn() togetherWith fadeOut() },
+        transitionSpec = { fadeIn(animationSpec = tween(160)) togetherWith fadeOut(animationSpec = tween(160)) },
         label = "screen_transition"
     ) { screen ->
         when (screen) {

@@ -1,9 +1,6 @@
 package com.example.bymevpn.screens
 
 import android.widget.Toast
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
@@ -62,8 +58,10 @@ import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.subscription.SubscriptionPresentationPolicy
+import com.example.bymevpn.data.subscription.TrialActivationPolicy
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.coroutineScope
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -102,8 +100,6 @@ fun AccountScreen(
     } ?: t("Устройств сейчас: $activeDevicesCount", "Devices shown: $activeDevicesCount")
 
     var showAccountDialog by remember { mutableStateOf(false) }
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    var deletingAccount by remember { mutableStateOf(false) }
     var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val accountSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -113,9 +109,11 @@ fun AccountScreen(
         refreshingAccount = true
         scope.launch {
             try {
-                AccountRepository.refreshProfile(context)
-                AccountRepository.refreshDevices(context)
-                val result = subManager.refreshStatus(forceBackend = true)
+                val result = coroutineScope {
+                    launch { AccountRepository.refreshProfile(context) }
+                    launch { AccountRepository.refreshDevices(context) }
+                    subManager.refreshStatus(forceBackend = true)
+                }
                 Toast.makeText(
                     context,
                     if (result.isSuccess) t("Данные обновлены", "Account refreshed")
@@ -129,9 +127,11 @@ fun AccountScreen(
     }
 
     LaunchedEffect(Unit) {
-        AccountRepository.refreshProfile(context)
-        AccountRepository.refreshDevices(context)
-        subManager.refreshStatus(forceBackend = true)
+        coroutineScope {
+            launch { AccountRepository.refreshProfile(context) }
+            launch { AccountRepository.refreshDevices(context) }
+            launch { subManager.refreshStatus(forceBackend = true) }
+        }
     }
 
     Box(
@@ -350,7 +350,9 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Text(
-                            text = t("Подписка не активна", "Subscription inactive"),
+                            text = if (subscription?.trialUnavailableReason == "trial_already_used")
+                                t("Пробный период использован", "Free trial already used")
+                            else t("Подписка не активна", "Subscription inactive"),
                             color = AppColors.TextPrimary,
                             fontSize = 24.sp,
                             fontWeight = FontWeight.Bold
@@ -359,7 +361,11 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = t("Оформите подписку, чтобы подключаться к серверам ByMeVPN.", "Choose a plan to connect to ByMeVPN servers."),
+                            text = when (subscription?.trialUnavailableReason) {
+                                "trial_activation_pending" -> t("Активация проверяется. Обновите данные позже.", "Activation is being checked. Refresh your account later.")
+                                "eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable" -> t("Не удалось проверить доступность пробного периода.", "Could not check trial availability.")
+                                else -> t("Оформите подписку, чтобы подключаться к серверам ByMeVPN.", "Choose a plan to connect to ByMeVPN servers.")
+                            },
                             color = Color(0xFF96B0A6),
                             fontSize = 12.5.sp,
                             lineHeight = 18.sp
@@ -368,14 +374,12 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(20.dp))
 
                         ByMePrimaryButton(
-                            text = t("3 дня бесплатно", "3 days free"),
-                            onClick = onNavigateToTrial,
+                            text = if (TrialActivationPolicy.shouldOfferTrial(subscription)) t("Активировать на главной", "Activate on Home") else t("Посмотреть тарифы", "View plans"),
+                            onClick = if (TrialActivationPolicy.shouldOfferTrial(subscription)) onNavigateToHome else onNavigateToPricing,
                             height = 50.dp
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        Text(
+                        if (TrialActivationPolicy.shouldOfferTrial(subscription)) Text(
                             text = t("Посмотреть тарифы", "View plans"),
                             color = Color(0xFF90CFCE),
                             fontSize = 12.sp,
@@ -384,7 +388,7 @@ fun AccountScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable(onClick = onNavigateToPricing)
-                                .padding(vertical = 4.dp)
+                                .padding(top = 14.dp, bottom = 4.dp)
                         )
                     }
                 }
@@ -488,22 +492,6 @@ fun AccountScreen(
                             currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" }
                                 ?: t("Не указан", "Not set")
                         )
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = t("ID аккаунта", "Account ID"),
-                                color = AppColors.TextSecondary,
-                                fontSize = 12.5.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                            TextButton(
-                                enabled = currentUser?.id?.isNotBlank() == true,
-                                onClick = {
-                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("ByMeVPN account ID", currentUser?.id.orEmpty()))
-                                    Toast.makeText(context, t("ID скопирован", "ID copied"), Toast.LENGTH_SHORT).show()
-                                }
-                            ) { Text(t("Скопировать", "Copy"), color = AppColors.BrandMint) }
-                        }
                     }
 
                     Column(
@@ -560,50 +548,12 @@ fun AccountScreen(
                         enabled = !refreshingAccount
                     )
 
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        TextButton(
-                            onClick = { showAccountDialog = false; onLogOut() },
-                            modifier = Modifier.weight(1f)
-                        ) { Text(t("Выйти", "Sign out"), color = Color(0xFFE98B8B)) }
-                        TextButton(
-                            onClick = { showAccountDialog = false; showDeleteDialog = true },
-                            modifier = Modifier.weight(1f)
-                        ) { Text(t("Удалить аккаунт", "Delete account"), color = Color(0xFFE98B8B)) }
+                    TextButton(onClick = { showAccountDialog = false; onLogOut() }) {
+                        Text(t("Выйти", "Sign out"), color = Color(0xFFE98B8B))
                     }
                     Spacer(Modifier.height(16.dp))
                 }
             }
-        }
-        if (showDeleteDialog) {
-            AlertDialog(
-                onDismissRequest = { if (!deletingAccount) showDeleteDialog = false },
-                title = { Text(t("Удалить аккаунт навсегда?", "Delete account permanently?")) },
-                text = { Text(t("Это действие удалит аккаунт на сервере и приведёт к потере доступа к подписке. Отменить удаление невозможно.", "This will delete your account and subscription access from the server. This cannot be undone.")) },
-                confirmButton = {
-                    TextButton(enabled = !deletingAccount, onClick = {
-                        deletingAccount = true
-                        scope.launch {
-                            val result = AccountRepository.deleteAccount(context)
-                            deletingAccount = false
-                            if (result.isSuccess) {
-                                showDeleteDialog = false
-                                onLogOut()
-                            } else {
-                                val apiError = result.exceptionOrNull() as? com.example.bymevpn.data.api.ApiError
-                                val message = when {
-                                    apiError?.httpStatusCode == 501 -> t("Удаление пока недоступно. Обратитесь в поддержку.", "Account deletion is not available yet. Contact support.")
-                                    apiError?.httpStatusCode == 401 -> t("Войдите в аккаунт заново и повторите попытку.", "Sign in again and try again.")
-                                    else -> t("Не удалось удалить аккаунт. Проверьте соединение и попробуйте позже.", "Could not delete the account. Check your connection and try again later.")
-                                }
-                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-                            }
-                        }
-                    }) { Text(t("Удалить навсегда", "Delete permanently"), color = Color(0xFFFF7373)) }
-                },
-                dismissButton = {
-                    TextButton(enabled = !deletingAccount, onClick = { showDeleteDialog = false }) { Text(t("Отмена", "Cancel")) }
-                }
-            )
         }
     }
 }
