@@ -20,12 +20,12 @@ require(serverEntitlementPublicKey.isBlank() ||
 
 android {
     namespace = "com.example.bymevpn"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.bymevpn.app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 25
         versionName = "1.0.24"
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
@@ -69,7 +69,13 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("play") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+        }
     }
+    sourceSets.getByName("debug").java.srcDir("src/direct/kotlin")
+    sourceSets.getByName("release").java.srcDir("src/direct/kotlin")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

@@ -271,6 +271,7 @@ object AccountRepository {
         return try {
             val api = ByMeApiClient(context)
             api.deleteMe()
+            com.example.bymevpn.vpn.VpnManager.getInstance(context.applicationContext).disconnect()
             SubscriptionManager.getInstance(context).clear()
             _currentUser.value = null
             _userDevices.value = emptyList()

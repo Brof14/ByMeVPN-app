@@ -210,7 +210,7 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun deleteMe() {
-        request("DELETE", "/me", null, requiresAuth = true)
+        request("DELETE", "/me", null, requiresAuth = true, confirmAccountDeletion = true)
         storage.clearTokens()
     }
 
@@ -432,7 +432,8 @@ class ByMeApiClient(private val context: Context) {
         body: JSONObject?,
         requiresAuth: Boolean,
         isRetry: Boolean = false,
-        authTokenOverride: String? = null
+        authTokenOverride: String? = null,
+        confirmAccountDeletion: Boolean = false
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
         if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
@@ -448,6 +449,9 @@ class ByMeApiClient(private val context: Context) {
                 doInput = true
                 setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                 setRequestProperty("Accept", "application/json")
+                if (confirmAccountDeletion) {
+                    setRequestProperty("X-Confirm-Account-Deletion", "DELETE")
+                }
                 if (ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()) {
                     setRequestProperty("X-Entitlement-Version", "es256-v1")
                 }
@@ -501,7 +505,8 @@ class ByMeApiClient(private val context: Context) {
             val newerTokenAvailable = tokenAtRequest != storage.getAccessToken() && !storage.getAccessToken().isNullOrBlank()
             val refreshSuccess = newerTokenAvailable || refreshAccessToken()
             if (refreshSuccess) {
-                return@withContext request(method, endpoint, body, requiresAuth, isRetry = true)
+                return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
+                    confirmAccountDeletion = confirmAccountDeletion)
             } else {
                 if (storage.getAccessToken() == tokenAtRequest) storage.clearTokens()
                 throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")
