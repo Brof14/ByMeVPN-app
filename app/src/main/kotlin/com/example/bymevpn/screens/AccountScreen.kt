@@ -585,8 +585,8 @@ fun AccountScreen(
                                         "This account cannot be deleted in the app. Contact support.")
                                     409 -> t("Операция с подпиской ещё выполняется. Попробуйте позже.",
                                         "A subscription operation is still in progress. Try again later.")
-                                    else -> t("Не удалось удалить аккаунт. Попробуйте позже или обратитесь в поддержку.",
-                                        "Could not delete the account. Try again later or contact support.")
+                                    else -> t("Не удалось подтвердить удаление. Попробуйте войти снова или обратитесь в поддержку.",
+                                        "Could not confirm deletion. Try signing in again or contact support.")
                                 }
                                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             }
