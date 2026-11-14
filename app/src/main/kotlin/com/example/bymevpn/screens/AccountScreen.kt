@@ -579,10 +579,16 @@ fun AccountScreen(
                                 showDeleteAccountDialog = false
                                 showAccountDialog = false
                             } else {
-                                Toast.makeText(context, t(
-                                    "Не удалось удалить аккаунт. Попробуйте позже или обратитесь в поддержку.",
-                                    "Could not delete the account. Try again later or contact support."
-                                ), Toast.LENGTH_LONG).show()
+                                val status = (result.exceptionOrNull() as? com.example.bymevpn.data.api.ApiError)?.httpStatusCode
+                                val message = when (status) {
+                                    403 -> t("Удаление этого аккаунта в приложении недоступно. Обратитесь в поддержку.",
+                                        "This account cannot be deleted in the app. Contact support.")
+                                    409 -> t("Операция с подпиской ещё выполняется. Попробуйте позже.",
+                                        "A subscription operation is still in progress. Try again later.")
+                                    else -> t("Не удалось удалить аккаунт. Попробуйте позже или обратитесь в поддержку.",
+                                        "Could not delete the account. Try again later or contact support.")
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             }
                         }
                     }) { Text(t("Удалить", "Delete"), color = Color(0xFFFF7373)) }
