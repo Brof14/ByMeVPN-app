@@ -234,8 +234,10 @@ class MainActivity : ComponentActivity() {
             AppUpdateManager.checkForUpdates(applicationContext)
         }
         lifecycleScope.launch(Dispatchers.IO) {
+            com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(applicationContext)
+        }
+        lifecycleScope.launch(Dispatchers.IO) {
             val appContext = applicationContext
-            com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(appContext)
 
             val now = SystemClock.elapsedRealtime()
             val hasSession = !SecureTokenStorage.getInstance(appContext).getAccessToken().isNullOrBlank()
