@@ -106,6 +106,13 @@ fun AccountScreen(
     var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val accountSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val dismissAccountSheet: (() -> Unit) -> Unit = { afterDismiss ->
+        scope.launch {
+            accountSheetState.hide()
+            showAccountDialog = false
+            afterDismiss()
+        }
+    }
 
     fun refreshAccountData() {
         if (refreshingAccount) return
@@ -522,7 +529,7 @@ fun AccountScreen(
                             subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
                             icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                             trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { showAccountDialog = false; onNavigateToPricing() }
+                            onClick = { dismissAccountSheet(onNavigateToPricing) }
                         )
                         ByMeSettingRow(
                             title = t("Автопродление", "Auto-renewal"),
@@ -533,14 +540,14 @@ fun AccountScreen(
                             },
                             icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                             trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { showAccountDialog = false; onNavigateToRenewal() }
+                            onClick = { dismissAccountSheet(onNavigateToRenewal) }
                         )
                         ByMeSettingRow(
                             title = t("Помощь и поддержка", "Help and support"),
                             subtitle = t("Связаться с нами", "Contact our team"),
                             icon = { QuestionHelpIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                             trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { showAccountDialog = false; onNavigateToSupport() },
+                            onClick = { dismissAccountSheet(onNavigateToSupport) },
                             showBottomDivider = false
                         )
                     }
@@ -551,7 +558,7 @@ fun AccountScreen(
                         enabled = !refreshingAccount
                     )
 
-                    TextButton(onClick = { showAccountDialog = false; onLogOut() }) {
+                    TextButton(onClick = { dismissAccountSheet(onLogOut) }) {
                         Text(t("Выйти", "Sign out"), color = Color(0xFFE98B8B))
                     }
                     TextButton(onClick = { showDeleteAccountDialog = true }) {
@@ -577,7 +584,7 @@ fun AccountScreen(
                             deletingAccount = false
                             if (result.isSuccess) {
                                 showDeleteAccountDialog = false
-                                showAccountDialog = false
+                                dismissAccountSheet {}
                             } else {
                                 val status = (result.exceptionOrNull() as? com.example.bymevpn.data.api.ApiError)?.httpStatusCode
                                 val message = when (status) {

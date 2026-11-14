@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +32,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -93,15 +98,12 @@ fun ByMeTopBar(
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (onBackClick != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(37.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(AppColors.TopBarBackBg)
-                            .border(1.dp, AppColors.TopBarBackBorder, RoundedCornerShape(14.dp))
-                            .clickable(onClick = onBackClick)
-                            .testTag("topbar_back_button"),
-                        contentAlignment = Alignment.Center
+                    ByMeTopBarAction(
+                        description = if (LocaleManager.isRussian()) "Назад" else "Back",
+                        testTag = "topbar_back_button",
+                        background = AppColors.TopBarBackBg,
+                        border = AppColors.TopBarBackBorder,
+                        onClick = onBackClick
                     ) {
                         ChevronLeftIcon(color = Color(0xFFC5D8D5), size = 18.dp)
                     }
@@ -122,48 +124,69 @@ fun ByMeTopBar(
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (onCloseClick != null) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.TopBarIconBg)
-                        .border(1.dp, AppColors.TopBarIconBorder, RoundedCornerShape(14.dp))
-                        .clickable(onClick = onCloseClick)
-                        .testTag("topbar_close_button"),
-                    contentAlignment = Alignment.Center
+                ByMeTopBarAction(
+                    description = if (LocaleManager.isRussian()) "Закрыть" else "Close",
+                    testTag = "topbar_close_button",
+                    background = AppColors.TopBarIconBg,
+                    border = AppColors.TopBarIconBorder,
+                    onClick = onCloseClick
                 ) {
                     CloseXIcon(color = Color(0xFF93ADAB), size = 20.dp)
                 }
             } else {
                 if (onHelpClick != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(AppColors.TopBarIconBg)
-                            .border(1.dp, AppColors.TopBarIconBorder, RoundedCornerShape(14.dp))
-                            .clickable(onClick = onHelpClick)
-                            .testTag("topbar_help_button"),
-                        contentAlignment = Alignment.Center
+                    ByMeTopBarAction(
+                        description = if (LocaleManager.isRussian()) "Частые вопросы" else "FAQ",
+                        testTag = "topbar_help_button",
+                        background = AppColors.TopBarIconBg,
+                        border = AppColors.TopBarIconBorder,
+                        onClick = onHelpClick
                     ) {
                         QuestionHelpIcon(color = Color(0xFFC5D8D5), size = 19.dp)
                     }
                 }
                 if (onMoreClick != null) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(AppColors.TopBarIconBg)
-                            .border(1.dp, AppColors.TopBarIconBorder, RoundedCornerShape(14.dp))
-                            .clickable(onClick = onMoreClick)
-                            .testTag("topbar_more_button"),
-                        contentAlignment = Alignment.Center
+                    ByMeTopBarAction(
+                        description = if (LocaleManager.isRussian()) "Дополнительно" else "More",
+                        testTag = "topbar_more_button",
+                        background = AppColors.TopBarIconBg,
+                        border = AppColors.TopBarIconBorder,
+                        onClick = onMoreClick
                     ) {
                         MoreHorizontalIcon(color = Color(0xFFC5D8D5), size = 20.dp)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ByMeTopBarAction(
+    description: String,
+    testTag: String,
+    background: Color,
+    border: Color,
+    onClick: () -> Unit,
+    icon: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .semantics { contentDescription = description }
+            .clickable(role = Role.Button, onClick = onClick)
+            .testTag(testTag),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(background)
+                .border(1.dp, border, RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
         }
     }
 }
@@ -231,7 +254,9 @@ private fun NavTabItem(
 
     Column(
         modifier = modifier
-            .clickable(
+            .selectable(
+                selected = selected,
+                role = Role.Tab,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick
@@ -345,20 +370,26 @@ fun ByMeToggle(
 
     Box(
         modifier = modifier
-            .size(width = 43.dp, height = 25.dp)
-            .clip(RoundedCornerShape(99.dp))
-            .background(trackBg)
-            .clickable { onCheckedChange(!checked) }
-            .padding(2.dp),
-        contentAlignment = Alignment.CenterStart
+            .size(48.dp)
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
+        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .offset(x = thumbOffset)
-                .size(19.dp)
-                .clip(CircleShape)
-                .background(thumbColor)
-        )
+                .size(width = 43.dp, height = 25.dp)
+                .clip(RoundedCornerShape(99.dp))
+                .background(trackBg)
+                .padding(2.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Box(
+                modifier = Modifier
+                    .offset(x = thumbOffset)
+                    .size(19.dp)
+                    .clip(CircleShape)
+                    .background(thumbColor)
+            )
+        }
     }
 }
 
