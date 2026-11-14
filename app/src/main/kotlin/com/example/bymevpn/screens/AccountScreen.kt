@@ -20,6 +20,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -100,6 +101,8 @@ fun AccountScreen(
     } ?: t("Устройств сейчас: $activeDevicesCount", "Devices shown: $activeDevicesCount")
 
     var showAccountDialog by remember { mutableStateOf(false) }
+    var showDeleteAccountDialog by remember { mutableStateOf(false) }
+    var deletingAccount by remember { mutableStateOf(false) }
     var refreshingAccount by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val accountSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -551,9 +554,45 @@ fun AccountScreen(
                     TextButton(onClick = { showAccountDialog = false; onLogOut() }) {
                         Text(t("Выйти", "Sign out"), color = Color(0xFFE98B8B))
                     }
+                    TextButton(onClick = { showDeleteAccountDialog = true }) {
+                        Text(t("Удалить аккаунт", "Delete account"), color = Color(0xFFE98B8B))
+                    }
                     Spacer(Modifier.height(16.dp))
                 }
             }
+        }
+        if (showDeleteAccountDialog) {
+            AlertDialog(
+                onDismissRequest = { if (!deletingAccount) showDeleteAccountDialog = false },
+                title = { Text(t("Удалить аккаунт?", "Delete account?")) },
+                text = { Text(t(
+                    "Аккаунт и доступ к VPN будут удалены. Оставшийся оплаченный срок не сохраняется. Это действие нельзя отменить.",
+                    "Your account and VPN access will be deleted. Remaining paid time will be lost. This cannot be undone."
+                )) },
+                confirmButton = {
+                    TextButton(enabled = !deletingAccount, onClick = {
+                        deletingAccount = true
+                        scope.launch {
+                            val result = AccountRepository.deleteAccount(context)
+                            deletingAccount = false
+                            if (result.isSuccess) {
+                                showDeleteAccountDialog = false
+                                showAccountDialog = false
+                            } else {
+                                Toast.makeText(context, t(
+                                    "Не удалось удалить аккаунт. Попробуйте позже или обратитесь в поддержку.",
+                                    "Could not delete the account. Try again later or contact support."
+                                ), Toast.LENGTH_LONG).show()
+                            }
+                        }
+                    }) { Text(t("Удалить", "Delete"), color = Color(0xFFFF7373)) }
+                },
+                dismissButton = {
+                    TextButton(enabled = !deletingAccount, onClick = { showDeleteAccountDialog = false }) {
+                        Text(t("Отмена", "Cancel"))
+                    }
+                }
+            )
         }
     }
 }
