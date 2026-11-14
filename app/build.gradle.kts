@@ -69,7 +69,13 @@ android {
                 "proguard-rules.pro"
             )
         }
+        create("play") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+        }
     }
+    sourceSets.getByName("debug").java.srcDir("src/direct/kotlin")
+    sourceSets.getByName("release").java.srcDir("src/direct/kotlin")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
