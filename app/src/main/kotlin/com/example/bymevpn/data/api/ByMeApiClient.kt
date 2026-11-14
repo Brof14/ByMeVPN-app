@@ -358,6 +358,9 @@ class ByMeApiClient(private val context: Context) {
         if (config.security.equals("reality", ignoreCase = true) && config.publicKey.isBlank()) {
             throw ApiError("INVALID_CONFIG", "Server returned incomplete VPN session configuration: missing public key for Reality")
         }
+        if (config.network.equals("grpc", ignoreCase = true) && config.transportPath.isBlank()) {
+            throw ApiError("INVALID_CONFIG", "Server returned incomplete VPN session configuration: missing gRPC service name")
+        }
         return config
     }
 

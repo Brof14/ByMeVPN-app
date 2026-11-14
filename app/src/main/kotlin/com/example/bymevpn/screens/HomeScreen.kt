@@ -757,7 +757,7 @@ private fun HomeDisconnectedContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
                     ) {
-                        val proto = currentServer?.protocol.orEmpty()
+                        val proto = currentServer?.protocolLabel.orEmpty()
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
@@ -986,7 +986,7 @@ private fun HomeConnectedContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
                     ) {
-                        val proto = currentServer?.protocol.orEmpty()
+                        val proto = currentServer?.protocolLabel.orEmpty()
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
@@ -1268,7 +1268,7 @@ private fun HomeConnectionErrorContent(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.padding(start = 34.dp)
                     ) {
-                        val proto = currentServer?.protocol.orEmpty()
+                        val proto = currentServer?.protocolLabel.orEmpty()
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))

@@ -124,9 +124,21 @@ data class ServerNode(
     val protocol: String = "VPN",
     val remark: String = "",
     val displayName: String = "",
-    val connectionCheck: Int = 0
+    val connectionCheck: Int = 0,
+    val network: String = ""
 ) {
     val id: String get() = nodeCode
+    val protocolLabel: String get() {
+        val transport = when {
+            protocol.contains("Hysteria", ignoreCase = true) -> "UDP"
+            network.equals("grpc", ignoreCase = true) -> "gRPC"
+            network.equals("tcp", ignoreCase = true) || network.equals("raw", ignoreCase = true) -> "TCP"
+            network.equals("udp", ignoreCase = true) -> "UDP"
+            else -> ""
+        }
+        return if (transport.isBlank() || protocol.contains(transport, ignoreCase = true)) protocol
+        else "$protocol • $transport"
+    }
     val name: String get() {
         if (displayName.isNotBlank()) return displayName
         if (remark.isNotBlank()) return "$remark • $protocol"
@@ -351,6 +363,9 @@ object ApiJsonParsers {
                 else if (p.equals("vless", true)) "VLESS"
                 else "VPN"
             }
+            val network = obj.optString("network").ifBlank {
+                obj.optJSONObject("config")?.optString("network", "").orEmpty()
+            }
             val remarkStr = obj.optString("remark", "")
             val displayNameStr = obj.optString("display_name", "")
 
@@ -368,7 +383,8 @@ object ApiJsonParsers {
                     cityEn = cityEn,
                     protocol = proto,
                     remark = remarkStr,
-                    displayName = displayNameStr
+                    displayName = displayNameStr,
+                    network = network
                 )
             )
         }
@@ -389,9 +405,13 @@ object ApiJsonParsers {
             shortId = json.optString("short_id", ""),
             fingerprint = json.optString("fingerprint", "chrome"),
             network = json.optString("network", "tcp"),
-            transportPath = json.optString("serviceName", json.optString("service_name", json.optString("path", ""))),
-            transportHost = json.optString("host", ""),
-            transportMode = json.optString("mode", ""),
+            transportPath = json.optString("serviceName").ifBlank {
+                json.optString("service_name").ifBlank {
+                    json.optString("transport_path").ifBlank { json.optString("path", "") }
+                }
+            },
+            transportHost = json.optString("host").ifBlank { json.optString("transport_host", "") },
+            transportMode = json.optString("mode").ifBlank { json.optString("transport_mode", "") },
             alpn = json.optJSONArray("alpn")?.let { values ->
                 (0 until values.length()).map { values.optString(it) }
                     .filter { it.isNotBlank() }.joinToString(",")

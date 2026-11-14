@@ -149,4 +149,18 @@ class VpnConfigRegressionTest {
                 settings.getJSONObject("headers").getString("Host") else settings.getString("host"))
         }
     }
+
+    @Test
+    fun grpcSessionParsesBackendSnakeCaseServiceName() {
+        val config = ApiJsonParsers.parseVpnSessionConfig(JSONObject(
+            """{"protocol":"vless","server":"vpn.example.org","port":54662,"uuid":"$id","security":"reality","server_name":"front.example.org","public_key":"key","network":"grpc","transport_path":"vpn.Service/Connect"}"""
+        ))
+
+        assertEquals("grpc", config.network)
+        assertEquals("vpn.Service/Connect", config.transportPath)
+
+        val stream = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds")
+            .getJSONObject(0).getJSONObject("streamSettings")
+        assertEquals("vpn.Service/Connect", stream.getJSONObject("grpcSettings").getString("serviceName"))
+    }
 }

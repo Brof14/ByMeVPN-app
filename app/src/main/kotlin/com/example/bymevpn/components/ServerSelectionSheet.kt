@@ -309,7 +309,7 @@ fun ServerSelectionSheet(
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 ) {
                                     Text(
-                                        text = server.protocol,
+                                        text = server.protocolLabel,
                                         color = if (server.protocol.contains("Reality", ignoreCase = true)) Color(0xFF69D3BC)
                                                 else if (server.protocol.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
                                                 else Color(0xFF78C6FF),

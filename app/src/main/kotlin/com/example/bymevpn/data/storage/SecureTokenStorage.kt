@@ -194,6 +194,7 @@ class SecureTokenStorage private constructor(context: Context) {
                 put("cityEn", node.cityEn)
                 put("flag", node.flag)
                 put("protocol", node.protocol)
+                put("network", node.network)
                 put("isPremium", node.isPremium)
                 put("remark", node.remark)
                 put("displayName", node.displayName)
@@ -211,7 +212,8 @@ class SecureTokenStorage private constructor(context: Context) {
                 countryEn = obj.optString("countryEn", obj.optString("country", "")),
                 cityEn = obj.optString("cityEn", obj.optString("city", "")),
                 isPremium = obj.optBoolean("isPremium", false), remark = obj.optString("remark", ""),
-                protocol = obj.optString("protocol", "VPN"), displayName = obj.optString("displayName", ""))
+                protocol = obj.optString("protocol", "VPN"), displayName = obj.optString("displayName", ""),
+                network = obj.optString("network", ""))
         }
     } catch (_: Exception) { emptyList() }
 
