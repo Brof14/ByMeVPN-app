@@ -164,13 +164,13 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Android update: gRPC session compatibility and transport labels.
-          - Read gRPC service names and transport settings returned by the backend.
-          - Show each server's transport type, including gRPC, TCP, and UDP.
-          - Reject incomplete gRPC session configuration with a clear error before starting Xray.
+          Android update: Google Play preparation and account improvements.
+          - Target Android 16 and build a separate Play variant without direct APK installation permissions.
+          - Refresh account data independently from update and payment checks.
+          - Improve account deletion handling and legal text.
 
-          Android unit tests and release-certificate verification passed.
-          Live VPN tunneling and individual customer accounts require real-device verification before broad rollout.
+          Android unit tests and release-certificate verification passed in GitHub Actions.
+          This GitHub APK remains distributed through the direct updater; the Play build is separate.
           EOF
           gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" "dist/update.json" \
             --target "$GITHUB_SHA" \
