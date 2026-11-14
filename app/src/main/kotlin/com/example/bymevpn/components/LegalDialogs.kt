@@ -75,11 +75,11 @@ fun PrivacyPolicyDialog(
                         .verticalScroll(rememberScrollState())
                 ) {
                     LegalSection(
-                        title = if (isRussian) "1. Принцип абсолютной анонимности (Zero-Logs)" else "1. Strict Zero-Log Principle",
+                        title = if (isRussian) "1. Работа VPN" else "1. VPN operation",
                         body = if (isRussian)
-                            "ByMeVPN придерживается строгой политики отсутствия логов. Мы НЕ регистрируем, НЕ записываем и НЕ передаем третьим лицам: ваши IP-адреса, историю посещенных веб-сайтов, DNS-запросы, передаваемые файлы или содержание трафика."
+                            "Приложение направляет сетевой трафик через выбранный VPN-сервер. Для управления доступом и диагностики могут обрабатываться сведения об устройстве и подключении."
                         else
-                            "ByMeVPN adheres to a strict Zero-Log policy. We NEVER log, record, or share with third parties: your IP addresses, browsing history, DNS queries, transferred files, or traffic contents."
+                            "The app routes network traffic through the selected VPN server. Device and connection information may be processed to manage access and diagnose problems."
                     )
 
                     LegalSection(
@@ -101,9 +101,9 @@ fun PrivacyPolicyDialog(
                     LegalSection(
                         title = if (isRussian) "4. Право на удаление данных" else "4. Right to Deletion",
                         body = if (isRussian)
-                            "Для удаления аккаунта обратитесь на support@bymevpn.com или отправьте запрос на bymevpn.com/delete-account. Само приложение пока зависит от серверной функции удаления."
+                            "Чтобы удалить аккаунт, откройте настройки аккаунта и выберите «Удалить аккаунт». Доступ к VPN и оставшийся оплаченный срок будут утрачены. Финансовые записи могут сохраняться в соответствии с требованиями законодательства."
                         else
-                            "To request account deletion, email support@bymevpn.com or use bymevpn.com/delete-account. In-app deletion still depends on the server implementing the required endpoint."
+                            "To delete your account, open account settings and choose Delete account. VPN access and any remaining paid time will be lost. Financial records may be retained as required by law."
                     )
                 }
 
