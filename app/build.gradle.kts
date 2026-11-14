@@ -20,12 +20,12 @@ require(serverEntitlementPublicKey.isBlank() ||
 
 android {
     namespace = "com.example.bymevpn"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.bymevpn.app"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 25
         versionName = "1.0.24"
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")

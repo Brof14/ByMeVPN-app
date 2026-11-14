@@ -30,7 +30,7 @@ jobs:
           packages: platform-tools
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
       - name: Run Android unit tests
         run: gradle :app:testDebugUnitTest --no-daemon
       - name: Check release version
