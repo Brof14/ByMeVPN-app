@@ -3,6 +3,7 @@ package com.example.bymevpn.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,22 +20,28 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.theme.AppColors
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,6 +60,13 @@ fun ServerSelectionSheet(
     val language by com.example.bymevpn.data.LocaleManager.currentLanguage.collectAsState()
     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(language = language)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val scope = rememberCoroutineScope()
+    val dismissSheet = {
+        scope.launch {
+            sheetState.hide()
+            onDismissRequest()
+        }
+    }
     val context = androidx.compose.ui.platform.LocalContext.current
     androidx.compose.runtime.LaunchedEffect(Unit) {
         com.example.bymevpn.vpn.VpnManager.getInstance(context).refreshAllPings()
@@ -63,7 +77,7 @@ fun ServerSelectionSheet(
         sheetState = sheetState,
         containerColor = Color(0xFF101B2A),
         scrimColor = Color(0x99000000),
-        dragHandle = null,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = AppColors.TextMuted) },
         modifier = modifier
     ) {
         Column(
@@ -73,22 +87,9 @@ fun ServerSelectionSheet(
                 .padding(top = 12.dp, bottom = 24.dp)
                 .navigationBarsPadding()
         ) {
-            // Drag handle
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .width(43.dp)
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(Color(0xFF4B6361))
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-
-            // Sheet head inline: Title + Close round button
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -96,16 +97,28 @@ fun ServerSelectionSheet(
                     color = AppColors.TextPrimary,
                     fontSize = 27.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = (-1.15).sp
+                    letterSpacing = (-1.15).sp,
+                    modifier = Modifier.weight(1f)
                 )
 
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1B2A2B))
-                        .clickable(onClick = onDismissRequest),
-                    contentAlignment = Alignment.Center
+                SheetActionButton(
+                    description = if (isRu) "Обновить серверы" else "Refresh servers",
+                    onClick = onRefresh,
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            color = AppColors.BrandMint,
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        RefreshIcon(color = Color(0xFF90DDCE), size = 17.dp)
+                    }
+                }
+                SheetActionButton(
+                    description = if (isRu) "Закрыть список серверов" else "Close server list",
+                    onClick = dismissSheet
                 ) {
                     CloseXIcon(color = Color(0xFF93ADAB), size = 18.dp)
                 }
@@ -128,9 +141,9 @@ fun ServerSelectionSheet(
                     .clip(RoundedCornerShape(18.dp))
                     .background(Color(0xFF182D3B))
                     .border(1.dp, Color(0xFF437D90), RoundedCornerShape(18.dp))
-                    .clickable {
+                    .selectable(selected = isAutoSelected, role = Role.RadioButton) {
                         onSelectAuto()
-                        onDismissRequest()
+                        dismissSheet()
                     }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -182,11 +195,10 @@ fun ServerSelectionSheet(
             Spacer(modifier = Modifier.height(24.dp))
 
             Text(
-                text = if (isRu) "ДОСТУПНЫЕ СЕРВЕРЫ" else "AVAILABLE SERVERS",
+                text = if (isRu) "Доступные серверы" else "Available servers",
                 color = AppColors.TextKicker,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.2.sp
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -215,36 +227,10 @@ fun ServerSelectionSheet(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = error?.takeIf { it.isNotBlank() }
-                            ?: if (isRu) "Нажмите «Обновить», чтобы повторить запрос." else "Tap Refresh to retry.",
+                            ?: if (isRu) "Попробуйте обновить список серверов." else "Try refreshing the server list.",
                         color = Color(0xFF889EA0),
                         fontSize = 11.5.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isLoading) Color(0xFF1A2D3B) else Color(0xFF2C4D5D))
-                            .clickable(enabled = !isLoading, onClick = onRefresh)
-                            .padding(horizontal = 16.dp, vertical = 9.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (isLoading) {
-                            androidx.compose.material3.CircularProgressIndicator(
-                                color = Color(0xFF69D3BC),
-                                modifier = Modifier.size(14.dp),
-                                strokeWidth = 2.dp
-                            )
-                        } else {
-                            RefreshIcon(color = Color(0xFF90DDCE), size = 14.dp)
-                        }
-                        Text(
-                            text = if (isLoading) (if (isRu) "Загрузка…" else "Loading…") else (if (isRu) "Обновить" else "Refresh"),
-                            color = Color(0xFF90DDCE),
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
                 }
             }
 
@@ -252,7 +238,7 @@ fun ServerSelectionSheet(
                 modifier = Modifier.weight(1f, fill = false),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                items(displayServers) { server ->
+                items(displayServers, key = { it.id }) { server ->
                     val isSelected = !isAutoSelected && selectedServer?.id == server.id
 
                     Row(
@@ -266,9 +252,9 @@ fun ServerSelectionSheet(
                                 if (isSelected) Color(0xFF69D3BC) else Color(0xFF293E4F),
                                 RoundedCornerShape(18.dp)
                             )
-                            .clickable {
+                            .selectable(selected = isSelected, role = Role.RadioButton) {
                                 onSelectServer(server)
-                                onDismissRequest()
+                                dismissSheet()
                             }
                             .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -375,6 +361,32 @@ fun ServerSelectionSheet(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
+        }
+    }
+}
+
+@Composable
+private fun SheetActionButton(
+    description: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    icon: @Composable () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .semantics { contentDescription = description }
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF1B2A2B)),
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
         }
     }
 }

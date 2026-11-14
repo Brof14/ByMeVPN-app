@@ -37,6 +37,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -146,13 +150,20 @@ fun FaqDialog(onDismiss: () -> Unit) {
 
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(AppColors.BgSurfaceAccent)
-                            .clickable { onDismiss() },
+                            .size(48.dp)
+                            .semantics { contentDescription = if (isRu) "Закрыть частые вопросы" else "Close FAQ" }
+                            .clickable(role = Role.Button) { onDismiss() },
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✕", color = AppColors.TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(AppColors.BgSurfaceAccent),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("✕", color = AppColors.TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
@@ -176,7 +187,14 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     if (isExpanded) AppColors.BrandMint else AppColors.BorderDefault,
                                     RoundedCornerShape(14.dp)
                                 )
-                                .clickable {
+                                .semantics {
+                                    stateDescription = if (isExpanded) {
+                                        if (isRu) "Открыто" else "Expanded"
+                                    } else {
+                                        if (isRu) "Закрыто" else "Collapsed"
+                                    }
+                                }
+                                .clickable(role = Role.Button) {
                                     expandedIndex = if (isExpanded) null else index
                                 }
                                 .padding(14.dp)
@@ -208,7 +226,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     Text(
                                         text = if (isRu) item.questionRu else item.questionEn,
                                         color = AppColors.TextPrimary,
-                                        fontSize = 13.5.sp,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -245,8 +263,8 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     Text(
                                         text = if (isRu) item.answerRu else item.answerEn,
                                         color = AppColors.TextSecondary,
-                                        fontSize = 12.5.sp,
-                                        lineHeight = 18.sp
+                                        fontSize = 14.sp,
+                                        lineHeight = 20.sp
                                     )
                                 }
                             }
@@ -259,10 +277,10 @@ fun FaqDialog(onDismiss: () -> Unit) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .height(48.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(AppColors.BgSurfaceAccent)
-                        .clickable { onDismiss() }
-                        .padding(vertical = 11.dp),
+                        .clickable(role = Role.Button) { onDismiss() },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(

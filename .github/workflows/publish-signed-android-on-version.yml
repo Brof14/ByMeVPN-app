@@ -164,10 +164,10 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Android update: Google Play preparation and account improvements.
-          - Target Android 16 and build a separate Play variant without direct APK installation permissions.
-          - Refresh account data independently from update and payment checks.
-          - Improve account deletion handling and legal text.
+          Android update: refined server selection, accessible controls, and smoother sheet interactions.
+          - Larger accessible touch targets for shared navigation and settings controls.
+          - Server selection now uses native radio semantics, built-in sheet gestures, and animated dismissal.
+          - FAQ accordion labels and text sizing are easier to read.
 
           Android unit tests and release-certificate verification passed in GitHub Actions.
           This GitHub APK remains distributed through the direct updater; the Play build is separate.
