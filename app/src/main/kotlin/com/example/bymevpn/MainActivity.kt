@@ -229,9 +229,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         VpnManager.getInstance(applicationContext).syncWithServiceState()
+        // An unreachable update host must not delay account and server refresh.
+        lifecycleScope.launch(Dispatchers.IO) {
+            AppUpdateManager.checkForUpdates(applicationContext)
+        }
         lifecycleScope.launch(Dispatchers.IO) {
             val appContext = applicationContext
-            AppUpdateManager.checkForUpdates(appContext)
             com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(appContext)
 
             val now = SystemClock.elapsedRealtime()

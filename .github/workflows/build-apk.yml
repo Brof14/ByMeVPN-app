@@ -24,7 +24,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
       - run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
@@ -49,7 +49,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.11.1'
       - name: Prepare signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -66,7 +66,7 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY || secrets.SERVER_ES256_PUBLIC_KEY }}
-        run: gradle :app:assembleRelease :app:bundleRelease --no-daemon
+        run: gradle :app:assembleRelease :app:bundleRelease :app:bundlePlay --no-daemon
       - name: Verify APK release certificate
         env:
           EXPECTED_CERT_SHA256: 0C2160CEDAFAAE98B32AAF83F8B22229A67C98513DF93A8FE759EA910B177222
@@ -100,3 +100,4 @@ jobs:
           path: |
             app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/*.aab
+            app/build/outputs/bundle/play/*.aab
