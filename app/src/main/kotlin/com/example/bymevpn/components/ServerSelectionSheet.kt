@@ -61,7 +61,7 @@ fun ServerSelectionSheet(
     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(language = language)
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
-    val dismissSheet = {
+    val dismissSheet: () -> Unit = {
         scope.launch {
             sheetState.hide()
             onDismissRequest()
@@ -118,10 +118,11 @@ fun ServerSelectionSheet(
                 }
                 SheetActionButton(
                     description = if (isRu) "Закрыть список серверов" else "Close server list",
-                    onClick = dismissSheet
-                ) {
+                    onClick = { dismissSheet() },
+                    icon = {
                     CloseXIcon(color = Color(0xFF93ADAB), size = 18.dp)
-                }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
