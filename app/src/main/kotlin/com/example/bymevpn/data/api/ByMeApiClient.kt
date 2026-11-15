@@ -5,6 +5,7 @@ import android.util.Log
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -30,6 +31,8 @@ import java.util.UUID
  * - Error decoding according to backend contract: {"error": {"code": "...", "message": "..."}}
  */
 class ByMeApiClient(private val context: Context) {
+
+    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         private const val TAG = "ByMeApiClient"
@@ -329,7 +332,7 @@ class ByMeApiClient(private val context: Context) {
                 }
             } else {
                 // Nodes are already available: never delay the server list for a subscription fetch.
-                CoroutineScope(Dispatchers.IO).launch {
+                backgroundScope.launch {
                     try {
                         subManager.applySubscriptionUrl(subUrl, includeDeviceHeaders = true)
                     } catch (e: Exception) {

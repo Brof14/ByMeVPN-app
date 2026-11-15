@@ -47,7 +47,6 @@ import com.example.bymevpn.screens.SupportScreen
 import com.example.bymevpn.screens.TrialScreen
 import com.example.bymevpn.theme.ByMeVPNTheme
 import com.example.bymevpn.vpn.VpnManager
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -119,7 +118,7 @@ class MainActivity : ComponentActivity() {
         if (data.scheme == "bymevpn" && data.host == "payment") {
             val planCode = data.getQueryParameter("plan") ?: "1m"
             val days = data.getQueryParameter("days")?.toIntOrNull() ?: 30
-            CoroutineScope(Dispatchers.Main).launch {
+            lifecycleScope.launch {
                 val result = com.example.bymevpn.data.payment.YooKassaPaymentHandler.confirmPayment(applicationContext, planCode, days)
                 val message = if (result.isSuccess) "Оплата подтверждена, подписка активирована" else "Оплата ещё не подтверждена сервером"
                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
