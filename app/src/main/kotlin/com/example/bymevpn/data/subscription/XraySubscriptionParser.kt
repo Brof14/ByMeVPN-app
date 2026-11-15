@@ -108,17 +108,15 @@ object XraySubscriptionParser {
         }
         val clean = trimmed.replace("\\s".toRegex(), "")
         return try {
+            // android.util.Base64 is available from API 8. java.util.Base64
+            // requires API 26 without core library desugaring (minSdk is 24).
             val bytes: ByteArray? = try {
-                java.util.Base64.getDecoder().decode(clean)
-            } catch (_: Throwable) {
+                Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP)
+            } catch (_: IllegalArgumentException) {
                 try {
-                    java.util.Base64.getUrlDecoder().decode(clean)
-                } catch (_: Throwable) {
-                    try {
-                        Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
-                    } catch (_: Throwable) {
-                        null
-                    }
+                    Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
+                } catch (_: IllegalArgumentException) {
+                    null
                 }
             }
             if (bytes != null) {

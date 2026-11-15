@@ -1,6 +1,7 @@
 package com.example.bymevpn.vpn
 
 import android.app.PendingIntent
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
@@ -66,12 +67,19 @@ class ByMeVpnTileService : TileService() {
                         )
                         startActivityAndCollapse(pendingIntent)
                     } else {
-                        @Suppress("DEPRECATION")
-                        startActivityAndCollapse(intent)
+                        openLegacyActivity(intent)
                     }
                 }
             }
         }
+    }
+
+    // The PendingIntent overload exists only on API 34+. Pre-34 Android
+    // supports only the Intent overload, despite its SDK-level deprecation.
+    @SuppressLint("StartActivityAndCollapseDeprecated")
+    @Suppress("DEPRECATION")
+    private fun openLegacyActivity(intent: Intent) {
+        startActivityAndCollapse(intent)
     }
 
     private fun updateTileState(forcedState: Int? = null) {
