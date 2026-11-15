@@ -170,6 +170,24 @@ fun SupportScreen(
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showFaqDialog = true }
                     )
+                    ByMeSettingRow(
+                        title = t("Написать в Telegram", "Message us on Telegram"),
+                        subtitle = t("Открыть чат поддержки ByMeVPN", "Open ByMeVPN support chat"),
+                        icon = { ChatHeartIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = {
+                            val message = if (isRu) "Здравствуйте, у меня вопрос по ByMeVPN." else "Hello, I have a question about ByMeVPN."
+                            val url = "https://t.me/ByMeVPNSupportBot?text=${Uri.encode(message)}"
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                .onFailure {
+                                    Toast.makeText(
+                                        context,
+                                        t("Не удалось открыть Telegram. Напишите на support@bymevpn.com", "Could not open Telegram. Email support@bymevpn.com"),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                        }
+                    )
                 }
 
                 // Section: Информация
