@@ -116,14 +116,20 @@ fun HomeScreen(
     val isCheckingSubscription by subManager.isSyncing.collectAsState()
     val currentUser by AccountRepository.currentUser.collectAsState()
     val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
+    val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
+    val accessConfirmationRequired = SubscriptionPresentationPolicy.requiresAccessConfirmation(
+        subscription,
+        subManager.canConnect()
+    )
     val offerTelegramRecovery = subscription?.status == "none" &&
         (currentUser?.isGoogle == true || !currentUser?.email.isNullOrBlank())
 
-    val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
 
     LaunchedEffect(currentUser?.id) {
-        if (subscription?.isUsable != true) subManager.refreshStatus(forceBackend = true)
+        if (subscription?.isUsable != true || !subManager.canConnect()) {
+            subManager.refreshStatus(forceBackend = true)
+        }
     }
 
     var showServerSheet by remember { mutableStateOf(false) }
@@ -398,7 +404,7 @@ fun HomeScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                if (!hasPlan || isActivatingTrial) {
+                if (!hasPlan || isActivatingTrial || subscriptionUnknown || accessConfirmationRequired) {
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
                         onTrialClick = { activateTrialFromHome() },
@@ -411,6 +417,7 @@ fun HomeScreen(
                             }
                         },
                         subscriptionUnknown = subscriptionUnknown,
+                        accessConfirmationRequired = accessConfirmationRequired,
                         offerTelegramRecovery = offerTelegramRecovery,
                         isCheckingSubscription = isCheckingSubscription,
                         trialAvailable = isActivatingTrial || TrialActivationPolicy.shouldOfferTrial(subscription),
@@ -419,7 +426,7 @@ fun HomeScreen(
                         isPreparingTrialServers = isPreparingTrialServers,
                         trialError = trialActivationError
                     )
-                    if (!subscriptionUnknown) Row(
+                    if (!subscriptionUnknown && !accessConfirmationRequired) Row(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
@@ -539,6 +546,7 @@ private fun HomeNoPlanContent(
     onRestoreViaTelegram: () -> Unit,
     onRetrySubscription: () -> Unit,
     subscriptionUnknown: Boolean,
+    accessConfirmationRequired: Boolean,
     offerTelegramRecovery: Boolean,
     isCheckingSubscription: Boolean,
     trialAvailable: Boolean,
@@ -585,6 +593,7 @@ private fun HomeNoPlanContent(
                     text = when {
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем подписку…" else "Checking subscription…"
                         subscriptionUnknown -> if (isRu) "Не удалось проверить подписку" else "Could not check subscription"
+                        accessConfirmationRequired -> if (isRu) "Подписка активна, доступ не подтверждён" else "Subscription active, access not confirmed"
                         trialAvailable -> if (isRu) "3 дня бесплатно" else "3 days free"
                         trialUnavailableReason == "trial_already_used" -> if (isRu) "Пробный период использован" else "Free trial already used"
                         trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Проверяем активацию" else "Checking activation"
@@ -598,6 +607,7 @@ private fun HomeNoPlanContent(
                     text = when {
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Загружаем данные аккаунта." else "Loading account details."
                         subscriptionUnknown -> if (isRu) "Повторите проверку, чтобы обновить данные аккаунта." else "Retry to refresh your account details."
+                        accessConfirmationRequired -> if (isRu) "Обновите статус доступа. Пробный период не будет списан." else "Refresh access status. Your trial will not be used."
                         trialAvailable -> if (isRu) "Попробуйте сервис перед покупкой." else "Try the service before buying."
                         trialUnavailableReason == "trial_already_used" -> if (isRu) "Выберите тариф, чтобы продолжить пользоваться VPN." else "Choose a plan to continue using VPN."
                         trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Обновите статус через некоторое время." else "Refresh your status in a little while."
@@ -611,6 +621,7 @@ private fun HomeNoPlanContent(
                     text = when {
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем…" else "Checking…"
                         subscriptionUnknown -> if (isRu) "Повторить проверку" else "Retry status check"
+                        accessConfirmationRequired -> if (isRu) "Обновить доступ" else "Refresh access"
                         isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
                         isActivatingTrial -> if (isRu) "Подключаем пробный период…" else "Activating your trial…"
                         trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
@@ -619,6 +630,7 @@ private fun HomeNoPlanContent(
                     },
                     onClick = when {
                         subscriptionUnknown -> onRetrySubscription
+                        accessConfirmationRequired -> onRetrySubscription
                         trialAvailable -> onTrialClick
                         trialUnavailableReason in setOf("trial_activation_pending", "eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> onRetrySubscription
                         else -> onChoosePlanClick
@@ -668,20 +680,11 @@ private fun HomeDisconnectedContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 25.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Text(
-            text = if (isRu) "ВАШЕ ПОДКЛЮЧЕНИЕ" else "YOUR CONNECTION",
-            color = Color(0xFF78999A),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp
-        )
-
-        Spacer(modifier = Modifier.height(26.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
             VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
@@ -875,20 +878,11 @@ private fun HomeConnectedContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 25.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(28.dp))
-
-        Text(
-            text = if (isRu) "ВАШЕ ПОДКЛЮЧЕНИЕ" else "YOUR CONNECTION",
-            color = Color(0xFF78999A),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 2.sp
-        )
-
-        Spacer(modifier = Modifier.height(26.dp))
+        Spacer(modifier = Modifier.height(12.dp))
 
         Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
             VpnPowerButton(

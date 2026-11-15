@@ -93,7 +93,7 @@ fun VpnPowerButton(
 
     Box(
         modifier = modifier
-            .sizeIn(maxWidth = 340.dp, maxHeight = 340.dp)
+            .sizeIn(maxWidth = 290.dp, maxHeight = 290.dp)
             .aspectRatio(1f)
             .fillMaxWidth()
             .clip(CircleShape)

@@ -44,6 +44,7 @@ import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronLeftIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
+import com.example.bymevpn.data.payment.roundedMonthlyPrice
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.PlanItem
@@ -87,9 +88,6 @@ internal fun bestValuePlan(plans: List<PlanItem>, devices: Int): PlanDuration? {
     if (confirmed.size != PlanDuration.values().size) return null
     return confirmed.minByOrNull { (duration, price) -> price.toDouble() / duration.totalDays }?.first
 }
-
-internal fun roundedMonthlyPrice(priceRub: Int, months: Int): Int =
-    if (months <= 0) 0 else ((priceRub.toLong() + months - 1) / months).toInt()
 
 @Composable
 fun PricingScreen(
@@ -295,7 +293,7 @@ fun PricingScreen(
                     }?.priceRub
                     val priceForPlan = verifiedPrice ?: 0
 
-                    val monthlyRate = roundedMonthlyPrice(priceForPlan, plan.totalMonths)
+                    val monthlyRate = roundedMonthlyPrice(priceForPlan, plan.totalDays)
 
                     val isSelected = selectedPlan == plan
                     val isPopular = plan == bestValue

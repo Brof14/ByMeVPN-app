@@ -93,6 +93,10 @@ class XrayConfigGeneratorTest {
         assertEquals("tun", tunInbound.getString("tag"))
         assertEquals("tun", tunInbound.getString("protocol"))
         assertEquals(1500, tunInbound.getJSONObject("settings").getInt("MTU"))
+        val gateway = tunInbound.getJSONObject("settings").getJSONArray("gateway")
+        assertEquals(2, gateway.length())
+        assertEquals("26.26.26.2/24", gateway.getString(0))
+        assertEquals("fd00:26:26::2/126", gateway.getString(1))
 
         val socksInbound = inbounds.getJSONObject(1)
         assertEquals("socks-in", socksInbound.getString("tag"))

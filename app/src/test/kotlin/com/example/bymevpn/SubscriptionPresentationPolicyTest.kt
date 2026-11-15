@@ -14,4 +14,26 @@ class SubscriptionPresentationPolicyTest {
         assertFalse(SubscriptionPresentationPolicy.isUnknown(SubscriptionStatus(status = "none")))
         assertFalse(SubscriptionPresentationPolicy.isUnknown(SubscriptionStatus(status = "active")))
     }
+
+    @Test
+    fun activePlanWithoutVerifiedDeviceAccessRequiresRefreshInsteadOfTrial() {
+        assertTrue(
+            SubscriptionPresentationPolicy.requiresAccessConfirmation(
+                SubscriptionStatus(status = "active", secondsRemaining = 3600),
+                canConnect = false
+            )
+        )
+        assertFalse(
+            SubscriptionPresentationPolicy.requiresAccessConfirmation(
+                SubscriptionStatus(status = "active", secondsRemaining = 3600),
+                canConnect = true
+            )
+        )
+        assertFalse(
+            SubscriptionPresentationPolicy.requiresAccessConfirmation(
+                SubscriptionStatus(status = "none"),
+                canConnect = false
+            )
+        )
+    }
 }

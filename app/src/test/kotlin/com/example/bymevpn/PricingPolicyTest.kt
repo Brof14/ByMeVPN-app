@@ -1,9 +1,9 @@
 package com.example.bymevpn
 
 import com.example.bymevpn.data.api.PlanItem
+import com.example.bymevpn.data.payment.roundedMonthlyPrice
 import com.example.bymevpn.screens.PlanDuration
 import com.example.bymevpn.screens.bestValuePlan
-import com.example.bymevpn.screens.roundedMonthlyPrice
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -22,8 +22,11 @@ class PricingPolicyTest {
     }
 
     @Test
-    fun monthlyPriceRoundsUpInsteadOfUnderstatingCost() {
-        assertEquals(34, roundedMonthlyPrice(100, 3))
+    fun monthlyPriceUsesExactTermAndRoundsUpConsistently() {
+        assertEquals(34, roundedMonthlyPrice(100, 90))
+        assertEquals(63, roundedMonthlyPrice(500, 240))
+        assertEquals(60, roundedMonthlyPrice(900, 450))
         assertEquals(0, roundedMonthlyPrice(100, 0))
+        assertEquals(0, roundedMonthlyPrice(-1, 30))
     }
 }
