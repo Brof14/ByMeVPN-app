@@ -37,6 +37,7 @@ class SecureTokenStorage private constructor(context: Context) {
         private const val PREFS_NAME = "bymevpn_secure_vault"
         private const val KEY_ACCESS_TOKEN = "jwt_access_token"
         private const val KEY_REFRESH_TOKEN = "jwt_refresh_token"
+        private const val KEY_ACCOUNT_SESSION_ID = "account_session_id"
         private const val KEY_CACHED_USER = "cached_user_profile"
         private const val KEY_CACHED_SUB = "cached_subscription_status"
         private const val KEY_INSTALL_ID = "app_install_id"
@@ -79,6 +80,16 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
+    /** Stable across refresh-token rotations; changes on login, logout or account reset. */
+    @Synchronized
+    fun getAccountSessionId(): String {
+        val existing = prefs.getString(KEY_ACCOUNT_SESSION_ID, null)
+        if (!existing.isNullOrBlank()) return existing
+        val created = UUID.randomUUID().toString()
+        prefs.edit().putString(KEY_ACCOUNT_SESSION_ID, created).apply()
+        return created
+    }
+
     /** Commit an account-owned result only while the account that requested it is current. */
     @Synchronized
     fun <T> withCurrentAccount(expectedAccessToken: String, block: () -> T): T? {
@@ -91,6 +102,7 @@ class SecureTokenStorage private constructor(context: Context) {
     @Synchronized
     fun clearTokens() {
         prefs.edit()
+            .putString(KEY_ACCOUNT_SESSION_ID, UUID.randomUUID().toString())
             .remove(KEY_ACCESS_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_CACHED_USER)
@@ -126,6 +138,7 @@ class SecureTokenStorage private constructor(context: Context) {
             return
         }
         prefs.edit()
+            .putString(KEY_ACCOUNT_SESSION_ID, UUID.randomUUID().toString())
             .remove(KEY_ACCESS_TOKEN)
             .remove(KEY_REFRESH_TOKEN)
             .remove(KEY_CACHED_USER)
@@ -553,7 +566,8 @@ class SecureTokenStorage private constructor(context: Context) {
         prefs.edit().putBoolean("vpn_prominent_disclosure_accepted", accepted).apply()
     }
 
+    @Synchronized
     fun clearAllUserData() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().putString(KEY_ACCOUNT_SESSION_ID, UUID.randomUUID().toString()).apply()
     }
 }
