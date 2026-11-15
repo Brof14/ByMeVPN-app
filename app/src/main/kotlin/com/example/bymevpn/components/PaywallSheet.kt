@@ -51,6 +51,7 @@ import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.payment.PlanTariff
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.theme.AppColors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -91,13 +92,14 @@ fun PaywallSheet(
             serverPlans = api.getPlans(devices = selectedDeviceCount)
             displayPlans = serverPlans
             plansUnavailable = serverPlans.none { it.devices == selectedDeviceCount }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             serverPlans = emptyList()
             plansUnavailable = true
             mobileCatalogNotDeployed = (e as? ApiError)?.httpStatusCode == 404
-        } finally {
-            plansLoading = false
         }
+        plansLoading = false
     }
 
     val tariffOptions = filterPlansByDeviceCount(displayPlans, selectedDeviceCount).map { plan ->
