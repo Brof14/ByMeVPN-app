@@ -50,7 +50,6 @@ import com.example.bymevpn.components.ChevronRightIcon
 import com.example.bymevpn.components.GlobeIcon
 import com.example.bymevpn.components.PowerIcon
 import com.example.bymevpn.components.SettingsGearIcon
-import com.example.bymevpn.components.ShieldSecurityIcon
 import com.example.bymevpn.components.SparkleStarIcon
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.settings.AppSettings
@@ -62,7 +61,6 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onNavigateToHome: () -> Unit = onBackClick,
     onNavigateToAccount: () -> Unit = {},
-    onNavigateToAdvanced: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -249,17 +247,6 @@ fun SettingsScreen(
                                 }
                             )
                         },
-                        showBottomDivider = false
-                    )
-                }
-
-                ByMeCardGroup {
-                    ByMeSettingRow(
-                        title = if (isRu) "Расширенные настройки" else "Advanced settings",
-                        subtitle = if (isRu) "Защита соединения и системные параметры" else "Connection protection and system options",
-                        icon = { ShieldSecurityIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToAdvanced,
                         showBottomDivider = false
                     )
                 }

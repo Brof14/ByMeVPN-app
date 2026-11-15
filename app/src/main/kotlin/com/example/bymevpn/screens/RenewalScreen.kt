@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,7 +32,7 @@ import com.example.bymevpn.components.ByMePrimaryButton
 import com.example.bymevpn.components.ByMeSecondaryButton
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.data.LocaleManager
-import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.theme.AppColors
 import kotlinx.coroutines.launch
 
@@ -44,14 +47,60 @@ fun RenewalScreen(
     val context = LocalContext.current
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
-    val manager = remember { SubscriptionManager.getInstance(context) }
-    val subscription by manager.subscriptionStatus.collectAsState()
+    val api = remember { ByMeApiClient(context) }
     val scope = rememberCoroutineScope()
-    var refreshing by remember { mutableStateOf(false) }
-    val status = when (subscription?.autoRenew) {
-        true -> if (isRu) "Включено по данным сервера" else "Enabled, server-reported"
-        false -> if (isRu) "Отключено по данным сервера" else "Disabled, server-reported"
-        null -> if (isRu) "Не удалось подтвердить" else "Not confirmed"
+    var refreshing by remember { mutableStateOf(true) }
+    var enabled by remember { mutableStateOf<Boolean?>(null) }
+    var showConfirmation by remember { mutableStateOf(false) }
+    var cancelling by remember { mutableStateOf(false) }
+
+    suspend fun refreshRenewal() {
+        refreshing = true
+        try {
+            enabled = api.getAutoRenewal()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            enabled = null
+        } finally {
+            refreshing = false
+        }
+    }
+    LaunchedEffect(Unit) { refreshRenewal() }
+    val status = when {
+        refreshing -> if (isRu) "Проверяем…" else "Checking…"
+        enabled == true -> if (isRu) "Включено" else "On"
+        enabled == false -> if (isRu) "Отключено" else "Off"
+        else -> if (isRu) "Не удалось проверить" else "Could not check"
+    }
+
+    if (showConfirmation) {
+        AlertDialog(
+            onDismissRequest = { if (!cancelling) showConfirmation = false },
+            title = { Text(if (isRu) "Отключить автопродление?" else "Turn off auto-renewal?") },
+            text = { Text(if (isRu) "Следующего автоматического списания не будет. Оплаченный доступ сохранится до конца срока." else "There will be no next automatic charge. Your paid access remains until expiry.") },
+            confirmButton = {
+                TextButton(enabled = !cancelling, onClick = {
+                    cancelling = true
+                    scope.launch {
+                        try {
+                            api.cancelAutoRenewal()
+                            enabled = false
+                            showConfirmation = false
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            enabled = null
+                            showConfirmation = false
+                            Toast.makeText(context, if (isRu) "Не удалось подтвердить отключение. Обновите статус." else "Cancellation could not be confirmed. Refresh the status.", Toast.LENGTH_LONG).show()
+                        } finally {
+                            cancelling = false
+                        }
+                    }
+                }) { Text(if (isRu) "Отключить" else "Turn off") }
+            },
+            dismissButton = { TextButton(enabled = !cancelling, onClick = { showConfirmation = false }) { Text(if (isRu) "Отмена" else "Cancel") } }
+        )
     }
 
     Column(modifier.fillMaxSize().background(AppColors.BgCanvas)) {
@@ -65,9 +114,9 @@ fun RenewalScreen(
             Spacer(Modifier.height(16.dp))
             Text(
                 if (isRu) {
-                    "Новые оплаты в Android не сохраняют карту для автосписаний. Если автопродление подключено через Telegram-бота, управлять им нужно в боте."
+                    "Отключение автопродления не отменяет уже оплаченную подписку. Подключить его можно через Telegram-бота."
                 } else {
-                    "Android checkout does not save a payment method for recurring charges. Manage any existing Telegram-bot auto-renewal in the bot."
+                    "Turning off auto-renewal does not cancel paid access. To enable it, use the Telegram bot."
                 },
                 color = AppColors.TextSecondary,
                 fontSize = 14.sp,
@@ -82,7 +131,15 @@ fun RenewalScreen(
                 lineHeight = 19.sp
             )
             Spacer(Modifier.height(20.dp))
-            ByMePrimaryButton(
+            if (enabled == true) {
+                ByMePrimaryButton(
+                    text = if (isRu) "Отключить автопродление" else "Turn off auto-renewal",
+                    onClick = { showConfirmation = true },
+                    enabled = !refreshing && !cancelling
+                )
+                Spacer(Modifier.height(10.dp))
+            }
+            ByMeSecondaryButton(
                 text = if (isRu) "Управлять в Telegram" else "Manage in Telegram",
                 onClick = {
                     runCatching {
@@ -111,21 +168,9 @@ fun RenewalScreen(
                     if (isRu) "Обновить статус" else "Refresh status"
                 },
                 onClick = {
-                    if (!refreshing) scope.launch {
-                        refreshing = true
-                        try {
-                            val result = manager.refreshStatus(forceBackend = true)
-                            if (result.isFailure) Toast.makeText(
-                                context,
-                                if (isRu) "Не удалось обновить статус. Проверьте сеть."
-                                else "Could not refresh status. Check your connection.",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        } finally {
-                            refreshing = false
-                        }
-                    }
-                }
+                    if (!refreshing) scope.launch { refreshRenewal() }
+                },
+                enabled = !refreshing && !cancelling
             )
         }
         ByMeBottomNav(currentTab = BottomNavTab.Account, onTabSelected = { tab ->
