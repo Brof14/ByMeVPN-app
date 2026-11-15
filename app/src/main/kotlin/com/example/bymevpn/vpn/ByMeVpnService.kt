@@ -120,8 +120,8 @@ class ByMeVpnService : VpnService() {
     private var networkCallbackRegistered = false
     @Volatile private var lastPhysicalNetworkAvailable: Boolean? = null
     private val physicalNetworkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) = notifyPhysicalNetworkStateChanged()
-        override fun onLost(network: Network) = notifyPhysicalNetworkStateChanged()
+        override fun onAvailable(network: Network) = notifyPhysicalNetworkStateChanged(routeChanged = true)
+        override fun onLost(network: Network) = notifyPhysicalNetworkStateChanged(routeChanged = true)
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) =
             notifyPhysicalNetworkStateChanged()
     }
@@ -147,7 +147,7 @@ class ByMeVpnService : VpnService() {
         }
     }
 
-    private fun notifyPhysicalNetworkStateChanged() {
+    private fun notifyPhysicalNetworkStateChanged(routeChanged: Boolean = false) {
         val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
         val hasPhysicalInternet = connectivity.allNetworks.any { network ->
             val capabilities = connectivity.getNetworkCapabilities(network) ?: return@any false
@@ -161,9 +161,8 @@ class ByMeVpnService : VpnService() {
             )
         }
         val previous = lastPhysicalNetworkAvailable
-        if (previous == hasPhysicalInternet) return
         lastPhysicalNetworkAvailable = hasPhysicalInternet
-        if (previous == false && hasPhysicalInternet) {
+        if (previous != null && hasPhysicalInternet && (previous == false || routeChanged)) {
             networkRecoveryJob?.cancel()
             networkRecoveryJob = serviceScope.launch {
                 // Let Android finish restoring the physical route before probing.
