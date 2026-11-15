@@ -435,7 +435,8 @@ fun ByMeSettingRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(height),
+                .heightIn(min = height)
+                .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {

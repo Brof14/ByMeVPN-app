@@ -10,6 +10,11 @@ import org.junit.Test
 
 class VpnServiceRestorePolicyTest {
     @Test
+    fun restoreTimeoutIsFiniteAndAllowsSlowBackendRefresh() {
+        assertTrue(VpnServiceRestorePolicy.RESTORE_TIMEOUT_MS in 60_000L..180_000L)
+    }
+
+    @Test
     fun doesNotStartVpnWhenThereWasNoPreviousSession() {
         assertFalse(VpnServiceRestorePolicy.shouldRestore(previouslyActive = false, systemAlwaysOn = false))
     }
