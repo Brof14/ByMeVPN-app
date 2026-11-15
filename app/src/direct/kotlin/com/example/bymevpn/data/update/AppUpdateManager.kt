@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URI
@@ -58,8 +60,12 @@ object AppUpdateManager {
                 _updateInfo.value = null
                 return@withContext null
             }
-            require(activeConnection.contentLengthLong in 0..32_768L) { "Update manifest is too large" }
-            val manifestText = activeConnection.inputStream.bufferedReader().use { it.readText() }
+            require(activeConnection.contentLengthLong in -1..32_768L) { "Update manifest is too large" }
+            val manifestText = activeConnection.inputStream.use { input ->
+                val bytes = input.readNBytesCompat(32_769)
+                require(bytes.size <= 32_768) { "Update manifest is too large" }
+                bytes.toString(Charsets.UTF_8)
+            }
             val current = currentAppVersion(context)
             val update = parseUpdateManifest(manifestText, current.first, current.second, "github.com")
             _updateInfo.value = update
@@ -93,22 +99,13 @@ object AppUpdateManager {
         try {
             require(connection.responseCode in 200..299) { "Could not download the update" }
             val declaredLength = connection.contentLengthLong
-            require(declaredLength in 1..MAX_APK_BYTES) { "Update file size is invalid" }
-            connection.inputStream.use { input ->
+            require(declaredLength == -1L || declaredLength in 1..MAX_APK_BYTES) { "Update file size is invalid" }
+            val actualHash = connection.inputStream.use { input ->
                 temporaryApk.outputStream().buffered().use { output ->
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var total = 0L
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read < 0) break
-                        total += read
-                        require(total <= MAX_APK_BYTES) { "Update file is too large" }
-                        output.write(buffer, 0, read)
-                    }
-                    require(total == declaredLength) { "Update download was incomplete" }
+                    copyUpdateAndHash(input, output, declaredLength, MAX_APK_BYTES)
                 }
             }
-            require(sha256(temporaryApk).equals(update.sha256, ignoreCase = true)) { "Update checksum did not match" }
+            require(actualHash.equals(update.sha256, ignoreCase = true)) { "Update checksum did not match" }
             require(temporaryApk.length() > 0L) { "Update file is empty" }
             requireArchiveMatchesInstalledApp(context, temporaryApk)
             if (apk.exists()) apk.delete()
@@ -175,18 +172,34 @@ object AppUpdateManager {
         return versionCode to (info.versionName ?: "")
     }
 
-    private fun sha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().buffered().use { input ->
-            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                digest.update(buffer, 0, read)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+}
+
+internal fun copyUpdateAndHash(input: InputStream, output: OutputStream, declaredLength: Long, limit: Long): String {
+    require(declaredLength == -1L || declaredLength in 1..limit) { "Update file size is invalid" }
+    val digest = MessageDigest.getInstance("SHA-256")
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var total = 0L
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) break
+        total += read
+        require(total <= limit) { "Update file is too large" }
+        output.write(buffer, 0, read)
+        digest.update(buffer, 0, read)
     }
+    require(total > 0 && (declaredLength == -1L || total == declaredLength)) { "Update download was incomplete" }
+    return digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+}
+
+private fun InputStream.readNBytesCompat(limit: Int): ByteArray {
+    val output = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(4096)
+    while (output.size() < limit) {
+        val read = read(buffer, 0, minOf(buffer.size, limit - output.size()))
+        if (read < 0) break
+        output.write(buffer, 0, read)
+    }
+    return output.toByteArray()
 }
 
 internal fun parseUpdateManifest(
