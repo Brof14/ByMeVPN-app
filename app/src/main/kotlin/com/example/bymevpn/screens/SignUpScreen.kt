@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -294,7 +296,16 @@ fun SignUpScreen(
                     hintText = if (isRu) "Пароль (от 6 символов)" else "Password (6+ characters)",
                     leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.BrandGreen) },
                     trailingIcon = {
-                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        IconButton(
+                            onClick = { passwordVisible = !passwordVisible },
+                            modifier = Modifier.semantics {
+                                contentDescription = if (passwordVisible) {
+                                    if (isRu) "Скрыть пароль" else "Hide password"
+                                } else {
+                                    if (isRu) "Показать пароль" else "Show password"
+                                }
+                            }
+                        ) {
                             EyeIcon(visible = passwordVisible, color = AppColors.TextSecondary)
                         }
                     },
@@ -483,6 +494,7 @@ private fun SignUpInputField(
                     cursorBrush = SolidColor(AppColors.BrandGreen),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics { contentDescription = hintText }
                         .onFocusChanged { isFocused = it.isFocused }
                 )
             }

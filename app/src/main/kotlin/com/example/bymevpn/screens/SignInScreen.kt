@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -45,7 +46,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -102,6 +106,7 @@ fun SignInScreen(
     val isRu = remember(currentLanguage) { LocaleManager.isRussian(language = currentLanguage) }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    val compactScreen = LocalConfiguration.current.screenHeightDp < 700
     val scrollState = rememberScrollState()
 
     var email by remember { mutableStateOf("") }
@@ -324,7 +329,7 @@ fun SignInScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(42.dp)
+                        .heightIn(min = 48.dp)
                         .clip(RoundedCornerShape(13.dp))
                         .clickable {
                             telegramLoginJob?.cancel()
@@ -370,7 +375,7 @@ fun SignInScreen(
 
                     // 1. Shield Logo with ambient glowing halo
                     ShieldLogo(
-                        size = 150.dp,
+                        size = if (compactScreen) 106.dp else 150.dp,
                         isActive = true
                     )
 
@@ -555,7 +560,13 @@ fun SignInScreen(
                         trailingIcon = {
                             IconButton(
                                 onClick = { passwordVisible = !passwordVisible },
-                                modifier = Modifier.size(36.dp)
+                                modifier = Modifier.size(48.dp).semantics {
+                                    contentDescription = if (passwordVisible) {
+                                        if (isRu) "Скрыть пароль" else "Hide password"
+                                    } else {
+                                        if (isRu) "Показать пароль" else "Show password"
+                                    }
+                                }
                             ) {
                                 EyeIcon(visible = passwordVisible, color = Color(0xFF758A9E), size = 20.dp)
                             }
@@ -716,7 +727,7 @@ fun SignInScreen(
                                     )
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
-                                        text = if (isRu) "Подтвердите вход в боте — новый аккаунт создастся автоматически." else "Confirm in the bot to sign in or create an account.",
+                                        text = if (isRu) "Подтвердите вход в боте. Для восстановления подписки используйте прежний Telegram-аккаунт." else "Confirm in the bot. Use your original Telegram account to restore an existing subscription.",
                                         color = Color(0xFF758A9E),
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Normal
@@ -974,6 +985,7 @@ private fun ExactInputField(
                     cursorBrush = SolidColor(Color(0xFF79D9BC)),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .semantics { contentDescription = hintText }
                         .onFocusChanged { isFocused = it.isFocused }
                 )
             }

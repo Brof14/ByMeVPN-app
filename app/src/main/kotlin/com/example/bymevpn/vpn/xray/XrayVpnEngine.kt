@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,7 +61,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
     private var coreController: CoreController? = null
     private var activeConfig: VpnSessionConfig? = null
     private var statsJob: Job? = null
-    private val engineScope = CoroutineScope(Dispatchers.IO)
+    private val engineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override val isRunning: Boolean
         get() = (coreController?.isRunning == true) && (_state.value == VpnConnectionState.CONNECTED)
@@ -334,8 +335,11 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
                         downloadSpeedBps = speedDown,
                         uploadSpeedBps = speedUp
                     )
-                } catch (e: Throwable) {
-                    Log.v(TAG, "Stats collection error: ${e.message}")
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    // Never print native exception messages; they can include endpoint credentials.
+                    Log.v(TAG, "Stats collection error: ${e.javaClass.simpleName}")
                 }
             }
         }

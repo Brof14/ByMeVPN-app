@@ -27,6 +27,7 @@ import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.first
@@ -115,7 +116,7 @@ class ByMeVpnService : VpnService() {
         }
     }
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var tunInterface: ParcelFileDescriptor? = null
     private var healthJob: Job? = null
     private var networkRecoveryJob: Job? = null

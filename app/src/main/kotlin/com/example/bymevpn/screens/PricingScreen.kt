@@ -53,6 +53,7 @@ import com.example.bymevpn.data.LocaleManager
 import androidx.compose.runtime.collectAsState
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 enum class PlanDuration(
@@ -127,13 +128,16 @@ fun PricingScreen(
             serverPlans = api.getPlans(selectedDeviceCount)
             displayPlans = serverPlans
             priceError = serverPlans.none { it.devices == selectedDeviceCount && it.priceRub > 0 }
+        } catch (e: CancellationException) {
+            // Switching device tiers cancels the previous request; it must not
+            // overwrite state belonging to the new selection.
+            throw e
         } catch (e: Exception) {
             serverPlans = emptyList()
             priceError = true
             mobileCatalogNotDeployed = (e as? ApiError)?.httpStatusCode == 404
-        } finally {
-            plansLoading = false
         }
+        plansLoading = false
     }
 
     // Only a server-confirmed exact plan is eligible for actual checkout.
