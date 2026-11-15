@@ -432,7 +432,25 @@ fun AccountScreen(
                         } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Сервер не передал лимит тарифа", "Server did not provide the plan limit"),
                         icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToDevices,
+                        onClick = onNavigateToDevices
+                    )
+                    ByMeSettingRow(
+                        title = t("Тарифы и оплата", "Plans and payment"),
+                        subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
+                        icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = onNavigateToPricing
+                    )
+                    ByMeSettingRow(
+                        title = t("Автопродление", "Auto-renewal"),
+                        subtitle = when (subscription?.autoRenew) {
+                            true -> t("Включено · изменение недоступно", "On · changes unavailable")
+                            false -> t("Отключено · изменение недоступно", "Off · changes unavailable")
+                            null -> t("Нет подтверждённых данных", "No confirmed data")
+                        },
+                        icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = onNavigateToRenewal,
                         showBottomDivider = false
                     )
                 }
@@ -449,7 +467,7 @@ fun AccountScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = t("Настройки аккаунта", "Account settings"),
-                        subtitle = t("Профиль, устройства, подписка", "Profile, devices, subscription"),
+                        subtitle = t("Профиль и безопасность", "Profile and security"),
                         icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showAccountDialog = true },
@@ -490,7 +508,7 @@ fun AccountScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(t("Настройки аккаунта", "Account settings"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            t("Профиль, подписка и управление доступом", "Profile, subscription and access"),
+                            t("Профиль и управление доступом", "Profile and access"),
                             color = AppColors.TextSecondary,
                             fontSize = 13.sp
                         )
@@ -514,44 +532,7 @@ fun AccountScreen(
                         )
                     }
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(AppColors.CardBg)
-                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text(t("ПОДПИСКА", "SUBSCRIPTION"), color = AppColors.BrandMint, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                        AccountInfoLine(t("Статус", "Status"), if (isActive) t("Активна", "Active") else t("Не активна", "Inactive"))
-                        AccountInfoLine(t("Осталось", "Remaining"), remainingDays?.let { t("$it дн.", "$it days") } ?: "—")
-                        AccountInfoLine(t("Тариф", "Plan"), subscription?.planName?.takeIf { it.isNotBlank() } ?: t("Не выбран", "Not selected"))
-                        AccountInfoLine(t("Устройства", "Devices"), effectiveDevicesText)
-                        subscription?.autoRenew?.let { enabled ->
-                            AccountInfoLine(t("Автопродление", "Auto-renewal"), if (enabled) t("Включено", "On") else t("Отключено", "Off"))
-                        }
-                    }
-
                     ByMeCardGroup {
-                        ByMeSettingRow(
-                            title = t("Тарифы и оплата", "Plans and payment"),
-                            subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
-                            icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { dismissAccountSheet(onNavigateToPricing) }
-                        )
-                        ByMeSettingRow(
-                            title = t("Автопродление", "Auto-renewal"),
-                            subtitle = when (subscription?.autoRenew) {
-                                true -> t("Включено по данным сервера · изменение недоступно", "On per server · changes unavailable")
-                                false -> t("Отключено по данным сервера · изменение недоступно", "Off per server · changes unavailable")
-                                null -> t("Просмотр статуса; изменение пока недоступно", "Status only; changes are not supported yet")
-                            },
-                            icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                            onClick = { dismissAccountSheet(onNavigateToRenewal) }
-                        )
                         ByMeSettingRow(
                             title = t("Помощь и поддержка", "Help and support"),
                             subtitle = t("Связаться с нами", "Contact our team"),

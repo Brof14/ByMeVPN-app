@@ -188,10 +188,16 @@ class SubscriptionManager private constructor(private val context: Context) {
                 }
             }
 
+            val requestedOwner = storage.getCachedUser()?.id
             val status = apiClient.getSubscriptionStatus()
-            _subscriptionStatus.value = status
-            storage.saveCachedSubscription(status)
+            val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+                else { _subscriptionStatus.value = status; storage.saveCachedSubscription(status); true }
+            }
+            check(saved == true) { "Account changed while loading subscription" }
             Result.success(status)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Failed to refresh subscription online: ${e.javaClass.simpleName}")
             val cached = storage.getCachedSubscription()
@@ -215,7 +221,8 @@ class SubscriptionManager private constructor(private val context: Context) {
 
     suspend fun applySubscriptionUrl(
         urlOrConfig: String,
-        includeDeviceHeaders: Boolean = false
+        includeDeviceHeaders: Boolean = false,
+        expectedAccountToken: String? = null
     ): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
         _isSyncing.value = true
         try {
@@ -235,13 +242,6 @@ class SubscriptionManager private constructor(private val context: Context) {
             }
             require(parsed.configs.isNotEmpty()) { "Subscription contains no configurations" }
             require(parsed.configs.size <= MAX_SUBSCRIPTION_CONFIGS) { "Subscription contains too many configurations" }
-            storage.saveServerConfigs(parsed.configs)
-            storage.saveServerNodes(parsed.servers)
-            if (trimmed.startsWith("https://", ignoreCase = true)) {
-                storage.saveSubscriptionUrl(trimmed, backendIssued = includeDeviceHeaders)
-                storage.setServerRefreshAttempt(System.currentTimeMillis())
-            }
-
             val status = SubscriptionStatus(
                 status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= System.currentTimeMillis() / 1000) "expired" else "active",
                 expiresAt = if (parsed.expireTimestampSec > 0) java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(java.util.Date(parsed.expireTimestampSec * 1000)) else null,
@@ -251,16 +251,31 @@ class SubscriptionManager private constructor(private val context: Context) {
             // A panel feed supplies node configurations, never an authenticated
             // account/device entitlement. Background imports from /servers must
             // not erase the signed snapshot while connect() is checking it.
-            if (SubscriptionStatusSourcePolicy.shouldUseSubscriptionFeed(
-                    forceBackend = false,
-                    subscriptionUrl = trimmed,
-                    signedEntitlementsEnabled = ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()
-                )
-            ) {
-                _subscriptionStatus.value = status
-                storage.saveCachedSubscription(status)
+            val saveResult = {
+                storage.saveServerConfigs(parsed.configs)
+                storage.saveServerNodes(parsed.servers)
+                if (trimmed.startsWith("https://", ignoreCase = true)) {
+                    storage.saveSubscriptionUrl(trimmed, backendIssued = includeDeviceHeaders)
+                    storage.setServerRefreshAttempt(System.currentTimeMillis())
+                }
+                if (SubscriptionStatusSourcePolicy.shouldUseSubscriptionFeed(
+                        forceBackend = false,
+                        subscriptionUrl = trimmed,
+                        signedEntitlementsEnabled = ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()
+                    )
+                ) {
+                    _subscriptionStatus.value = status
+                    storage.saveCachedSubscription(status)
+                }
+                true
             }
+            val saved = if (expectedAccountToken != null) {
+                storage.withCurrentAccount(expectedAccountToken, saveResult) == true
+            } else saveResult()
+            check(saved) { "Account changed while loading subscription" }
             Result.success(parsed)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to apply subscription: ${e.javaClass.simpleName}")
             Result.failure(e)
@@ -333,6 +348,7 @@ class SubscriptionManager private constructor(private val context: Context) {
         return trialActivationMutex.withLock {
             _isSyncing.value = true
             try {
+                val requestedOwner = storage.getCachedUser()?.id
                 val cached = _subscriptionStatus.value
                 if (TrialActivationPolicy.isConfirmedActiveTrial(cached, System.currentTimeMillis())) {
                     return@withLock Result.success(cached!!)
@@ -340,11 +356,19 @@ class SubscriptionManager private constructor(private val context: Context) {
 
                 var activeStatus = try {
                     apiClient.activateTrial()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (activationError: Exception) {
                     // A login may already have activated the trial, or the server may
                     // have completed it while the response was lost. Confirm with the
                     // authoritative status endpoint before showing a failure.
-                    val refreshed = runCatching { apiClient.getSubscriptionStatus() }.getOrNull()
+                    val refreshed = try {
+                        apiClient.getSubscriptionStatus()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
                     if (TrialActivationPolicy.isConfirmedActiveTrial(refreshed, System.currentTimeMillis())) {
                         refreshed!!
                     } else {
@@ -358,9 +382,14 @@ class SubscriptionManager private constructor(private val context: Context) {
                     }
                     activeStatus = refreshed
                 }
-                _subscriptionStatus.value = activeStatus
-                storage.saveCachedSubscription(activeStatus)
+                val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                    if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+                    else { _subscriptionStatus.value = activeStatus; storage.saveCachedSubscription(activeStatus); true }
+                }
+                check(saved == true) { "Account changed while activating trial" }
                 Result.success(activeStatus)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val apiError = e as? com.example.bymevpn.data.api.ApiError
                 Log.w(

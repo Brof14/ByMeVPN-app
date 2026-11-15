@@ -358,8 +358,8 @@ fun DevicesScreen(
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 text = if (isFull) {
-                                    if (isRu) "Выберите тариф с большим лимитом, чтобы подключить ещё устройства."
-                                    else "Choose a plan with a higher limit to connect more devices."
+                                    if (isRu) "Выберите тариф с большим лимитом. Вы увидите полную цену до оплаты; доплата за остаток срока не рассчитывается."
+                                    else "Choose a plan with a higher limit. You will see the full price before payment; prorated charges are not calculated."
                                 } else {
                                     if (isRu) "Сравните полную цену нового тарифа перед оплатой. Доплата за остаток срока здесь не рассчитывается."
                                     else "Review the full price of the new plan before paying. Prorated charges are not calculated here."

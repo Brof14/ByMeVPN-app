@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -166,7 +167,7 @@ fun PaywallSheet(
                         Text(
                             text = if (isRu) "👑 ПРЕМИУМ" else "👑 PREMIUM",
                             color = AppColors.BrandGreen,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -226,12 +227,12 @@ fun PaywallSheet(
                     PaywallFeatureRow(
                         icon = "🛡️",
                         title = if (isRu) "VLESS Reality & Hysteria 2" else "VLESS Reality & Hysteria 2",
-                        desc = if (isRu) "Полная маскировка трафика от блокировок" else "Undetectable traffic masking"
+                        desc = if (isRu) "Протоколы для подключения в разных сетях" else "Protocols for connecting across different networks"
                     )
                     PaywallFeatureRow(
                         icon = "🚫",
                         title = if (isRu) "Блокировка рекламы" else "Ad-blocking built in",
-                        desc = if (isRu) "AdGuard DNS защищает от баннеров и слежки" else "AdGuard DNS blocks banners & trackers"
+                        desc = if (isRu) "AdGuard DNS фильтрует часть рекламных и следящих доменов" else "AdGuard DNS filters some ad and tracking domains"
                     )
                     PaywallFeatureRow(
                         icon = "📱",
@@ -347,7 +348,7 @@ fun PaywallSheet(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
+                        .heightIn(min = 52.dp)
                         .clip(RoundedCornerShape(14.dp))
                         .background(
                             Brush.horizontalGradient(
@@ -415,7 +416,7 @@ private fun PaywallFeatureRow(
         Spacer(modifier = Modifier.width(10.dp))
         Column {
             Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(text = desc, color = AppColors.TextSecondary, fontSize = 11.5.sp, lineHeight = 16.sp)
+            Text(text = desc, color = AppColors.TextSecondary, fontSize = 12.5.sp, lineHeight = 18.sp)
         }
     }
 }

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -36,6 +37,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -205,10 +207,10 @@ fun ByMeBottomNav(
             .background(AppColors.NavBackground)
             .border(width = 1.dp, color = AppColors.NavBorder)
             .navigationBarsPadding()
-            .height(72.dp)
+            .heightIn(min = 72.dp)
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().align(Alignment.Center),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -301,11 +303,11 @@ fun ByMePrimaryButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(height)
+            .heightIn(min = height)
             .clip(RoundedCornerShape(17.dp))
             .background(if (enabled) AppGradients.PrimaryButton else androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color(0xFF25364A), Color(0xFF253B4D))))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 20.dp, vertical = 12.dp)
             .testTag("primary_button"),
         contentAlignment = Alignment.Center
     ) {
@@ -314,7 +316,9 @@ fun ByMePrimaryButton(
             color = if (enabled) AppColors.BrandMintDark else AppColors.TextSecondary,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.2).sp
+            letterSpacing = (-0.2).sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = if (showArrow) 22.dp else 0.dp)
         )
         if (showArrow) {
             Box(modifier = Modifier.align(Alignment.CenterEnd)) {
@@ -334,12 +338,12 @@ fun ByMeSecondaryButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp)
+            .heightIn(min = 48.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(AppColors.SecondaryButtonBg)
             .border(1.dp, AppColors.BorderSecondaryButton, RoundedCornerShape(14.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 20.dp)
+            .padding(horizontal = 20.dp, vertical = 10.dp)
             .testTag("secondary_button"),
         contentAlignment = Alignment.Center
     ) {
@@ -347,7 +351,9 @@ fun ByMeSecondaryButton(
             text = text,
             color = AppColors.SecondaryButtonText,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp)
         )
         Box(modifier = Modifier.align(Alignment.CenterEnd)) {
             ChevronRightIcon(color = AppColors.SecondaryButtonText, size = 18.dp)
@@ -461,8 +467,8 @@ fun ByMeSettingRow(
                     Text(
                         text = subtitle,
                         color = Color(0xFF88A09F),
-                        fontSize = 11.4.sp,
-                        lineHeight = 15.sp
+                        fontSize = 12.5.sp,
+                        lineHeight = 18.sp
                     )
                 }
             }
@@ -501,8 +507,8 @@ fun ByMeInfoBox(
         Text(
             text = text,
             color = Color(0xFF86AD9F),
-            fontSize = 11.5.sp,
-            lineHeight = 16.sp
+            fontSize = 12.5.sp,
+            lineHeight = 18.sp
         )
     }
 }

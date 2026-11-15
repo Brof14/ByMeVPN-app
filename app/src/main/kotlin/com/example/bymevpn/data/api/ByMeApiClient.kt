@@ -119,6 +119,16 @@ class ByMeApiClient(private val context: Context) {
         return auth
     }
 
+    suspend fun requestPasswordReset(email: String) {
+        val response = request(
+            "POST", "/auth/password-reset/request",
+            JSONObject().put("email", email.trim()), requiresAuth = false
+        )
+        if (response.optString("status") != "accepted") {
+            throw ApiError("INVALID_RESPONSE", "Password reset request was not confirmed")
+        }
+    }
+
     suspend fun createGoogleAuthNonce(): String {
         val json = request(
             "POST",
@@ -199,9 +209,14 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun getMe(): UserProfile {
+        val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/me", null, requiresAuth = true)
         val user = ApiJsonParsers.parseUserProfile(json)
-        storage.saveCachedUser(user)
+        val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner || user.id != requestedOwner) false
+            else { storage.saveCachedUser(user); true }
+        }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading profile")
         return user
     }
 
@@ -215,20 +230,32 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getSubscriptionStatus(): SubscriptionStatus {
+        val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/subscription/status", null, requiresAuth = true)
         val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        storage.saveCachedSubscription(sub)
+        val token = storage.getAccessToken().orEmpty()
+        val saved = storage.withCurrentAccount(token) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+            else { storage.saveCachedSubscription(sub); true }
+        }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading subscription")
         return sub
     }
 
     suspend fun activateTrial(): SubscriptionStatus {
+        val requestedOwner = storage.getCachedUser()?.id
         val body = JSONObject().apply {
             put("install_id", storage.getInstallId(context))
             put("device_model", storage.getDeviceModel())
         }
         val json = request("POST", "/subscription/trial", body, requiresAuth = true)
         val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        storage.saveCachedSubscription(sub)
+        val token = storage.getAccessToken().orEmpty()
+        val saved = storage.withCurrentAccount(token) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+            else { storage.saveCachedSubscription(sub); true }
+        }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while activating trial")
         return sub
     }
 
@@ -280,28 +307,37 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getServers(awaitSubscriptionRefresh: Boolean = false): List<ServerNode> {
+        val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/servers", null, requiresAuth = true)
-        com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
-            .acceptServerAccessProof(json)
+        val accountToken = storage.getAccessToken().orEmpty()
         val subUrl = json.optString("subscription_url")
-        if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
         val array = json.optJSONArray("servers") ?: JSONArray()
         // No URLs or tokens here: only counts and presence flags are diagnostic.
         Log.d(TAG, "GET /servers: nodes=${array.length()}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}")
         val parsed = ApiJsonParsers.parseServers(array)
-        for (i in 0 until array.length()) {
-            val sObj = array.getJSONObject(i)
-            val code = sObj.optString("node_code", sObj.optString("code"))
-            val cfgObj = sObj.optJSONObject("config")
-            if (code.isNotBlank() && cfgObj != null) {
-                val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
-                storage.saveServerConfig(code, cfg)
-            } else if (code.isNotBlank() && awaitSubscriptionRefresh) {
-                // A fresh API response without a config is not confirmation of
-                // an old cached endpoint. Let the subscription/session API supply it.
-                storage.removeServerConfig(code)
+        val saved = storage.withCurrentAccount(accountToken) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) {
+                false
+            } else {
+                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
+                    .acceptServerAccessProof(json)
+                if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
+                for (i in 0 until array.length()) {
+                    val sObj = array.getJSONObject(i)
+                    val code = sObj.optString("node_code", sObj.optString("code"))
+                    val cfgObj = sObj.optJSONObject("config")
+                    if (code.isNotBlank() && cfgObj != null) {
+                        val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
+                        storage.saveServerConfig(code, cfg)
+                    } else if (code.isNotBlank() && awaitSubscriptionRefresh) {
+                        // An omitted endpoint must not revive a stale cached configuration.
+                        storage.removeServerConfig(code)
+                    }
+                }
+                true
             }
         }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading servers")
         if (subUrl.isNotBlank()) {
             val subManager = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             val registeringDevice = subManager.subscriptionStatus.value?.entitlementBootstrap == true
@@ -311,7 +347,8 @@ class ByMeApiClient(private val context: Context) {
                 try {
                     val imported = subManager.applySubscriptionUrl(
                         subUrl,
-                        includeDeviceHeaders = true
+                        includeDeviceHeaders = true,
+                        expectedAccountToken = accountToken
                     ).getOrThrow()
                     if (registeringDevice) subManager.refreshStatus(forceBackend = true)
                     if (awaitSubscriptionRefresh && imported.servers.isNotEmpty()) {
@@ -334,7 +371,11 @@ class ByMeApiClient(private val context: Context) {
                 // Nodes are already available: never delay the server list for a subscription fetch.
                 backgroundScope.launch {
                     try {
-                        subManager.applySubscriptionUrl(subUrl, includeDeviceHeaders = true)
+                        subManager.applySubscriptionUrl(
+                            subUrl,
+                            includeDeviceHeaders = true,
+                            expectedAccountToken = accountToken
+                        )
                     } catch (e: Exception) {
                         Log.w(TAG, "Background subscription refresh failed: ${safeError(e)}")
                     }

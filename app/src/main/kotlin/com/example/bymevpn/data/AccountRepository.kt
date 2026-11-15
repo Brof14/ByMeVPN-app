@@ -12,6 +12,7 @@ import com.example.bymevpn.data.auth.GoogleAuthResult
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -182,11 +183,20 @@ object AccountRepository {
     }
 
     suspend fun refreshProfile(context: Context) {
+        val storage = SecureTokenStorage.getInstance(context)
+        val requestedOwner = storage.getCachedUser()?.id
         try {
             val api = ByMeApiClient(context)
             val user = api.getMe()
-            _currentUser.value = user
+            storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                if (!requestedOwner.isNullOrBlank() && storage.getCachedUser()?.id == requestedOwner) {
+                    _currentUser.value = user
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (storage.getCachedUser()?.id != requestedOwner && !storage.getAccessToken().isNullOrBlank()) return
             logRequestFailure("Failed to refresh profile", e)
             clearExpiredSession(context, e)
         }
@@ -194,14 +204,25 @@ object AccountRepository {
 
     suspend fun refreshDevices(context: Context) {
         val storage = SecureTokenStorage.getInstance(context)
+        val requestedOwner = storage.getCachedUser()?.id
         try {
             val api = ByMeApiClient(context)
             val devices = api.getDevices()
-            _userDevices.value = devices
-            _deviceListUnavailable.value = false
-            storage.saveRegisteredDevices(devices)
+            val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+                else {
+                    _userDevices.value = devices
+                    _deviceListUnavailable.value = false
+                    storage.saveRegisteredDevices(devices)
+                    true
+                }
+            }
+            if (saved != true) return
             return
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            if (storage.getCachedUser()?.id != requestedOwner && !storage.getAccessToken().isNullOrBlank()) return
             logRequestFailure("Failed to refresh devices from API", e)
             clearExpiredSession(context, e)
             _deviceListUnavailable.value = true

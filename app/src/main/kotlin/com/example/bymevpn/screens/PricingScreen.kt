@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -208,7 +209,7 @@ fun PricingScreen(
                 Text(
                     text = t("СКОЛЬКО УСТРОЙСТВ?", "HOW MANY DEVICES?"),
                     color = AppColors.TextKicker,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
                 )
@@ -219,7 +220,7 @@ fun PricingScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(51.dp)
+                        .heightIn(min = 51.dp)
                         .clip(RoundedCornerShape(15.dp))
                         .background(Color(0xFF142022))
                         .border(1.dp, Color(0xFF29403F), RoundedCornerShape(15.dp))
@@ -279,7 +280,7 @@ fun PricingScreen(
                 Text(
                     text = t("СРОК ПОДПИСКИ", "SUBSCRIPTION LENGTH"),
                     color = AppColors.TextKicker,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
                 )
@@ -306,7 +307,7 @@ fun PricingScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(95.dp)
+                                .heightIn(min = 95.dp)
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(
                                     if (isSelected && isPopular) Color(0xFF152A26)
@@ -334,7 +335,7 @@ fun PricingScreen(
                                 Text(
                                     text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month · 🎁 ${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus month(s)"),
                                     color = Color(0xFF8FA3A4),
-                                    fontSize = 11.5.sp
+                                    fontSize = 12.5.sp
                                 )
                             }
 
@@ -381,7 +382,7 @@ fun PricingScreen(
                                 Text(
                                     text = t("ЛУЧШАЯ ЦЕНА", "BEST VALUE"),
                                     color = Color(0xFF06231A),
-                                    fontSize = 9.sp,
+                                    fontSize = 10.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.4.sp
                                 )
@@ -395,7 +396,7 @@ fun PricingScreen(
                 Text(
                     text = t("СПОСОБ ОПЛАТЫ", "PAYMENT METHOD"),
                     color = AppColors.TextKicker,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)

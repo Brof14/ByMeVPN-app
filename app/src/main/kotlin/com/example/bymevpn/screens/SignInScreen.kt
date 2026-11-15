@@ -26,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,6 +69,7 @@ import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.PaperPlaneIcon
 import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
@@ -112,6 +114,11 @@ fun SignInScreen(
     var isEmailLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
     var isTelegramLoading by remember { mutableStateOf(false) }
+    var showPasswordReset by remember { mutableStateOf(false) }
+    var resetEmail by remember { mutableStateOf("") }
+    var resetPending by remember { mutableStateOf(false) }
+    var resetSent by remember { mutableStateOf(false) }
+    var resetError by remember { mutableStateOf<String?>(null) }
     var telegramLoginJob by remember { mutableStateOf<Job?>(null) }
     var telegramStatusText by remember { mutableStateOf<String?>(null) }
     var telegramBotUrl by remember { mutableStateOf<String?>(null) }
@@ -160,6 +167,59 @@ fun SignInScreen(
                 }
             }
         }
+    }
+
+    if (showPasswordReset) {
+        AlertDialog(
+            onDismissRequest = { if (!resetPending) showPasswordReset = false },
+            title = { Text(if (isRu) "Восстановление пароля" else "Reset password") },
+            text = {
+                Column {
+                    if (resetSent) {
+                        Text(if (isRu) "Если аккаунт с этим email существует, мы отправим ссылку для смены пароля." else "If an account exists for this email, a password reset link will be sent.")
+                    } else {
+                        Text(if (isRu) "Введите email аккаунта. Ссылка придёт на почту." else "Enter your account email to receive a reset link.")
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = resetEmail,
+                            onValueChange = { resetEmail = it; resetError = null },
+                            label = { Text("Email") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                            enabled = !resetPending,
+                            isError = resetError != null
+                        )
+                        resetError?.let { Text(it, color = Color(0xFFFF8080), fontSize = 13.sp) }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = !resetPending, onClick = {
+                    if (resetSent) {
+                        showPasswordReset = false
+                    } else if (!EMAIL_REGEX.matches(resetEmail.trim())) {
+                        resetError = if (isRu) "Введите корректный email" else "Enter a valid email"
+                    } else {
+                        resetPending = true
+                        scope.launch {
+                            try {
+                                ByMeApiClient(context).requestPasswordReset(resetEmail)
+                                resetSent = true
+                            } catch (e: Exception) {
+                                resetError = if (isRu) "Не удалось отправить запрос. Попробуйте позже." else "Could not send the request. Please try again later."
+                            } finally {
+                                resetPending = false
+                            }
+                        }
+                    }
+                }) { Text(if (resetSent) "OK" else if (resetPending) "…" else if (isRu) "Отправить" else "Send") }
+            },
+            dismissButton = {
+                if (!resetSent) TextButton(enabled = !resetPending, onClick = { showPasswordReset = false }) {
+                    Text(if (isRu) "Отмена" else "Cancel")
+                }
+            }
+        )
     }
 
     if (isTelegramLoading) {
@@ -517,6 +577,18 @@ fun SignInScreen(
                                 .fillMaxWidth()
                                 .padding(start = 6.dp, top = 4.dp)
                         )
+                    }
+
+                    TextButton(
+                        onClick = {
+                            resetEmail = email.trim()
+                            resetError = null
+                            resetSent = false
+                            showPasswordReset = true
+                        },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text(if (isRu) "Забыли пароль?" else "Forgot password?")
                     }
 
                     if (authError != null) {

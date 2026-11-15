@@ -48,6 +48,7 @@ import com.example.bymevpn.components.ChevronRightIcon
 import com.example.bymevpn.components.FaqDialog
 import com.example.bymevpn.components.InfoCircleIcon
 import com.example.bymevpn.components.LegalTermsDialog
+import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.ShieldSecurityIcon
 import com.example.bymevpn.BuildConfig
@@ -122,7 +123,7 @@ fun SupportScreen(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Text(
-                        text = t("Нашли ошибку или придумали улучшение? Напишите нам: за подтверждённые ошибки и принятые предложения добавим дни к подписке.", "Found a bug or have a suggestion? Contact us: confirmed reports and accepted suggestions may earn extra days."),
+                        text = t("Напишите нам о проблеме или задайте вопрос по работе ByMeVPN.", "Contact us with a question or a problem using ByMeVPN."),
                         color = Color(0xFF92AAA4),
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp,
@@ -135,20 +136,16 @@ fun SupportScreen(
                     ByMePrimaryButton(
                         text = t("Написать в поддержку", "Contact support"),
                         onClick = {
-                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bymevpn.com")).apply {
-                                putExtra(Intent.EXTRA_SUBJECT, t("Поддержка ByMeVPN", "ByMeVPN support"))
-                            }
-                            try {
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? ClipboardManager
-                                clipboard?.setPrimaryClip(ClipData.newPlainText("ByMeVPN support", "support@bymevpn.com"))
-                                Toast.makeText(
-                                    context,
-                                    t("Адрес поддержки скопирован: support@bymevpn.com", "Support address copied: support@bymevpn.com"),
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
+                            val message = if (isRu) "Здравствуйте, у меня вопрос по ByMeVPN." else "Hello, I have a question about ByMeVPN."
+                            val url = "https://t.me/ByMeVPNSupportBot?text=${Uri.encode(message)}"
+                            runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+                                .onFailure {
+                                    Toast.makeText(
+                                        context,
+                                        t("Не удалось открыть Telegram. Напишите на support@bymevpn.com", "Could not open Telegram. Email support@bymevpn.com"),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
                         }
                     )
                 }
@@ -169,6 +166,27 @@ fun SupportScreen(
                         icon = { QuestionHelpIcon(color = Color(0xFF62CBB0), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showFaqDialog = true }
+                    )
+                    ByMeSettingRow(
+                        title = t("Написать по email", "Contact by email"),
+                        subtitle = "support@bymevpn.com",
+                        icon = { MailIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bymevpn.com")).apply {
+                                putExtra(Intent.EXTRA_SUBJECT, t("Поддержка ByMeVPN", "ByMeVPN support"))
+                            }
+                            runCatching { context.startActivity(intent) }
+                                .onFailure {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                    clipboard?.setPrimaryClip(ClipData.newPlainText("ByMeVPN support", "support@bymevpn.com"))
+                                    Toast.makeText(
+                                        context,
+                                        t("Адрес поддержки скопирован: support@bymevpn.com", "Support address copied: support@bymevpn.com"),
+                                        Toast.LENGTH_LONG
+                                    ).show()
+                                }
+                        }
                     )
                 }
 
