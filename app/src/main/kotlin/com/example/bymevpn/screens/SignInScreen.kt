@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -46,6 +47,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -345,6 +348,11 @@ fun SignInScreen(
         }
     }
 
+    val signInConfiguration = LocalConfiguration.current
+    val compactAuthLayout = SignInLayoutPolicy.isCompact(
+        signInConfiguration.screenHeightDp, LocalDensity.current.fontScale
+    )
+
     CosmicGlobeBackground(modifier = modifier) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -366,15 +374,15 @@ fun SignInScreen(
                         .padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(if (compactAuthLayout) 8.dp else 16.dp))
 
-                    // 1. Shield Logo with ambient glowing halo
+                    // Keep the brand recognizable without pushing login actions off compact screens.
                     ShieldLogo(
-                        size = 150.dp,
+                        size = if (compactAuthLayout) 88.dp else 124.dp,
                         isActive = true
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(if (compactAuthLayout) 6.dp else 10.dp))
 
                     // 2. Title: ByMe (White) + VPN (Green)
                     val brandText = buildAnnotatedString {
@@ -415,7 +423,7 @@ fun SignInScreen(
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(if (compactAuthLayout) 15.dp else 20.dp))
 
                     if (com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
                     // 4. Primary 1-Tap Google Sign-In Button
@@ -928,11 +936,11 @@ private fun ExactInputField(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(52.dp)
+            .heightIn(min = 52.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(Color(0xFF0C1620))
             .border(1.2.dp, borderColor, RoundedCornerShape(14.dp))
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
             .testTag(testTag),
         contentAlignment = Alignment.CenterStart
     ) {

@@ -292,19 +292,17 @@ fun HomeScreen(
     }
 
     fun toggleVpn() {
-        if (!hasPlan) {
-            onNavigateToTrial()
-            return
-        }
-
+        // Disconnect/cancel must remain available even if the entitlement API
+        // temporarily stops reporting an active plan.
         when (vpnState) {
-            VpnConnectionState.CONNECTED -> {
-                VpnManager.stopVpn(context)
-            }
-            VpnConnectionState.CONNECTING -> {
+            VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> {
                 VpnManager.stopVpn(context)
             }
             else -> {
+                if (!hasPlan) {
+                    onNavigateToTrial()
+                    return
+                }
                 if (!secureStorage.isVpnDisclosureAccepted()) showVpnDisclosure = true
                 else prepareAndStartVpn()
             }

@@ -31,6 +31,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -47,6 +48,10 @@ fun VpnPowerButton(
     modifier: Modifier = Modifier,
     successPulseKey: Int = 0
 ) {
+    val configuration = LocalConfiguration.current
+    val buttonDiameterDp = VpnButtonLayoutPolicy.diameterDp(
+        configuration.screenWidthDp, configuration.screenHeightDp
+    )
     val progress by animateFloatAsState(
         targetValue = if (connected) 1f else 0f,
         animationSpec = tween(420, easing = FastOutSlowInEasing),
@@ -93,17 +98,23 @@ fun VpnPowerButton(
 
     Box(
         modifier = modifier
-            .sizeIn(maxWidth = 290.dp, maxHeight = 290.dp)
-            .aspectRatio(1f)
-            .fillMaxWidth()
+            .size(buttonDiameterDp.dp)
             .clip(CircleShape)
             .background(Color.Transparent)
             .border(1.5.dp, ringColor.copy(alpha = 0.25f + 0.55f * progress), CircleShape)
             .graphicsLayer(scaleX = connectingScale, scaleY = connectingScale)
             .semantics {
                 contentDescription = if (isRussian) {
-                    if (connected) "Выключить VPN" else "Включить VPN"
-                } else if (connected) "Disconnect VPN" else "Connect VPN"
+                    when {
+                        connecting -> "Отменить подключение"
+                        connected -> "Выключить VPN"
+                        else -> "Включить VPN"
+                    }
+                } else when {
+                    connecting -> "Cancel VPN connection"
+                    connected -> "Disconnect VPN"
+                    else -> "Connect VPN"
+                }
             }
             .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center
