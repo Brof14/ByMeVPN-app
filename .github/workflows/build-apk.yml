@@ -34,7 +34,17 @@ jobs:
           sha256sum app/libs/libv2ray.aar
       - run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon
       - name: Android lint
-        run: gradle :app:lintDebug --no-daemon
+        shell: bash
+        run: |
+          if ! gradle :app:lintDebug --no-daemon; then
+            echo "::group::All Android lint errors"
+            report="app/build/reports/lint-results-debug.txt"
+            if test -f "$report"; then
+              grep -E -A 5 'Error:|[0-9]+ errors,' "$report" || true
+            fi
+            echo "::endgroup::"
+            exit 1
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-debug
