@@ -209,9 +209,14 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun getMe(): UserProfile {
+        val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/me", null, requiresAuth = true)
         val user = ApiJsonParsers.parseUserProfile(json)
-        storage.saveCachedUser(user)
+        val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner || user.id != requestedOwner) false
+            else { storage.saveCachedUser(user); true }
+        }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading profile")
         return user
     }
 

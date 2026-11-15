@@ -143,6 +143,7 @@ class SecureTokenStorage private constructor(context: Context) {
             .apply()
     }
 
+    @Synchronized
     fun saveCachedUser(user: UserProfile) {
         val obj = JSONObject().apply {
             put("id", user.id)
@@ -225,6 +226,7 @@ class SecureTokenStorage private constructor(context: Context) {
         else prefs.edit().putString(KEY_SELECTED_SERVER_CODE, code).apply()
     }
     fun getSelectedServerCode(): String? = prefs.getString(KEY_SELECTED_SERVER_CODE, null)
+    @Synchronized
     fun setExternalProfileMode(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_EXTERNAL_PROFILE_MODE, enabled).apply()
     }
