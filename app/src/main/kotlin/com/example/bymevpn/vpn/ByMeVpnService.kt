@@ -46,6 +46,8 @@ class ByMeVpnService : VpnService() {
         const val EXTRA_SERVER_NAME = "extra_server_name"
         const val EXTRA_SERVER_COUNTRY = "extra_server_country"
         private const val EXTRA_CONNECT_EPOCH = "extra_connect_epoch"
+        private const val RUNTIME_PREFS = "vpn_runtime_state"
+        private const val KEY_RESTORE_AFTER_RESTART = "restore_after_restart"
         @Volatile private var requestEpoch = 0L
 
         const val NOTIFICATION_ID = 2024
@@ -89,6 +91,12 @@ class ByMeVpnService : VpnService() {
         }
 
         fun stop(context: Context) {
+            // Persist the user's disconnect before scheduling service teardown, so
+            // a process death cannot resurrect a tunnel they explicitly stopped.
+            context.getSharedPreferences(RUNTIME_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean(KEY_RESTORE_AFTER_RESTART, false)
+                .apply()
             synchronized(this) { requestEpoch += 1 }
             val intent = Intent(context, ByMeVpnService::class.java).apply {
                 action = ACTION_DISCONNECT
@@ -111,7 +119,28 @@ class ByMeVpnService : VpnService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action ?: return START_NOT_STICKY
+        val action = intent?.action
+        if (action == null) {
+            val isSystemAlwaysOn = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && isAlwaysOn
+            val shouldRestore = VpnServiceRestorePolicy.shouldRestore(
+                previouslyActive = getSharedPreferences(RUNTIME_PREFS, Context.MODE_PRIVATE)
+                    .getBoolean(KEY_RESTORE_AFTER_RESTART, false),
+                systemAlwaysOn = isSystemAlwaysOn
+            )
+            if (!shouldRestore) {
+                stopSelf(startId)
+                return START_NOT_STICKY
+            }
+
+            // Android restarts sticky VpnService instances with a null intent. Use
+            // a neutral foreground notification while the manager fetches fresh,
+            // account-bound subscription data and configuration.
+            startForegroundCompat(
+                buildNotification("ByMeVPN", "Restoring VPN connection")
+            )
+            VpnManager.getInstance(applicationContext).connect()
+            return START_STICKY
+        }
 
         when (action) {
             ACTION_CONNECT -> {
@@ -147,6 +176,7 @@ class ByMeVpnService : VpnService() {
                     if (connectEpoch != requestEpoch) return@withLock
                     val config = pendingSessionConfig
                     if (config == null) {
+                        setRestoreAfterRestart(false)
                         Log.e(TAG, "No pending session configuration provided")
                         stopSelf()
                         VpnManager.getInstance(applicationContext).onTunnelFailed("No session configuration provided")
@@ -158,6 +188,7 @@ class ByMeVpnService : VpnService() {
 
                     val tun = establishTunInterface(settings)
                     if (tun == null) {
+                        setRestoreAfterRestart(false)
                         Log.e(TAG, "Failed to establish Android TUN interface")
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
@@ -182,10 +213,12 @@ class ByMeVpnService : VpnService() {
 
                     if (result.isSuccess) {
                         isServiceRunning = true
+                        setRestoreAfterRestart(true)
                         Log.i(TAG, "Xray core started and proxy connectivity check passed")
                         VpnManager.getInstance(applicationContext).onTunnelConnected(activeServer)
                         startHealthMonitor(engine)
                     } else {
+                        setRestoreAfterRestart(false)
                         val error = result.exceptionOrNull()?.message ?: "Xray core failed to start"
                         Log.e(TAG, "Failed to start Xray tunnel: $error")
                         tearDownTunInterface()
@@ -200,6 +233,7 @@ class ByMeVpnService : VpnService() {
             ACTION_DISCONNECT -> {
                 serviceScope.launch {
                   lifecycleMutex.withLock {
+                    setRestoreAfterRestart(false)
                     healthJob?.cancel()
                     healthJob = null
                     try {
@@ -219,7 +253,32 @@ class ByMeVpnService : VpnService() {
             }
         }
 
-        return START_NOT_STICKY
+        return START_STICKY
+    }
+
+    private fun setRestoreAfterRestart(enabled: Boolean) {
+        getSharedPreferences(RUNTIME_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_RESTORE_AFTER_RESTART, enabled)
+            .apply()
+    }
+
+    private fun startForegroundCompat(notification: Notification) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     private fun startHealthMonitor(engine: XrayVpnEngine) {
@@ -232,6 +291,7 @@ class ByMeVpnService : VpnService() {
                 if (ConnectivityProbePolicy.shouldDisconnect(failures)) {
                     lifecycleMutex.withLock {
                         if (isServiceRunning) {
+                            setRestoreAfterRestart(false)
                             engine.disconnect()
                             tearDownTunInterface()
                             isServiceRunning = false
@@ -383,6 +443,7 @@ class ByMeVpnService : VpnService() {
     }
 
     override fun onRevoke() {
+        setRestoreAfterRestart(false)
         Log.w(TAG, "VPN permission revoked by system")
         serviceScope.launch {
           lifecycleMutex.withLock {
