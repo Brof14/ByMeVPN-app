@@ -2,11 +2,21 @@ package com.example.bymevpn
 
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.subscription.ExternalProfileAccessPolicy
+import com.example.bymevpn.data.subscription.ExpiredSessionCleanupPolicy
+import com.example.bymevpn.data.subscription.ProfileApiRoutingPolicy
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ExternalProfileAccessPolicyTest {
+    @Test
+    fun standaloneProfileNeverUsesAccountEndpointsOrLosesImportedDataOnExpiredSession() {
+        assertFalse(ProfileApiRoutingPolicy.useAccountApi(externalProfileMode = true))
+        assertTrue(ProfileApiRoutingPolicy.useAccountApi(externalProfileMode = false))
+        assertTrue(ExpiredSessionCleanupPolicy.preserveImportedProfile(externalProfileMode = true))
+        assertFalse(ExpiredSessionCleanupPolicy.preserveImportedProfile(externalProfileMode = false))
+    }
+
     private val active = SubscriptionStatus(status = "active", lastFetchedAt = 1_000L)
 
     @Test

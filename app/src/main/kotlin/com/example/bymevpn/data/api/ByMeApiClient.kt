@@ -507,7 +507,7 @@ class ByMeApiClient(private val context: Context) {
                 return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
                     confirmAccountDeletion = confirmAccountDeletion)
             } else {
-                if (storage.getAccessToken() == tokenAtRequest) storage.clearTokens()
+                if (storage.getAccessToken() == tokenAtRequest) storage.clearExpiredAccountSession()
                 throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")
             }
         }
