@@ -12,6 +12,7 @@ import com.example.bymevpn.data.auth.GoogleAuthResult
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -209,6 +210,8 @@ object AccountRepository {
             }
             if (saved != true) return
             return
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             if (storage.getCachedUser()?.id != requestedOwner && !storage.getAccessToken().isNullOrBlank()) return
             logRequestFailure("Failed to refresh devices from API", e)
