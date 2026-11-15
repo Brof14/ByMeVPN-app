@@ -281,6 +281,7 @@ class ByMeApiClient(private val context: Context) {
 
     suspend fun getServers(awaitSubscriptionRefresh: Boolean = false): List<ServerNode> {
         val json = request("GET", "/servers", null, requiresAuth = true)
+        val accountToken = storage.getAccessToken().orEmpty()
         com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             .acceptServerAccessProof(json)
         val subUrl = json.optString("subscription_url")
@@ -311,7 +312,8 @@ class ByMeApiClient(private val context: Context) {
                 try {
                     val imported = subManager.applySubscriptionUrl(
                         subUrl,
-                        includeDeviceHeaders = true
+                        includeDeviceHeaders = true,
+                        expectedAccountToken = accountToken
                     ).getOrThrow()
                     if (registeringDevice) subManager.refreshStatus(forceBackend = true)
                     if (awaitSubscriptionRefresh && imported.servers.isNotEmpty()) {
@@ -334,7 +336,11 @@ class ByMeApiClient(private val context: Context) {
                 // Nodes are already available: never delay the server list for a subscription fetch.
                 backgroundScope.launch {
                     try {
-                        subManager.applySubscriptionUrl(subUrl, includeDeviceHeaders = true)
+                        subManager.applySubscriptionUrl(
+                            subUrl,
+                            includeDeviceHeaders = true,
+                            expectedAccountToken = accountToken
+                        )
                     } catch (e: Exception) {
                         Log.w(TAG, "Background subscription refresh failed: ${safeError(e)}")
                     }

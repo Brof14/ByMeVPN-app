@@ -79,6 +79,15 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
+    /** Commit an account-owned result only while the account that requested it is current. */
+    @Synchronized
+    fun <T> withCurrentAccount(expectedAccessToken: String, block: () -> T): T? {
+        if (expectedAccessToken.isBlank() || isExternalProfileMode() ||
+            getAccessToken() != expectedAccessToken
+        ) return null
+        return block()
+    }
+
     @Synchronized
     fun clearTokens() {
         prefs.edit()
