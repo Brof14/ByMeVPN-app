@@ -403,7 +403,14 @@ fun HomeScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                if (!hasPlan || isActivatingTrial || subscriptionUnknown || accessConfirmationRequired) {
+                val presentation = HomePresentationPolicy.select(
+                    vpnState = vpnState,
+                    hasPlan = hasPlan,
+                    isActivatingTrial = isActivatingTrial,
+                    subscriptionUnknown = subscriptionUnknown,
+                    accessConfirmationRequired = accessConfirmationRequired
+                )
+                if (presentation == HomePresentationPolicy.Screen.ACCESS_REQUIRED) {
                     // MOCKUP 03_home_no_plan
                     HomeNoPlanContent(
                         onTrialClick = { activateTrialFromHome() },
@@ -443,7 +450,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.width(5.dp))
                         ChevronRightIcon(color = Color(0xFFB9DFD3), size = 16.dp)
                     }
-                } else if (vpnState == VpnConnectionState.ERROR) {
+                } else if (presentation == HomePresentationPolicy.Screen.ERROR) {
                     val vpnError by vpnManager.errorMessage.collectAsState()
                     // MOCKUP 14_connection_error
                     HomeConnectionErrorContent(
@@ -453,7 +460,7 @@ fun HomeScreen(
                         currentServer = currentServer,
                         errorMessage = vpnError
                     )
-                } else if (vpnState == VpnConnectionState.CONNECTED) {
+                } else if (presentation == HomePresentationPolicy.Screen.CONNECTED) {
                     // MOCKUP 05_home_on
                     HomeConnectedContent(
                         connectedSeconds = connectedSeconds,
@@ -470,7 +477,7 @@ fun HomeScreen(
                 } else {
                     // MOCKUP 04_home_off (also handles connecting)
                     HomeDisconnectedContent(
-                        isConnecting = vpnState == VpnConnectionState.CONNECTING,
+                        isConnecting = presentation == HomePresentationPolicy.Screen.CONNECTING,
                         onPowerClick = { toggleVpn() },
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
