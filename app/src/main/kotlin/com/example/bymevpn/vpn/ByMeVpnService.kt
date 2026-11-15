@@ -8,6 +8,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -112,10 +116,56 @@ class ByMeVpnService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var tunInterface: ParcelFileDescriptor? = null
     private var healthJob: Job? = null
+    private var networkCallbackRegistered = false
+    @Volatile private var lastPhysicalNetworkAvailable: Boolean? = null
+    private val physicalNetworkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onAvailable(network: Network) = notifyPhysicalNetworkStateChanged()
+        override fun onLost(network: Network) = notifyPhysicalNetworkStateChanged()
+        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) =
+            notifyPhysicalNetworkStateChanged()
+    }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        registerPhysicalNetworkCallback()
+    }
+
+    private fun registerPhysicalNetworkCallback() {
+        val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val request = NetworkRequest.Builder()
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+            .build()
+        try {
+            connectivity.registerNetworkCallback(request, physicalNetworkCallback)
+            networkCallbackRegistered = true
+            notifyPhysicalNetworkStateChanged()
+        } catch (e: Exception) {
+            Log.w(TAG, "Physical network monitoring unavailable: ${e.javaClass.simpleName}")
+        }
+    }
+
+    private fun notifyPhysicalNetworkStateChanged() {
+        val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val hasPhysicalInternet = connectivity.allNetworks.any { network ->
+            val capabilities = connectivity.getNetworkCapabilities(network) ?: return@any false
+            val hasPhysicalTransport = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            UnderlyingNetworkPolicy.isUsable(
+                hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                isVpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                hasPhysicalTransport = hasPhysicalTransport
+            )
+        }
+        val previous = lastPhysicalNetworkAvailable
+        if (previous == hasPhysicalInternet) return
+        lastPhysicalNetworkAvailable = hasPhysicalInternet
+        if (previous != null) {
+            VpnManager.getInstance(applicationContext)
+                .onPhysicalNetworkAvailabilityChanged(hasPhysicalInternet)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -478,6 +528,15 @@ class ByMeVpnService : VpnService() {
     override fun onDestroy() {
         isServiceRunning = false
         healthJob?.cancel()
+        if (networkCallbackRegistered) {
+            val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            try {
+                connectivity?.unregisterNetworkCallback(physicalNetworkCallback)
+            } catch (e: Exception) {
+                Log.w(TAG, "Physical network callback cleanup failed: ${e.javaClass.simpleName}")
+            }
+            networkCallbackRegistered = false
+        }
         serviceScope.launch {
             try {
                 lifecycleMutex.withLock {
