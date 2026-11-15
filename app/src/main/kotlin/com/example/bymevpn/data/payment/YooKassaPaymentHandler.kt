@@ -12,11 +12,8 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.vpn.VpnManager
 import com.example.bymevpn.data.api.ByMeApiClient
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlin.coroutines.resume
 
 data class PlanTariff(
     val code: String,
@@ -46,17 +43,16 @@ object YooKassaPaymentHandler {
     /**
      * Launches the YooKassa checkout flow via Chrome Custom Tabs or browser.
      */
-    fun openCheckout(
+    suspend fun openCheckout(
         context: Context,
         tariff: PlanTariff,
         provider: String = "yookassa",
         devices: Int = 2,
         onCheckoutFailed: () -> Unit = {},
         onCheckoutLaunched: () -> Unit = {}
-    ) {
+    ): Boolean {
         val storage = SecureTokenStorage.getInstance(context)
 
-        CoroutineScope(Dispatchers.Main).launch {
         // YooKassa hosted payment URL or Bot fallback
         val createResult = try {
             val api = ByMeApiClient(context)
@@ -71,40 +67,47 @@ object YooKassaPaymentHandler {
                 throw IllegalStateException("Payment reference is unavailable")
             }
             res
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to create in-app payment")
-            Toast.makeText(context, "Оплата временно недоступна. Попробуйте позже.", Toast.LENGTH_LONG).show()
-            onCheckoutFailed()
-            return@launch
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Оплата временно недоступна. Попробуйте позже.", Toast.LENGTH_LONG).show()
+                onCheckoutFailed()
+            }
+            return false
         }
 
         val paymentUrl = createResult.paymentUrl
         if (!Uri.parse(paymentUrl).scheme.equals("https", ignoreCase = true)) {
-            Toast.makeText(context, "Не удалось открыть безопасную страницу оплаты.", Toast.LENGTH_LONG).show()
-            onCheckoutFailed()
-            return@launch
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "Не удалось открыть безопасную страницу оплаты.", Toast.LENGTH_LONG).show()
+                onCheckoutFailed()
+            }
+            return false
         }
         storage.savePendingPayment(tariff.code, tariff.days, createResult.invoiceId!!, createResult.provider)
 
-        try {
-            val customTabsIntent = CustomTabsIntent.Builder()
-                .setShowTitle(true)
-                .build()
-
-            customTabsIntent.launchUrl(context, Uri.parse(paymentUrl))
-            onCheckoutLaunched()
-        } catch (e: Exception) {
-            Log.w(TAG, "Chrome Custom Tabs failed, falling back to Intent: ${e.message}")
+        return withContext(Dispatchers.Main) {
             try {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl))
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(intent)
+                CustomTabsIntent.Builder()
+                    .setShowTitle(true)
+                    .build()
+                    .launchUrl(context, Uri.parse(paymentUrl))
                 onCheckoutLaunched()
-            } catch (ex: Exception) {
-                Toast.makeText(context, "Не удалось открыть страницу оплаты", Toast.LENGTH_SHORT).show()
-                onCheckoutFailed()
+                true
+            } catch (e: Exception) {
+                Log.w(TAG, "Chrome Custom Tabs failed; trying browser fallback (${e.javaClass.simpleName})")
+                try {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(paymentUrl)))
+                    onCheckoutLaunched()
+                    true
+                } catch (_: Exception) {
+                    Toast.makeText(context, "Не удалось открыть страницу оплаты", Toast.LENGTH_SHORT).show()
+                    onCheckoutFailed()
+                    false
+                }
             }
-        }
         }
     }
 
@@ -130,16 +133,7 @@ object YooKassaPaymentHandler {
             isBestValue = false,
             days = days
         )
-        return suspendCancellableCoroutine { continuation ->
-            openCheckout(
-                context = context,
-                tariff = tariff,
-                provider = provider,
-                devices = devices,
-                onCheckoutFailed = { if (continuation.isActive) continuation.resume(false) },
-                onCheckoutLaunched = { if (continuation.isActive) continuation.resume(true) }
-            )
-        }
+        return openCheckout(context, tariff, provider, devices)
     }
 
     /**

@@ -354,13 +354,18 @@ fun PaywallSheet(
                             )
                         )
                         .clickable(enabled = !isProcessingPayment && !plansLoading && confirmedSelectedPlan?.checkoutEnabled == true) {
-                            isProcessingPayment = true
-                            YooKassaPaymentHandler.openCheckout(
-                                context = context,
-                                tariff = confirmedSelectedPlan!!,
-                                onCheckoutFailed = { isProcessingPayment = false },
-                                onCheckoutLaunched = { isProcessingPayment = false }
-                            )
+                            val tariff = confirmedSelectedPlan
+                            if (tariff != null) {
+                                isProcessingPayment = true
+                                scope.launch {
+                                    YooKassaPaymentHandler.openCheckout(
+                                        context = context,
+                                        tariff = tariff,
+                                        onCheckoutFailed = { isProcessingPayment = false },
+                                        onCheckoutLaunched = { isProcessingPayment = false }
+                                    )
+                                }
+                            }
                         },
                     contentAlignment = Alignment.Center
                 ) {

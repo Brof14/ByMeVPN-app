@@ -8,6 +8,9 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 private val Context.dataStore by preferencesDataStore(name = "bymevpn_settings")
@@ -28,6 +31,8 @@ data class AppSettings(
 )
 
 class SettingsRepository(private val context: Context) {
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     companion object {
         private val KEY_PROTOCOL = stringPreferencesKey("protocol")
@@ -121,25 +126,25 @@ class SettingsRepository(private val context: Context) {
     val dnsMode: Flow<String> = settingsFlow.map { it.dnsMode }
 
     fun setAutoConnectOnLaunch(enabled: Boolean) {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        repositoryScope.launch {
             updateAutoBoot(enabled)
         }
     }
 
     fun setBypassRussianSites(enabled: Boolean) {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        repositoryScope.launch {
             updateBypassRussianTraffic(enabled)
         }
     }
 
     fun setBatteryOptimizationDismissed(enabled: Boolean) {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        repositoryScope.launch {
             updateAutoReconnect(enabled)
         }
     }
 
     fun setKillSwitchEnabled(enabled: Boolean) {
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+        repositoryScope.launch {
             updateKillSwitch(enabled)
         }
     }
