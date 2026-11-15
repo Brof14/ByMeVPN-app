@@ -82,6 +82,9 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             } catch (e: Throwable) {
                 Log.e(TAG, "Xray core initialization failed: ${e.javaClass.simpleName}")
                 envInitialized.set(false)
+                // A failed native/core setup must never look like a successful prewarm.
+                // Do not expose native exception messages: they may contain configuration.
+                throw IllegalStateException("VPN engine initialization failed", e)
             }
         }
     }
