@@ -118,7 +118,6 @@ class VpnManager private constructor(private val context: Context) {
     private var switchJob: Job? = null
     private var disconnectJob: Job? = null
     @Volatile private var connectionRequested = false
-    @Volatile private var reconnectAfterPhysicalNetworkLoss = false
     private val serverLoadMutex = Mutex()
     @Volatile private var automaticSelection = storage.isAutomaticServerSelectionEnabled()
     private val pingMutex = Mutex()
@@ -606,7 +605,6 @@ class VpnManager private constructor(private val context: Context) {
                 ByMeVpnService.stop(context)
                 _state.value = VpnConnectionState.ERROR
                 _errorMessage.value = e.message ?: (if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Ошибка подключения" else "Connection error")
-                retryOnceAfterNetworkRecovery()
             }
         }
     }
@@ -629,7 +627,6 @@ class VpnManager private constructor(private val context: Context) {
             }
             _state.value = VpnConnectionState.CONNECTED
             _errorMessage.value = null
-            reconnectAfterPhysicalNetworkLoss = false
             startTimer()
             if (subscriptionManager.subscriptionStatus.value?.entitlementBootstrap == true) {
                 promoteDeviceBootstrapAfterConnection()
@@ -693,47 +690,6 @@ class VpnManager private constructor(private val context: Context) {
             _state.value = VpnConnectionState.ERROR
             _errorMessage.value = error
             stopTimer()
-            retryOnceAfterNetworkRecovery()
-        }
-    }
-
-    /** React to a complete physical-network loss without treating the VPN itself as internet. */
-    fun onPhysicalNetworkAvailabilityChanged(available: Boolean) {
-        scope.launch(Dispatchers.Main) {
-            if (!available) {
-                if (!connectionRequested) return@launch
-                val settings = settingsRepo.settingsFlow.first()
-                if (!settings.autoReconnect) return@launch
-                reconnectAfterPhysicalNetworkLoss = true
-                if (_state.value == VpnConnectionState.CONNECTED) {
-                    onTunnelConnectivityLost(ByMeVpnService.activeServer)
-                }
-                return@launch
-            }
-
-            retryOnceAfterNetworkRecovery()
-        }
-    }
-
-    private fun retryOnceAfterNetworkRecovery() {
-        if (!reconnectAfterPhysicalNetworkLoss || !isNetworkAvailable()) return
-        if (connectionJob?.isActive == true || reconnectJob?.isActive == true) return
-
-        scope.launch(Dispatchers.Main) {
-            val settings = settingsRepo.settingsFlow.first()
-            if (!PhysicalNetworkRecoveryPolicy.shouldRetry(
-                    reconnectEnabled = settings.autoReconnect,
-                    recoveryPending = reconnectAfterPhysicalNetworkLoss,
-                    state = _state.value
-                )
-            ) {
-                if (!settings.autoReconnect) reconnectAfterPhysicalNetworkLoss = false
-                return@launch
-            }
-            if (!isNetworkAvailable()) return@launch
-            // Clear before retrying: a bad node/config must not cause an endless loop.
-            reconnectAfterPhysicalNetworkLoss = false
-            connect()
         }
     }
 
@@ -865,7 +821,6 @@ class VpnManager private constructor(private val context: Context) {
 
     private fun disconnectInternal() {
         connectionRequested = false
-        reconnectAfterPhysicalNetworkLoss = false
         bootstrapPromotionJob?.cancel()
         bootstrapPromotionJob = null
         connectionJob?.cancel()

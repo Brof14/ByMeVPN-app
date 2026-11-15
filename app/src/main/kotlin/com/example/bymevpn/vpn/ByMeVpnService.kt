@@ -116,6 +116,7 @@ class ByMeVpnService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
     private var tunInterface: ParcelFileDescriptor? = null
     private var healthJob: Job? = null
+    private var networkRecoveryJob: Job? = null
     private var networkCallbackRegistered = false
     @Volatile private var lastPhysicalNetworkAvailable: Boolean? = null
     private val physicalNetworkCallback = object : ConnectivityManager.NetworkCallback() {
@@ -162,9 +163,20 @@ class ByMeVpnService : VpnService() {
         val previous = lastPhysicalNetworkAvailable
         if (previous == hasPhysicalInternet) return
         lastPhysicalNetworkAvailable = hasPhysicalInternet
-        if (previous != null) {
-            VpnManager.getInstance(applicationContext)
-                .onPhysicalNetworkAvailabilityChanged(hasPhysicalInternet)
+        if (previous == false && hasPhysicalInternet) {
+            networkRecoveryJob?.cancel()
+            networkRecoveryJob = serviceScope.launch {
+                // Let Android finish restoring the physical route before probing.
+                delay(2_000)
+                val engine = XrayVpnEngine.getInstance(applicationContext)
+                if (!isServiceRunning || engine.checkConnectivity()) return@launch
+                delay(2_000)
+                if (isServiceRunning && !engine.checkConnectivity()) {
+                    stopFailedTunnel(engine)
+                }
+            }
+        } else if (!hasPhysicalInternet) {
+            networkRecoveryJob?.cancel()
         }
     }
 
@@ -350,20 +362,23 @@ class ByMeVpnService : VpnService() {
                 delay(30_000)
                 failures = if (engine.checkConnectivity()) 0 else failures + 1
                 if (ConnectivityProbePolicy.shouldDisconnect(failures)) {
-                    lifecycleMutex.withLock {
-                        if (isServiceRunning) {
-                            setRestoreAfterRestart(false)
-                            engine.disconnect()
-                            tearDownTunInterface()
-                            isServiceRunning = false
-                            stopForeground(STOP_FOREGROUND_REMOVE)
-                            VpnManager.getInstance(applicationContext).onTunnelConnectivityLost(activeServer)
-                            stopSelf()
-                        }
-                    }
+                    stopFailedTunnel(engine)
                     return@launch
                 }
             }
+        }
+    }
+
+    private suspend fun stopFailedTunnel(engine: XrayVpnEngine) {
+        lifecycleMutex.withLock {
+            if (!isServiceRunning) return@withLock
+            setRestoreAfterRestart(false)
+            engine.disconnect()
+            tearDownTunInterface()
+            isServiceRunning = false
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            VpnManager.getInstance(applicationContext).onTunnelConnectivityLost(activeServer)
+            stopSelf()
         }
     }
 
@@ -421,20 +436,8 @@ class ByMeVpnService : VpnService() {
 
             tunInterface?.close()
             val fd = builder.establish()
-            if (fd != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                try {
-                    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
-                    val activeNet = cm?.activeNetwork
-                    if (activeNet != null) {
-                        setUnderlyingNetworks(arrayOf(activeNet))
-                        Log.i(TAG, "Set underlying physical network: $activeNet")
-                    } else {
-                        setUnderlyingNetworks(null)
-                    }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Setting underlying networks failed: ${e.javaClass.simpleName}")
-                }
-            }
+            // The core does not bind its sockets to a particular Network. Leave
+            // the underlying network unset so Android can follow its default route.
             fd
         } catch (e: Exception) {
             Log.e(TAG, "Establishing TUN interface failed: ${e.javaClass.simpleName}")
@@ -528,6 +531,7 @@ class ByMeVpnService : VpnService() {
     override fun onDestroy() {
         isServiceRunning = false
         healthJob?.cancel()
+        networkRecoveryJob?.cancel()
         if (networkCallbackRegistered) {
             val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             try {
