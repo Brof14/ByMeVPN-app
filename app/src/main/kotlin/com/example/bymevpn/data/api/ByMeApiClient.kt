@@ -210,6 +210,19 @@ class ByMeApiClient(private val context: Context) {
         }
     }
 
+    /** User-requested, privacy-minimal support report. No raw logs or configuration. */
+    suspend fun submitSupportDiagnostic(stage: String, errorCode: String): Boolean {
+        require(SupportDiagnosticPolicy.isValidReport(stage, errorCode)) { "Unsupported diagnostic report" }
+        val payload = JSONObject().apply {
+            put("platform", "android")
+            put("stage", stage)
+            put("error_code", errorCode)
+            put("app_version", com.example.bymevpn.BuildConfig.VERSION_NAME)
+        }
+        val result = request("POST", "/diagnostics/report", payload, requiresAuth = true)
+        return result.optString("status") == "received"
+    }
+
     suspend fun getMe(): UserProfile {
         val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/me", null, requiresAuth = true)

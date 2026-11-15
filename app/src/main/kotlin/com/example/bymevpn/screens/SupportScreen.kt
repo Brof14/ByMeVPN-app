@@ -24,10 +24,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -52,6 +54,10 @@ import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.ShieldSecurityIcon
 import com.example.bymevpn.BuildConfig
+import com.example.bymevpn.data.api.ByMeApiClient
+import com.example.bymevpn.data.api.SupportDiagnosticPolicy
+import com.example.bymevpn.data.storage.SecureTokenStorage
+import com.example.bymevpn.vpn.VpnManager
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.data.LocaleManager
 import androidx.compose.runtime.collectAsState
@@ -70,9 +76,51 @@ fun SupportScreen(
     val isRu = LocaleManager.isRussian(language = language)
     val t: (String, String) -> String = { ru, en -> if (isRu) ru else en }
     val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val vpnManager = remember { VpnManager.getInstance(context) }
+    val lastVpnError by vpnManager.errorMessage.collectAsState()
+    val hasAccountSession = remember { !SecureTokenStorage.getInstance(context).getAccessToken().isNullOrBlank() }
+    var showDiagnosticConsent by remember { mutableStateOf(false) }
+    var diagnosticSending by remember { mutableStateOf(false) }
     var showFaqDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
+
+    if (showDiagnosticConsent) {
+        AlertDialog(
+            onDismissRequest = { if (!diagnosticSending) showDiagnosticConsent = false },
+            title = { Text(t("Отправить диагностику?", "Send diagnostic report?")) },
+            text = { Text(t(
+                "Мы отправим только стандартный код ошибки, этап работы и версию приложения. Сервер привяжет отчёт к вашему аккаунту. VPN-ключи, адреса серверов и содержимое трафика не передаются.",
+                "Only a standard error code, failure stage and app version will be sent. The server links the report to your account. VPN keys, server addresses and traffic contents are not sent."
+            )) },
+            confirmButton = {
+                TextButton(enabled = !diagnosticSending, onClick = {
+                    diagnosticSending = true
+                    scope.launch {
+                        val diagnostic = SupportDiagnosticPolicy.classify(lastVpnError)
+                        val sent = runCatching {
+                            ByMeApiClient(context).submitSupportDiagnostic(
+                                diagnostic.stage, diagnostic.errorCode
+                            )
+                        }.getOrDefault(false)
+                        diagnosticSending = false
+                        showDiagnosticConsent = false
+                        Toast.makeText(context,
+                            if (sent) t("Отчёт отправлен в поддержку", "Diagnostic report sent")
+                            else t("Не удалось отправить. Попробуйте позже.", "Could not submit report. Try again later."),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }) { Text(if (diagnosticSending) "…" else t("Отправить", "Send")) }
+            },
+            dismissButton = {
+                TextButton(enabled = !diagnosticSending, onClick = { showDiagnosticConsent = false }) {
+                    Text(t("Отмена", "Cancel"))
+                }
+            }
+        )
+    }
 
     Box(
         modifier = modifier
@@ -166,6 +214,15 @@ fun SupportScreen(
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showFaqDialog = true }
                     )
+                    if (hasAccountSession) {
+                        ByMeSettingRow(
+                            title = t("Отправить диагностику", "Send diagnostic report"),
+                            subtitle = t("Только код ошибки и версия приложения", "Only an error code and app version"),
+                            icon = { ShieldSecurityIcon(color = Color(0xFF62CBB0), size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            onClick = { showDiagnosticConsent = true }
+                        )
+                    }
                     ByMeSettingRow(
                         title = t("Написать по email", "Contact by email"),
                         subtitle = "support@bymevpn.com",
