@@ -6,22 +6,17 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
@@ -56,19 +51,25 @@ import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 
-enum class AppScreen {
-    SignIn,
-    SignUp,
-    Home,
-    Settings,
-    AdvancedSettings,
-    Account,
-    Devices,
-    Renewal,
-    Support,
-    Trial,
-    Pricing
+private object AppRoute {
+    const val SignIn = "sign-in"
+    const val SignUp = "sign-up"
+    const val Home = "home"
+    const val Settings = "settings"
+    const val AdvancedSettings = "advanced-settings"
+    const val Account = "account"
+    const val Devices = "devices"
+    const val Renewal = "renewal"
+    const val Trial = "trial"
+    const val Pricing = "pricing/{deviceCount}"
+    const val Support = "support/{origin}"
 }
 
 class MainActivity : ComponentActivity() {
@@ -336,151 +337,167 @@ private fun ExternalSubscriptionImportDialog(
 fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
     val context = LocalContext.current
     val currentUser by AccountRepository.currentUser.collectAsState()
+    val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
+
     LaunchedEffect(Unit) {
         com.example.bymevpn.data.settings.SettingsRepository.getInstance(context).settingsFlow.collect { settings ->
             com.example.bymevpn.data.LocaleManager.setLanguage(com.example.bymevpn.data.AppLanguage.fromCode(settings.language))
         }
     }
 
-    var currentScreen by rememberSaveable {
-        mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.SignIn)
-    }
-    var pricingDeviceCount by remember { mutableStateOf(2) }
-    var pricingReturnScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
-    var supportReturnScreen by rememberSaveable { mutableStateOf(AppScreen.Account) }
-    fun openPricing(deviceCount: Int = 2) {
-        pricingDeviceCount = deviceCount
-        pricingReturnScreen = currentScreen
-        currentScreen = AppScreen.Pricing
+    fun navigate(route: String) {
+        navController.navigate(route) { launchSingleTop = true }
     }
 
-    LaunchedEffect(currentUser) {
-        val user = currentUser
-        if (user != null && (currentScreen == AppScreen.SignIn || currentScreen == AppScreen.SignUp)) {
-            currentScreen = AppScreen.Home
-        } else if (user == null && currentScreen != AppScreen.SignIn && currentScreen != AppScreen.SignUp) {
-            currentScreen = AppScreen.SignIn
+    fun navigateTab(route: String) {
+        navController.navigate(route) {
+            popUpTo(AppRoute.Home) { saveState = true }
+            launchSingleTop = true
+            restoreState = true
         }
     }
 
-    // Predictive back handling
-    BackHandler(enabled = currentScreen != AppScreen.SignIn && currentScreen != AppScreen.Home) {
-        currentScreen = when (currentScreen) {
-            AppScreen.AdvancedSettings -> AppScreen.Settings
-            AppScreen.Devices, AppScreen.Renewal -> AppScreen.Account
-            AppScreen.Support -> AppScreen.Account
-            AppScreen.Trial, AppScreen.Pricing -> AppScreen.Home
-            AppScreen.Settings, AppScreen.Account -> AppScreen.Home
-            AppScreen.SignUp -> AppScreen.SignIn
-            else -> AppScreen.Home
+    fun navigateHomeAfterAuth() {
+        navController.navigate(AppRoute.Home) {
+            popUpTo(AppRoute.SignIn) { inclusive = true }
+            launchSingleTop = true
         }
     }
 
-    AnimatedContent(
-        targetState = currentScreen,
-        transitionSpec = { fadeIn(animationSpec = tween(160)) togetherWith fadeOut(animationSpec = tween(160)) },
-        label = "screen_transition"
-    ) { screen ->
-        when (screen) {
-            AppScreen.SignIn -> {
+    fun logout() {
+        VpnManager.stopVpn(context)
+        AccountRepository.logout(context)
+        navController.navigate(AppRoute.SignIn) {
+            popUpTo(AppRoute.Home) { inclusive = true }
+            launchSingleTop = true
+        }
+    }
+
+    LaunchedEffect(currentUser, currentRoute) {
+        when {
+            currentUser != null && (currentRoute == AppRoute.SignIn || currentRoute == AppRoute.SignUp) ->
+                navigateHomeAfterAuth()
+            currentUser == null && currentRoute != null && currentRoute !in setOf(AppRoute.SignIn, AppRoute.SignUp) -> {
+                navController.navigate(AppRoute.SignIn) {
+                    popUpTo(AppRoute.Home) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = if (currentUser != null) AppRoute.Home else AppRoute.SignIn,
+        enterTransition = { fadeIn(tween(160)) },
+        exitTransition = { fadeOut(tween(160)) },
+        popEnterTransition = { fadeIn(tween(160)) },
+        popExitTransition = { fadeOut(tween(160)) }
+    ) {
+        composable(AppRoute.SignIn) {
                 SignInScreen(
-                    onSignUpClick = { currentScreen = AppScreen.SignUp },
-                    onSignInSuccess = { currentScreen = AppScreen.Home }
+                    onSignUpClick = { navigate(AppRoute.SignUp) },
+                    onSignInSuccess = { navigateHomeAfterAuth() }
                 )
-            }
-            AppScreen.SignUp -> {
+        }
+        composable(AppRoute.SignUp) {
                 SignUpScreen(
-                    onSignInClick = { currentScreen = AppScreen.SignIn },
-                    onSignUpSuccess = { currentScreen = AppScreen.Home }
+                    onSignInClick = { navController.popBackStack() },
+                    onSignUpSuccess = { navigateHomeAfterAuth() }
                 )
-            }
-            AppScreen.Home -> {
+        }
+        composable(AppRoute.Home) {
                 HomeScreen(
-                    onNavigateToAccount = { currentScreen = AppScreen.Account },
-                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToTrial = { currentScreen = AppScreen.Trial },
-                    onNavigateToPricing = { openPricing() },
-                    onNavigateToSupport = { supportReturnScreen = AppScreen.Home; currentScreen = AppScreen.Support },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToTrial = { navigate(AppRoute.Trial) },
+                    onNavigateToPricing = { navigate(AppRoute.Pricing.replace("{deviceCount}", "2")) },
+                    onNavigateToSupport = { navigate(AppRoute.Support.replace("{origin}", "home")) },
                     onRestoreViaTelegram = onRestoreViaTelegram,
-                    onLogOut = {
-                        VpnManager.stopVpn(context)
-                        AccountRepository.logout(context)
-                        currentScreen = AppScreen.SignIn
-                    }
+                    onLogOut = { logout() }
                 )
-            }
-            AppScreen.Settings -> {
+        }
+        composable(AppRoute.Settings) {
                 SettingsScreen(
-                    onBackClick = { currentScreen = AppScreen.Home },
-                    onNavigateToHome = { currentScreen = AppScreen.Home },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account },
-                    onNavigateToAdvanced = { currentScreen = AppScreen.AdvancedSettings }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) },
+                    onNavigateToAdvanced = { navigate(AppRoute.AdvancedSettings) }
                 )
-            }
-            AppScreen.AdvancedSettings -> {
+        }
+        composable(AppRoute.AdvancedSettings) {
                 AdvancedSettingsScreen(
-                    onBackClick = { currentScreen = AppScreen.Settings },
-                    onNavigateToHome = { currentScreen = AppScreen.Home },
-                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) }
                 )
-            }
-            AppScreen.Account -> {
+        }
+        composable(AppRoute.Account) {
                 AccountScreen(
-                    onBackClick = { currentScreen = AppScreen.Home },
-                    onNavigateToHome = { currentScreen = AppScreen.Home },
-                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToDevices = { currentScreen = AppScreen.Devices },
-                    onNavigateToRenewal = { currentScreen = AppScreen.Renewal },
-                    onNavigateToSupport = { supportReturnScreen = AppScreen.Account; currentScreen = AppScreen.Support },
-                    onNavigateToTrial = { currentScreen = AppScreen.Trial },
-                    onNavigateToPricing = { openPricing() },
-                    onLogOut = {
-                        VpnManager.stopVpn(context)
-                        AccountRepository.logout(context)
-                        currentScreen = AppScreen.SignIn
-                    }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToDevices = { navigate(AppRoute.Devices) },
+                    onNavigateToRenewal = { navigate(AppRoute.Renewal) },
+                    onNavigateToSupport = { navigate(AppRoute.Support.replace("{origin}", "account")) },
+                    onNavigateToTrial = { navigate(AppRoute.Trial) },
+                    onNavigateToPricing = { navigate(AppRoute.Pricing.replace("{deviceCount}", "2")) },
+                    onLogOut = { logout() }
                 )
-            }
-            AppScreen.Devices -> {
+        }
+        composable(AppRoute.Devices) {
                 DevicesScreen(
-                    onBackClick = { currentScreen = AppScreen.Account },
-                    onNavigateToHome = { currentScreen = AppScreen.Home },
-                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account },
-                    onNavigateToPricing = { devices -> openPricing(devices) }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) },
+                    onNavigateToPricing = { devices -> navigate(AppRoute.Pricing.replace("{deviceCount}", devices.toString())) }
                 )
-            }
-            AppScreen.Renewal -> {
+        }
+        composable(AppRoute.Renewal) {
                 RenewalScreen(
-                    onBackClick = { currentScreen = AppScreen.Account },
-                    onNavigateToHome = { currentScreen = AppScreen.Home },
-                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) }
                 )
+        }
+        composable(
+            route = AppRoute.Support,
+            arguments = listOf(navArgument("origin") { type = NavType.StringType })
+        ) { entry ->
+            val origin = entry.arguments?.getString("origin")
+            val originTab = if (origin == "home") {
+                com.example.bymevpn.components.BottomNavTab.Home
+            } else {
+                com.example.bymevpn.components.BottomNavTab.Account
             }
-            AppScreen.Support -> {
                 SupportScreen(
-                    onBackClick = { currentScreen = supportReturnScreen },
-                    onNavigateToHome = { currentScreen = AppScreen.Home },
-                    onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account },
-                    originTab = if (supportReturnScreen == AppScreen.Home) com.example.bymevpn.components.BottomNavTab.Home else com.example.bymevpn.components.BottomNavTab.Account
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) },
+                    originTab = originTab
                 )
-            }
-            AppScreen.Trial -> {
+        }
+        composable(AppRoute.Trial) {
                 TrialScreen(
-                    onBackClick = { currentScreen = AppScreen.Home },
-                    onChoosePlanClick = { currentScreen = AppScreen.Pricing },
-                    onTrialActivated = { currentScreen = AppScreen.Home }
+                    onBackClick = { navController.popBackStack() },
+                    onChoosePlanClick = { navigate(AppRoute.Pricing.replace("{deviceCount}", "2")) },
+                    onTrialActivated = { navController.popBackStack(AppRoute.Home, inclusive = false) }
                 )
-            }
-            AppScreen.Pricing -> {
+        }
+        composable(
+            route = AppRoute.Pricing,
+            arguments = listOf(navArgument("deviceCount") { type = NavType.IntType; defaultValue = 2 })
+        ) { entry ->
                 PricingScreen(
-                    onBackClick = { currentScreen = pricingReturnScreen },
-                    initialDeviceCount = pricingDeviceCount
+                    onBackClick = { navController.popBackStack() },
+                    initialDeviceCount = entry.arguments?.getInt("deviceCount") ?: 2
                 )
-            }
         }
     }
 }
