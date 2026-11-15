@@ -1,5 +1,7 @@
 package com.example.bymevpn.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -324,75 +326,61 @@ fun DevicesScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                if (effectiveMax != null) {
-                    val upgradeTiers = when (effectiveMax) {
-                        2 -> listOf(5, 10)
-                        5 -> listOf(10)
-                        else -> emptyList()
-                    }
-                    if (upgradeTiers.isNotEmpty()) {
-                        val isFull = effectiveConnected >= effectiveMax
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(17.dp))
-                                .background(if (isFull) Color(0xFF1A2D3C) else Color(0xFF142538))
-                                .border(
-                                    1.dp,
-                                    if (isFull) AppColors.BrandMint.copy(alpha = 0.65f) else Color(0xFF294455),
-                                    RoundedCornerShape(17.dp)
-                                )
-                                .padding(18.dp)
-                        ) {
-                            Text(
-                                text = if (isFull) {
-                                    if (isRu) "ЛИМИТ УСТРОЙСТВ ДОСТИГНУТ" else "DEVICE LIMIT REACHED"
-                                } else {
-                                    if (isRu) "НУЖНО БОЛЬШЕ УСТРОЙСТВ?" else "NEED MORE DEVICES?"
-                                },
-                                color = if (isFull) AppColors.BrandMint else Color(0xFF8FBBCA),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.1.sp
-                            )
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                text = if (isFull) {
-                                    if (isRu) "Выберите тариф с большим лимитом. Вы увидите полную цену до оплаты; доплата за остаток срока не рассчитывается."
-                                    else "Choose a plan with a higher limit. You will see the full price before payment; prorated charges are not calculated."
-                                } else {
-                                    if (isRu) "Сравните полную цену нового тарифа перед оплатой. Доплата за остаток срока здесь не рассчитывается."
-                                    else "Review the full price of the new plan before paying. Prorated charges are not calculated here."
-                                },
-                                color = Color(0xFF9DB6AC),
-                                fontSize = 12.5.sp,
-                                lineHeight = 18.sp
-                            )
-                            Spacer(Modifier.height(14.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                upgradeTiers.forEach { tier ->
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(12.dp))
-                                            .background(AppColors.BgSurfaceAccent)
-                                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(12.dp))
-                                            .clickable { onNavigateToPricing(tier) }
-                                            .padding(vertical = 12.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Text(
-                                            text = if (isRu) "До $tier устройств" else "Up to $tier devices",
-                                            color = AppColors.BrandMint,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    }
+                if (effectiveMax != null && effectiveMax in setOf(2, 5) && subscription?.isUsable == true) {
+                    val isFull = effectiveConnected >= effectiveMax
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(17.dp))
+                            .background(Color(0xFF142538))
+                            .border(1.dp, Color(0xFF294455), RoundedCornerShape(17.dp))
+                            .padding(18.dp)
+                    ) {
+                        Text(
+                            text = if (isFull) {
+                                if (isRu) "ЛИМИТ УСТРОЙСТВ ДОСТИГНУТ" else "DEVICE LIMIT REACHED"
+                            } else {
+                                if (isRu) "НУЖНО БОЛЬШЕ УСТРОЙСТВ?" else "NEED MORE DEVICES?"
+                            },
+                            color = AppColors.BrandMint,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = if (isRu) {
+                                "Доплата за 5 или 10 устройств рассчитывается за оставшийся срок вашей подписки. Выберите лимит и проверьте сумму в Telegram-боте перед оплатой."
+                            } else {
+                                "Upgrades to 5 or 10 devices are prorated over your remaining subscription period. Choose a limit and review the final price in the Telegram bot."
+                            },
+                            color = Color(0xFF9DB6AC),
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp
+                        )
+                        Spacer(Modifier.height(14.dp))
+                        ByMePrimaryButton(
+                            text = if (isRu) "Увеличить лимит в Telegram" else "Upgrade devices in Telegram",
+                            onClick = {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNbot"))
+                                runCatching { context.startActivity(intent) }.onFailure {
+                                    Toast.makeText(
+                                        context,
+                                        if (isRu) "Не удалось открыть Telegram. Найдите @ByMeVPNbot."
+                                        else "Could not open Telegram. Search for @ByMeVPNbot.",
+                                        Toast.LENGTH_LONG
+                                    ).show()
                                 }
                             }
-                        }
-                        Spacer(Modifier.height(14.dp))
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = if (isRu) "В боте откройте подписку → Мои устройства → Увеличить лимит."
+                                else "In the bot: Subscription → My devices → Upgrade device limit.",
+                            color = AppColors.TextMuted,
+                            fontSize = 12.sp
+                        )
                     }
+                    Spacer(Modifier.height(14.dp))
                 }
 
                 // Info Box "ДОБАВИТЬ УСТРОЙСТВО"
