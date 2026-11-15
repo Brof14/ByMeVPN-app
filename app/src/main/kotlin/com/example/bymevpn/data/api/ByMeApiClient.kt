@@ -474,15 +474,22 @@ class ByMeApiClient(private val context: Context) {
         requiresAuth: Boolean,
         isRetry: Boolean = false,
         authTokenOverride: String? = null,
-        confirmAccountDeletion: Boolean = false
+        confirmAccountDeletion: Boolean = false,
+        expectedSessionId: String? = null
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
         if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
             throw ApiError("INSECURE_BACKEND", "Backend HTTPS is required before account requests can be sent")
         }
 
-        val tokenAtRequest = if (requiresAuth) storage.getAccessToken() else null
-        val sessionAtRequest = if (requiresAuth) storage.getAccountSessionId() else null
+        val authSnapshot = if (requiresAuth) storage.readAuthSession() else null
+        val tokenAtRequest = authSnapshot?.first
+        val sessionAtRequest = authSnapshot?.second
+        if (expectedSessionId != null &&
+            !AccountRequestRetryPolicy.sameSession(expectedSessionId, sessionAtRequest)
+        ) {
+            throw ApiError("ACCOUNT_CHANGED", "Account changed before retrying a protected request.")
+        }
         val connection = try {
             (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -555,7 +562,7 @@ class ByMeApiClient(private val context: Context) {
             }
             if (refreshSuccess) {
                 return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
-                    confirmAccountDeletion = confirmAccountDeletion)
+                    confirmAccountDeletion = confirmAccountDeletion, expectedSessionId = sessionAtRequest)
             } else {
                 if (storage.getAccessToken() == tokenAtRequest) storage.clearExpiredAccountSession()
                 throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")

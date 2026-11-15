@@ -78,6 +78,10 @@ class SecureTokenStorage private constructor(context: Context) {
 
     fun getAccessToken(): String? = prefs.getString(KEY_ACCESS_TOKEN, null)
 
+    /** Atomically capture the credentials and their owning session. */
+    @Synchronized
+    fun readAuthSession(): Pair<String?, String> = getAccessToken() to getAccountSessionId()
+
     fun getRefreshToken(): String? = prefs.getString(KEY_REFRESH_TOKEN, null)
 
     /** Stable across refresh-token rotations; changes on login, logout or account reset. */
