@@ -29,7 +29,7 @@ gradle :app:assembleDebug -PsideBySideDebug=true
 
 The side-by-side build uses a separate application ID and app data. Debug builds use a local debug signing key and are not suitable for release distribution.
 
-GitHub Actions runs unit tests and creates debug artifacts. A version change merged to `main` triggers the signed Android release workflow, which checks the release certificate and publishes the APK, checksum, and update manifest to GitHub Releases. See [`docs/DIRECT_DISTRIBUTION.md`](docs/DIRECT_DISTRIBUTION.md).
+GitHub Actions runs unit tests and creates debug artifacts. A version change merged to `main` triggers the signed Android release workflow, which checks the release certificate and publishes the APK, checksum, and update manifest to GitHub Releases. See [`docs/DIRECT_DISTRIBUTION.md`](docs/DIRECT_DISTRIBUTION.md). Real-device acceptance steps and a non-destructive ADB helper are in [`docs/ANDROID_ACCEPTANCE_MATRIX.md`](docs/ANDROID_ACCEPTANCE_MATRIX.md).
 
 ## Known release blockers
 

@@ -25,7 +25,16 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Verify native Xray dependency has valid archive and capture its checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s app/libs/libv2ray.aar
+          unzip -t app/libs/libv2ray.aar >/dev/null
+          sha256sum app/libs/libv2ray.aar
       - run: gradle :app:testDebugUnitTest :app:assembleDebug --no-daemon
+      - name: Android lint
+        run: gradle :app:lintDebug --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-debug
