@@ -223,6 +223,23 @@ class ByMeApiClient(private val context: Context) {
         return result.optString("status") == "received"
     }
 
+    /** Server-verified renewal status, available after mobile API deployment. */
+    suspend fun getMobileRenewal(): MobileRenewalPolicy.Status {
+        val result = request("GET", "/mobile/v2/renewal", null, requiresAuth = true)
+        return MobileRenewalPolicy.parse(result)
+    }
+
+    /** Explicit, owner-scoped cancellation; never cancels already-paid VPN time. */
+    suspend fun cancelMobileRenewal(): Boolean {
+        val result = request(
+            "POST", "/mobile/v2/renewal/cancel",
+            JSONObject().put("confirm", true), requiresAuth = true
+        )
+        return result.optBoolean("cancelled", false) &&
+            result.optBoolean("paid_access_preserved", false) &&
+            !result.optBoolean("auto_renew", true)
+    }
+
     suspend fun getMe(): UserProfile {
         val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/me", null, requiresAuth = true)
