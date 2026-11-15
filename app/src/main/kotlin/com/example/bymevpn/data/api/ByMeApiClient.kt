@@ -119,6 +119,16 @@ class ByMeApiClient(private val context: Context) {
         return auth
     }
 
+    suspend fun requestPasswordReset(email: String) {
+        val response = request(
+            "POST", "/auth/password-reset/request",
+            JSONObject().put("email", email.trim()), requiresAuth = false
+        )
+        if (response.optString("status") != "accepted") {
+            throw ApiError("INVALID_RESPONSE", "Password reset request was not confirmed")
+        }
+    }
+
     suspend fun createGoogleAuthNonce(): String {
         val json = request(
             "POST",
