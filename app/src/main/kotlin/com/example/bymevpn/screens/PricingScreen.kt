@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -219,7 +220,7 @@ fun PricingScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(51.dp)
+                        .heightIn(min = 51.dp)
                         .clip(RoundedCornerShape(15.dp))
                         .background(Color(0xFF142022))
                         .border(1.dp, Color(0xFF29403F), RoundedCornerShape(15.dp))
@@ -306,7 +307,7 @@ fun PricingScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(95.dp)
+                                .heightIn(min = 95.dp)
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(
                                     if (isSelected && isPopular) Color(0xFF152A26)
