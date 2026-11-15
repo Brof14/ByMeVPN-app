@@ -431,8 +431,8 @@ class VpnManager private constructor(private val context: Context) {
     }
 
     /** Fail a system-triggered restore that has not reached a terminal state. */
-    fun abortServiceRestore() {
-        if (_state.value == VpnConnectionState.CONNECTED) return
+    fun abortServiceRestore(): Boolean {
+        if (_state.value == VpnConnectionState.CONNECTED) return false
         connectionRequested = false
         connectionJob?.cancel()
         connectionJob = null
@@ -446,6 +446,7 @@ class VpnManager private constructor(private val context: Context) {
             "Не удалось восстановить VPN. Откройте приложение и попробуйте подключиться снова."
         else "Could not restore the VPN. Open the app and try connecting again."
         ByMeVpnService.stop(context)
+        return true
     }
 
     fun connect() {

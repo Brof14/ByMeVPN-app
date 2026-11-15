@@ -34,6 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.withLock
 
 /**
@@ -210,7 +211,11 @@ class ByMeVpnService : VpnService() {
                         .let { VpnServiceRestorePolicy.outcomeFor(it) }
                 }
                 if (outcome != VpnServiceRestorePolicy.Outcome.RESTORED) {
-                    if (outcome == null) vpnManager.abortServiceRestore()
+                    // Serialize the timeout decision with onTunnelConnected on Main.
+                    // Never stop a tunnel that became CONNECTED at the timeout boundary.
+                    if (outcome == null && !withContext(Dispatchers.Main) { vpnManager.abortServiceRestore() }) {
+                        return@launch
+                    }
                     setRestoreAfterRestart(false)
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf(startId)
