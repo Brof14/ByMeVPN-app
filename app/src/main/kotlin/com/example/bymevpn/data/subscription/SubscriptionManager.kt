@@ -192,6 +192,8 @@ class SubscriptionManager private constructor(private val context: Context) {
             _subscriptionStatus.value = status
             storage.saveCachedSubscription(status)
             Result.success(status)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.w(TAG, "Failed to refresh subscription online: ${e.javaClass.simpleName}")
             val cached = storage.getCachedSubscription()
@@ -268,6 +270,8 @@ class SubscriptionManager private constructor(private val context: Context) {
             } else saveResult()
             check(saved) { "Account changed while loading subscription" }
             Result.success(parsed)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             Log.e(TAG, "Failed to apply subscription: ${e.javaClass.simpleName}")
             Result.failure(e)
@@ -347,11 +351,19 @@ class SubscriptionManager private constructor(private val context: Context) {
 
                 var activeStatus = try {
                     apiClient.activateTrial()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (activationError: Exception) {
                     // A login may already have activated the trial, or the server may
                     // have completed it while the response was lost. Confirm with the
                     // authoritative status endpoint before showing a failure.
-                    val refreshed = runCatching { apiClient.getSubscriptionStatus() }.getOrNull()
+                    val refreshed = try {
+                        apiClient.getSubscriptionStatus()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
                     if (TrialActivationPolicy.isConfirmedActiveTrial(refreshed, System.currentTimeMillis())) {
                         refreshed!!
                     } else {
@@ -368,6 +380,8 @@ class SubscriptionManager private constructor(private val context: Context) {
                 _subscriptionStatus.value = activeStatus
                 storage.saveCachedSubscription(activeStatus)
                 Result.success(activeStatus)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 val apiError = e as? com.example.bymevpn.data.api.ApiError
                 Log.w(
