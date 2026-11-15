@@ -63,8 +63,11 @@ class SubscriptionManager private constructor(private val context: Context) {
         if (!current.isUsable) return false
 
         val now = System.currentTimeMillis()
-        if (ExternalProfileAccessPolicy.canConnect(
-                externalMode = storage.isExternalProfileMode(),
+        if (storage.isExternalProfileMode()) {
+            // External profiles are never eligible for the ByMeVPN account entitlement
+            // fallback. If the imported config, owner or expiry is invalid, deny.
+            return ExternalProfileAccessPolicy.canConnect(
+                externalMode = true,
                 hasAccountToken = !storage.getAccessToken().isNullOrBlank(),
                 profileId = storage.getCachedUser()?.id,
                 installId = storage.getInstallId(context),
@@ -72,7 +75,8 @@ class SubscriptionManager private constructor(private val context: Context) {
                 status = current,
                 nowMillis = now
             )
-        ) return true
+        }
+        if (storage.getAccessToken().isNullOrBlank()) return false
 
         if (current.entitlementBootstrap &&
             !DeviceBootstrapPolicy.isValid(current, now / 1000)

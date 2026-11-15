@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -32,9 +33,10 @@ import java.util.UUID
  */
 class ByMeApiClient(private val context: Context) {
 
-    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     companion object {
+        // Process-wide owner: previous implementations leaked one SupervisorJob per API client.
+        // Account-sensitive results are still guarded by withCurrentAccount().
+        private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private const val TAG = "ByMeApiClient"
         private const val TIMEOUT_MS = 15000
         private const val PLAN_CATALOG_PREFS = "bymevpn_plan_catalog"
@@ -481,6 +483,10 @@ class ByMeApiClient(private val context: Context) {
         }
 
         val tokenAtRequest = if (requiresAuth) storage.getAccessToken() else null
+        val ownerAtRequest = if (requiresAuth) storage.getCachedUser()?.id else null
+        if (requiresAuth && tokenAtRequest.isNullOrBlank()) {
+            throw ApiError("AUTH_REQUIRED", "Sign in to access this feature")
+        }
         val connection = try {
             (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -541,15 +547,39 @@ class ByMeApiClient(private val context: Context) {
 
         // Handle 401 Unauthorized -> try refresh token once
         if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED && requiresAuth && !isRetry) {
-            // Another client may have already rotated the token while this request was in flight.
-            val newerTokenAvailable = tokenAtRequest != storage.getAccessToken() && !storage.getAccessToken().isNullOrBlank()
-            val refreshSuccess = newerTokenAvailable || refreshAccessToken()
-            if (refreshSuccess) {
+            // A late response must never retry a payment or account mutation as a
+            // different user after logout/login or an account switch.
+            val tokenChanged = tokenAtRequest != storage.getAccessToken()
+            if (tokenChanged) {
+                if (!RefreshSessionPolicy.sameAccountCanRetry(
+                        ownerAtRequest, storage.getCachedUser()?.id, storage.getAccessToken()
+                    )
+                ) {
+                    throw ApiError("ACCOUNT_CHANGED", "Account changed during the request")
+                }
                 return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
                     confirmAccountDeletion = confirmAccountDeletion)
-            } else {
-                if (storage.getAccessToken() == tokenAtRequest) storage.clearExpiredAccountSession()
-                throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")
+            }
+            when (refreshAccessToken()) {
+                RefreshSessionResult.REFRESHED -> {
+                    if (!RefreshSessionPolicy.sameAccountCanRetry(
+                            ownerAtRequest, storage.getCachedUser()?.id, storage.getAccessToken()
+                        )
+                    ) {
+                        throw ApiError("ACCOUNT_CHANGED", "Account changed during token refresh")
+                    }
+                    return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
+                        confirmAccountDeletion = confirmAccountDeletion)
+                }
+                RefreshSessionResult.TEMPORARY_FAILURE -> {
+                    // A timeout, offline device or 5xx is not a revoked account:
+                    // preserve the encrypted session and cached offline entitlement.
+                    throw ApiError("AUTH_REFRESH_UNAVAILABLE", "Could not verify the session. Check your connection and retry.")
+                }
+                RefreshSessionResult.REJECTED -> {
+                    if (storage.getAccessToken() == tokenAtRequest) storage.clearExpiredAccountSession()
+                    throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")
+                }
             }
         }
 
@@ -602,11 +632,13 @@ class ByMeApiClient(private val context: Context) {
         else "${e.javaClass.simpleName}: ${message.take(160)}"
     }
 
-    private suspend fun refreshAccessToken(): Boolean = refreshMutex.withLock {
+    private suspend fun refreshAccessToken(): RefreshSessionResult = refreshMutex.withLock {
         withContext(Dispatchers.IO) {
-            val refreshToken = storage.getRefreshToken() ?: return@withContext false
+            val refreshToken = storage.getRefreshToken() ?: return@withContext RefreshSessionResult.REJECTED
             val fullUrl = "${ApiConfig.BASE_URL}/auth/refresh"
-            if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) return@withContext false
+            if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
+                return@withContext RefreshSessionResult.TEMPORARY_FAILURE
+            }
             try {
                 val connection = (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
@@ -617,39 +649,39 @@ class ByMeApiClient(private val context: Context) {
                     setRequestProperty("Content-Type", "application/json; charset=UTF-8")
                     setRequestProperty("Accept", "application/json")
                 }
-
                 try {
-                val body = JSONObject().apply { put("refresh", refreshToken) }
-                OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
-                    it.write(body.toString())
-                    it.flush()
-                }
+                    val body = JSONObject().put("refresh", refreshToken)
+                    OutputStreamWriter(connection.outputStream, Charsets.UTF_8).use {
+                        it.write(body.toString())
+                        it.flush()
+                    }
+                    val code = connection.responseCode
+                    if (code !in 200..299) return@withContext RefreshSessionPolicy.fromHttpStatus(code)
 
-                if (connection.responseCode in 200..299) {
-                    val resp = connection.inputStream.bufferedReader().use(BufferedReader::readText)
-                    val json = JSONObject(resp)
+                    val json = JSONObject(connection.inputStream.bufferedReader().use(BufferedReader::readText))
                     val newAccess = json.optString("access", json.optString("access_token", ""))
                     val newRefresh = json.optString("refresh", json.optString("refresh_token", refreshToken))
-                    if (newAccess.isNotBlank()) {
-                        synchronized(storage) {
-                            if (storage.getRefreshToken() != refreshToken) false
-                            else {
-                                storage.saveTokens(newAccess, newRefresh)
-                                true
-                            }
+                    if (newAccess.isBlank()) return@withContext RefreshSessionResult.TEMPORARY_FAILURE
+
+                    val result = synchronized(storage) {
+                        if (storage.getRefreshToken() != refreshToken) {
+                            // Another request rotated the session while we waited.
+                            if (!storage.getAccessToken().isNullOrBlank()) RefreshSessionResult.REFRESHED
+                            else RefreshSessionResult.TEMPORARY_FAILURE
+                        } else {
+                            storage.saveTokens(newAccess, newRefresh)
+                            RefreshSessionResult.REFRESHED
                         }
-                    } else {
-                        false
                     }
-                } else {
-                    false
-                }
+                    result
                 } finally {
                     connection.disconnect()
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
-                Log.w(TAG, "Refresh token error: ${e.javaClass.simpleName}")
-                false
+                Log.w(TAG, "Session refresh unavailable: ${e.javaClass.simpleName}")
+                RefreshSessionResult.TEMPORARY_FAILURE
             }
         }
     }
