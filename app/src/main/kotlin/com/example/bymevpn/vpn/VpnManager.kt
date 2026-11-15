@@ -9,6 +9,7 @@ import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.settings.SettingsRepository
 import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
+import com.example.bymevpn.data.subscription.ProfileApiRoutingPolicy
 import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -245,6 +246,28 @@ class VpnManager private constructor(private val context: Context) {
 
     private suspend fun loadServersLocked(): Result<List<ServerNode>> = withContext(Dispatchers.IO) {
         try {
+            if (!ProfileApiRoutingPolicy.useAccountApi(storage.isExternalProfileMode())) {
+                val importedNodes = storage.getServerNodes()
+                if (importedNodes.isNotEmpty()) {
+                    setServers(importedNodes)
+                    _serversError.value = null
+                    if (!storage.getSubscriptionUrl().isNullOrBlank()) {
+                        scope.launch {
+                            if (subscriptionManager.refreshStatus().isSuccess) {
+                                val refreshed = storage.getServerNodes()
+                                if (refreshed.isNotEmpty()) setServers(refreshed)
+                            }
+                        }
+                    }
+                    return@withContext Result.success(importedNodes)
+                }
+                return@withContext serverLoadFailure(
+                    if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                        "Не найдены импортированные серверы"
+                    else "No imported servers were found"
+                )
+            }
+
             // 1. Show the last saved subscription list immediately, then refresh it in the background.
             val subUrl = storage.getSubscriptionUrl()
             if (!subUrl.isNullOrBlank()) {
@@ -397,6 +420,16 @@ class VpnManager private constructor(private val context: Context) {
         _errorMessage.value = null
     }
 
+    /** A restarted Android service has lost its TUN descriptor even if the app process survived. */
+    fun prepareForServiceRestore() {
+        connectionJob?.cancel()
+        bootstrapPromotionJob?.cancel()
+        reconnectJob?.cancel()
+        connectionRequested = false
+        _errorMessage.value = null
+        _state.value = VpnConnectionState.DISCONNECTED
+    }
+
     fun connect() {
         if (_state.value == VpnConnectionState.CONNECTING || _state.value == VpnConnectionState.CONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
             return
@@ -408,10 +441,20 @@ class VpnManager private constructor(private val context: Context) {
         connectionJob = scope.launch {
 
             try {
+                val externalProfile = storage.isExternalProfileMode()
+                if (externalProfile && !subscriptionManager.canConnect()) {
+                    _state.value = VpnConnectionState.ERROR
+                    _errorMessage.value = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                        "Внешняя подписка истекла или её конфигурации недоступны. Обновите ссылку подписки."
+                    else "The external subscription has expired or its configuration is unavailable. Refresh the subscription link."
+                    ByMeVpnService.stop(context)
+                    return@launch
+                }
+
                 // 1. Verify subscription entitlement
-                if (!subscriptionManager.canConnect() ||
+                if (!externalProfile && (!subscriptionManager.canConnect() ||
                     subscriptionManager.subscriptionStatus.value?.entitlementBootstrap == true
-                ) {
+                )) {
                     // Always ask the account API for the authoritative signed snapshot.
                     // A newly installed device may not yet have a device-bound token, so
                     // the normal status refresh alone cannot authorize its first tunnel.
@@ -443,6 +486,7 @@ class VpnManager private constructor(private val context: Context) {
                             trialAvailable = subscriptionManager.subscriptionStatus.value?.trialAvailable == true,
                             accessActive = subscriptionManager.subscriptionStatus.value?.isUsable == true
                         )
+                        ByMeVpnService.stop(context)
                         return@launch
                     }
                 }
@@ -465,7 +509,9 @@ class VpnManager private constructor(private val context: Context) {
                 // Existing devices can use configurations returned directly by
                 // /servers; only a first-device bootstrap must wait for the feed
                 // fetch that registers its HWID with the panel.
-                val latestServers = try {
+                val latestServers = if (!ProfileApiRoutingPolicy.useAccountApi(externalProfile)) {
+                    storage.getServerNodes()
+                } else try {
                     val needsPanelRegistration =
                         subscriptionManager.subscriptionStatus.value?.entitlementBootstrap == true
                     apiClient.getServers(awaitSubscriptionRefresh = needsPanelRegistration)
@@ -491,7 +537,18 @@ class VpnManager private constructor(private val context: Context) {
 
                 // 4. Use the freshly imported subscription/API session (if present);
                 // otherwise ask for a session. Never manufacture a VPN endpoint.
-                val sessionConfig = storage.getServerConfig(targetServer.nodeCode) ?: try {
+                val sessionConfig = if (externalProfile) {
+                    storage.getServerConfig(targetServer.nodeCode, allowStaleImportedConfig = true)
+                        ?: run {
+                            subscriptionManager.refreshStatus().getOrThrow()
+                            storage.getServerConfig(targetServer.nodeCode, allowStaleImportedConfig = true)
+                        }
+                        ?: throw IllegalStateException(
+                            if (com.example.bymevpn.data.LocaleManager.isRussian(context))
+                                "В конфигурации внешней подписки нет выбранного сервера"
+                            else "The selected server is missing from the external profile"
+                        )
+                } else storage.getServerConfig(targetServer.nodeCode) ?: try {
                     // Refresh expired or legacy endpoint data before connecting. This
                     // lets DNS/backend changes take effect without keeping old IPs forever.
                     subscriptionManager.refreshStatus()

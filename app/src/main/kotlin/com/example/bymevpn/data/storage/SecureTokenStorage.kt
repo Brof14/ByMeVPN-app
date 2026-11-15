@@ -9,6 +9,7 @@ import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.api.UserProfile
 import com.example.bymevpn.data.api.ServerNode
+import com.example.bymevpn.data.subscription.ExpiredSessionCleanupPolicy
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
@@ -95,6 +96,31 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove("registered_devices_json")
             .remove("favorite_servers")
             .remove("dismissed_clipboard_key")
+            .remove("pending_payment_plan")
+            .remove("pending_payment_days")
+            .remove("pending_payment_invoice")
+            .remove("pending_payment_provider")
+            .remove("pending_payment_time")
+            .remove("payment_request_id")
+            .remove("payment_request_plan")
+            .remove("payment_request_provider")
+            .remove("payment_request_devices")
+            .remove("payment_request_amount")
+            .apply()
+    }
+
+    /** Clear an expired account session without destroying an independently imported profile. */
+    @Synchronized
+    fun clearExpiredAccountSession() {
+        if (!ExpiredSessionCleanupPolicy.preserveImportedProfile(isExternalProfileMode())) {
+            clearTokens()
+            return
+        }
+        prefs.edit()
+            .remove(KEY_ACCESS_TOKEN)
+            .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_CACHED_USER)
+            .remove(KEY_API_SERVER_CACHE)
             .remove("pending_payment_plan")
             .remove("pending_payment_days")
             .remove("pending_payment_invoice")
@@ -269,12 +295,19 @@ class SecureTokenStorage private constructor(context: Context) {
         } catch (_: Exception) { null }
     }
 
-    fun getServerConfig(nodeCode: String): com.example.bymevpn.data.api.VpnSessionConfig? {
+    fun getServerConfig(
+        nodeCode: String,
+        allowStaleImportedConfig: Boolean = false
+    ): com.example.bymevpn.data.api.VpnSessionConfig? {
         val raw = prefs.getString(KEY_CUSTOM_CONFIGS, null) ?: return null
         return try {
             val root = JSONObject(raw)
             val obj = root.optJSONObject(nodeCode) ?: return null
-            parseFreshServerConfig(obj, System.currentTimeMillis())
+            if (allowStaleImportedConfig && isExternalProfileMode()) {
+                parseServerConfig(obj)
+            } else {
+                parseFreshServerConfig(obj, System.currentTimeMillis())
+            }
         } catch (e: Exception) {
             null
         }
@@ -345,6 +378,12 @@ class SecureTokenStorage private constructor(context: Context) {
     ): com.example.bymevpn.data.api.VpnSessionConfig? {
         // Legacy cache entries have no timestamp and are intentionally discarded.
         if (!ServerConfigCachePolicy.isFresh(obj.optLong(KEY_CONFIG_SAVED_AT, 0L), now)) return null
+        return parseServerConfig(obj)
+    }
+
+    private fun parseServerConfig(
+        obj: JSONObject
+    ): com.example.bymevpn.data.api.VpnSessionConfig? {
         return com.example.bymevpn.data.api.VpnSessionConfig(
             protocol = obj.optString("protocol", "vless"),
             server = obj.optString("server", ""),

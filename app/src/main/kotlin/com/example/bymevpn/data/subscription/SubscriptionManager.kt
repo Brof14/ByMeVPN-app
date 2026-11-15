@@ -110,6 +110,37 @@ class SubscriptionManager private constructor(private val context: Context) {
         _isSyncing.value = true
         try {
             val customSubUrl = storage.getSubscriptionUrl()
+            if (storage.isExternalProfileMode()) {
+                // External profiles are standalone. Never send their requests to
+                // account endpoints, even if a stale account token is also present.
+                if (!customSubUrl.isNullOrBlank()) {
+                    val parsed = fetchSubscriptionFromUrl(customSubUrl, includeDeviceHeaders = false)
+                    require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) {
+                        "External subscription contains no usable servers"
+                    }
+                    storage.saveServerConfigs(parsed.configs)
+                    storage.saveServerNodes(parsed.servers)
+                    storage.setServerRefreshAttempt(System.currentTimeMillis())
+                    val now = System.currentTimeMillis()
+                    val status = SubscriptionStatus(
+                        status = if (parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= now / 1000) "expired" else "active",
+                        planCode = "external",
+                        planName = if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Внешняя подписка" else "External subscription",
+                        secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - now / 1000).coerceAtLeast(0) else 0,
+                        lastFetchedAt = now
+                    )
+                    _subscriptionStatus.value = status
+                    storage.saveCachedSubscription(status)
+                    return@withLock Result.success(status)
+                }
+                val cached = storage.getCachedSubscription()
+                if (cached != null && storage.getServerConfigs().isNotEmpty()) {
+                    _subscriptionStatus.value = cached
+                    return@withLock Result.success(cached)
+                }
+                return@withLock Result.failure(IllegalStateException("External profile is incomplete"))
+            }
+
             // A panel subscription feed has no account/device-bound ES256 proof.
             // Once signed entitlements are enabled, only the authenticated API may
             // refresh authoritative status; fetching the feed here would replace a

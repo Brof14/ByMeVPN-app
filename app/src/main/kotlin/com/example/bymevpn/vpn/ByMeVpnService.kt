@@ -138,7 +138,18 @@ class ByMeVpnService : VpnService() {
             startForegroundCompat(
                 buildNotification("ByMeVPN", "Restoring VPN connection")
             )
-            VpnManager.getInstance(applicationContext).connect()
+            val vpnManager = VpnManager.getInstance(applicationContext)
+            vpnManager.prepareForServiceRestore()
+            vpnManager.connect()
+            serviceScope.launch {
+                val outcome = vpnManager.state.first { VpnServiceRestorePolicy.outcomeFor(it) != null }
+                    .let { VpnServiceRestorePolicy.outcomeFor(it) }
+                if (outcome != VpnServiceRestorePolicy.Outcome.RESTORED) {
+                    setRestoreAfterRestart(false)
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf(startId)
+                }
+            }
             return START_STICKY
         }
 

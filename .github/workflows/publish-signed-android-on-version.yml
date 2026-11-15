@@ -164,9 +164,10 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          ByMeVPN Android update: more predictable navigation and VPN service recovery.
+          ByMeVPN Android update: safer standalone profiles and VPN service recovery.
           - System Back follows the actual screen history; pricing and support return to their origin.
           - Navigation state and screen arguments are restored after Activity recreation.
+          - Imported external VPN profiles no longer call account-protected ByMeVPN APIs and survive expired account sessions.
           - Previously active and Android Always-on VPN sessions can recover after service process restart.
           - Telegram session checks use POST only, and tunnel health checks tolerate one unavailable probe host.
 
