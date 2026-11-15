@@ -18,6 +18,7 @@ import com.example.bymevpn.R
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.data.settings.SettingsRepository
+import com.example.bymevpn.vpn.ConnectivityProbePolicy
 import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -228,7 +229,7 @@ class ByMeVpnService : VpnService() {
             while (isActive) {
                 delay(30_000)
                 failures = if (engine.checkConnectivity()) 0 else failures + 1
-                if (failures >= 2) {
+                if (ConnectivityProbePolicy.shouldDisconnect(failures)) {
                     lifecycleMutex.withLock {
                         if (isServiceRunning) {
                             engine.disconnect()

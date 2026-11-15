@@ -117,7 +117,6 @@ class SettingsRepository(private val context: Context) {
     val autoConnectOnLaunch: Flow<Boolean> = settingsFlow.map { it.autoConnectOnBoot }
     val bypassRussianSites: Flow<Boolean> = settingsFlow.map { it.bypassRussianTraffic }
     val batteryOptimizationDismissed: Flow<Boolean> = settingsFlow.map { it.autoReconnect }
-    val adBlockEnabled: Flow<Boolean> = settingsFlow.map { false }
     val killSwitchEnabled: Flow<Boolean> = settingsFlow.map { it.killSwitch }
     val dnsMode: Flow<String> = settingsFlow.map { it.dnsMode }
 
@@ -137,10 +136,6 @@ class SettingsRepository(private val context: Context) {
         kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
             updateAutoReconnect(enabled)
         }
-    }
-
-    fun setAdBlockEnabled(enabled: Boolean) {
-        // Stored locally
     }
 
     fun setKillSwitchEnabled(enabled: Boolean) {

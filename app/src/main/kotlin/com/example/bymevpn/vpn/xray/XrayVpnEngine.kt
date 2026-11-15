@@ -3,6 +3,7 @@ package com.example.bymevpn.vpn.xray
 import android.content.Context
 import android.util.Log
 import com.example.bymevpn.data.api.VpnSessionConfig
+import com.example.bymevpn.vpn.ConnectivityProbePolicy
 import com.example.bymevpn.vpn.VpnConnectionState
 import com.example.bymevpn.vpn.VpnEngine
 import com.example.bymevpn.vpn.VpnStatistics
@@ -175,7 +176,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
             startupStage = "probe"
             // A running core only means that the local listeners started. Verify a real
             // HTTPS request through its SOCKS inbound before reporting a VPN connection.
-            if (!probeProxy()) {
+            if (!probeAnyProxyTarget()) {
                 val message = if (com.example.bymevpn.data.LocaleManager.isRussian(context))
                     "Не удалось проверить соединение через VPN. Попробуйте другой сервер."
                 else "Could not verify the VPN connection. Try another server."
@@ -211,8 +212,10 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
         }
     }
 
-    private fun probeProxy(): Boolean {
-        val host = "www.cloudflare.com"
+    private fun probeAnyProxyTarget(): Boolean =
+        ConnectivityProbePolicy.anyTargetReachable(::probeProxy)
+
+    private fun probeProxy(host: String): Boolean {
         return try {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress("127.0.0.1", XrayConfigGenerator.SOCKS_LOCAL_PORT), 4000)
@@ -255,7 +258,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
     }
 
     suspend fun checkConnectivity(): Boolean = withContext(Dispatchers.IO) {
-        isRunning && probeProxy()
+        isRunning && probeAnyProxyTarget()
     }
 
     override suspend fun disconnect(): Unit = withContext(Dispatchers.IO) {
