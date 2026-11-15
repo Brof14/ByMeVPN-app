@@ -68,7 +68,7 @@ class ByMeApiClient(private val context: Context) {
                 json.optJSONObject("subscription")?.optString("subscription_url") ?: ""
             }
         if (subUrl.isNotBlank()) {
-            storage.saveSubscriptionUrl(subUrl)
+            storage.saveSubscriptionUrl(subUrl, backendIssued = true)
         }
 
         // Extract and persist real server configurations if present
@@ -288,7 +288,7 @@ class ByMeApiClient(private val context: Context) {
         com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             .acceptServerAccessProof(json)
         val subUrl = json.optString("subscription_url")
-        if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl)
+        if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
         val array = json.optJSONArray("servers") ?: JSONArray()
         // No URLs or tokens here: only counts and presence flags are diagnostic.
         Log.d(TAG, "GET /servers: nodes=${array.length()}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}")
@@ -313,7 +313,10 @@ class ByMeApiClient(private val context: Context) {
                 // 3x-ui learns X-HWID on a subscription fetch, not from tunnel
                 // packets. Finish the first registration before starting Xray.
                 try {
-                    val imported = subManager.applySubscriptionUrl(subUrl).getOrThrow()
+                    val imported = subManager.applySubscriptionUrl(
+                        subUrl,
+                        includeDeviceHeaders = true
+                    ).getOrThrow()
                     if (registeringDevice) subManager.refreshStatus(forceBackend = true)
                     if (awaitSubscriptionRefresh && imported.servers.isNotEmpty()) {
                         return imported.servers
@@ -335,7 +338,7 @@ class ByMeApiClient(private val context: Context) {
                 // Nodes are already available: never delay the server list for a subscription fetch.
                 CoroutineScope(Dispatchers.IO).launch {
                     try {
-                        subManager.applySubscriptionUrl(subUrl)
+                        subManager.applySubscriptionUrl(subUrl, includeDeviceHeaders = true)
                     } catch (e: Exception) {
                         Log.w(TAG, "Background subscription refresh failed: ${safeError(e)}")
                     }

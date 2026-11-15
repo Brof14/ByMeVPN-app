@@ -40,6 +40,10 @@ class SecureTokenStorage private constructor(context: Context) {
         private const val KEY_CACHED_SUB = "cached_subscription_status"
         private const val KEY_INSTALL_ID = "app_install_id"
         private const val KEY_SUBSCRIPTION_URL = "custom_subscription_url"
+        private const val KEY_SUBSCRIPTION_URL_TRUSTED = "subscription_url_backend_issued"
+        private const val KEY_AUTO_SERVER_SELECTION = "auto_server_selection"
+        private const val KEY_SELECTED_SERVER_CODE = "selected_server_code"
+        private const val KEY_EXTERNAL_PROFILE_MODE = "external_subscription_profile"
         private const val KEY_CUSTOM_CONFIGS = "custom_server_configs_json"
         private const val KEY_SERVER_NODES = "custom_server_nodes_json"
         private const val KEY_API_SERVER_CACHE = "api_server_cache_json"
@@ -83,6 +87,8 @@ class SecureTokenStorage private constructor(context: Context) {
             .remove(KEY_CACHED_SUB)
             .remove(KEY_API_SERVER_CACHE)
             .remove(KEY_SUBSCRIPTION_URL)
+            .remove(KEY_SUBSCRIPTION_URL_TRUSTED)
+            .remove(KEY_EXTERNAL_PROFILE_MODE)
             .remove(KEY_CUSTOM_CONFIGS)
             .remove(KEY_SERVER_NODES)
             .remove("server_refresh_attempt")
@@ -156,15 +162,38 @@ class SecureTokenStorage private constructor(context: Context) {
         return "${Build.MANUFACTURER} ${Build.MODEL}".trim()
     }
 
-    fun saveSubscriptionUrl(url: String?) {
+    fun saveSubscriptionUrl(url: String?, backendIssued: Boolean = false) {
         if (url.isNullOrBlank()) {
-            prefs.edit().remove(KEY_SUBSCRIPTION_URL).apply()
+            prefs.edit()
+                .remove(KEY_SUBSCRIPTION_URL)
+                .remove(KEY_SUBSCRIPTION_URL_TRUSTED)
+                .apply()
         } else {
-            prefs.edit().putString(KEY_SUBSCRIPTION_URL, url.trim()).apply()
+            prefs.edit()
+                .putString(KEY_SUBSCRIPTION_URL, url.trim())
+                .putBoolean(KEY_SUBSCRIPTION_URL_TRUSTED, backendIssued)
+                .apply()
         }
     }
 
     fun getSubscriptionUrl(): String? = prefs.getString(KEY_SUBSCRIPTION_URL, null)
+
+    /** Old saved links default to untrusted, so they never receive device identifiers. */
+    fun isSubscriptionUrlBackendIssued(): Boolean = prefs.getBoolean(KEY_SUBSCRIPTION_URL_TRUSTED, false)
+
+    fun isAutomaticServerSelectionEnabled(): Boolean = prefs.getBoolean(KEY_AUTO_SERVER_SELECTION, true)
+    fun setAutomaticServerSelectionEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_AUTO_SERVER_SELECTION, enabled).apply()
+    }
+    fun saveSelectedServerCode(code: String?) {
+        if (code.isNullOrBlank()) prefs.edit().remove(KEY_SELECTED_SERVER_CODE).apply()
+        else prefs.edit().putString(KEY_SELECTED_SERVER_CODE, code).apply()
+    }
+    fun getSelectedServerCode(): String? = prefs.getString(KEY_SELECTED_SERVER_CODE, null)
+    fun setExternalProfileMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_EXTERNAL_PROFILE_MODE, enabled).apply()
+    }
+    fun isExternalProfileMode(): Boolean = prefs.getBoolean(KEY_EXTERNAL_PROFILE_MODE, false)
 
     fun getServerRefreshAttempt(): Long = prefs.getLong("server_refresh_attempt", 0L)
     fun setServerRefreshAttempt(time: Long) { prefs.edit().putLong("server_refresh_attempt", time).apply() }

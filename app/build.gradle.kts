@@ -26,8 +26,8 @@ android {
         applicationId = "com.bymevpn.app"
         minSdk = 24
         targetSdk = 36
-        versionCode = 27
-        versionName = "1.0.26"
+        versionCode = 28
+        versionName = "1.0.27"
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
     }
 

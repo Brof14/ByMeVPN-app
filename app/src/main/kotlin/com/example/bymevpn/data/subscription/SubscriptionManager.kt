@@ -29,6 +29,8 @@ class SubscriptionManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "SubscriptionManager"
+        private const val MAX_SUBSCRIPTION_RESPONSE_BYTES = 1_048_576L
+        private const val MAX_SUBSCRIPTION_CONFIGS = 64
 
         @Volatile
         private var INSTANCE: SubscriptionManager? = null
@@ -61,6 +63,17 @@ class SubscriptionManager private constructor(private val context: Context) {
         if (!current.isUsable) return false
 
         val now = System.currentTimeMillis()
+        if (ExternalProfileAccessPolicy.canConnect(
+                externalMode = storage.isExternalProfileMode(),
+                hasAccountToken = !storage.getAccessToken().isNullOrBlank(),
+                profileId = storage.getCachedUser()?.id,
+                installId = storage.getInstallId(context),
+                hasImportedConfigs = storage.getServerConfigs().isNotEmpty(),
+                status = current,
+                nowMillis = now
+            )
+        ) return true
+
         if (current.entitlementBootstrap &&
             !DeviceBootstrapPolicy.isValid(current, now / 1000)
         ) {
@@ -117,7 +130,10 @@ class SubscriptionManager private constructor(private val context: Context) {
                     return@withLock Result.success(cached)
                 }
                 try {
-                    val parsed = fetchSubscriptionFromUrl(customSubUrl!!)
+                    val parsed = fetchSubscriptionFromUrl(
+                        customSubUrl!!,
+                        includeDeviceHeaders = storage.isSubscriptionUrlBackendIssued()
+                    )
                     require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) { "Subscription contains no servers" }
                     storage.saveServerConfigs(parsed.configs)
                     storage.saveServerNodes(parsed.servers)
@@ -166,12 +182,18 @@ class SubscriptionManager private constructor(private val context: Context) {
         storage.saveCachedSubscription(updated)
     }
 
-    suspend fun applySubscriptionUrl(urlOrConfig: String): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
+    suspend fun applySubscriptionUrl(
+        urlOrConfig: String,
+        includeDeviceHeaders: Boolean = false
+    ): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
         _isSyncing.value = true
         try {
             val trimmed = urlOrConfig.trim()
+            require(trimmed.toByteArray(Charsets.UTF_8).size <= MAX_SUBSCRIPTION_RESPONSE_BYTES) {
+                "Subscription input is too large"
+            }
             val parsed = if (trimmed.startsWith("http://", ignoreCase = true) || trimmed.startsWith("https://", ignoreCase = true)) {
-                fetchSubscriptionFromUrl(trimmed)
+                fetchSubscriptionFromUrl(trimmed, includeDeviceHeaders)
             } else {
                 // Direct vless:// or base64 blob
                 XraySubscriptionParser.parse(trimmed)
@@ -181,10 +203,11 @@ class SubscriptionManager private constructor(private val context: Context) {
                 throw IllegalStateException("Подписка не содержит доступных VLESS-серверов")
             }
             require(parsed.configs.isNotEmpty()) { "Subscription contains no configurations" }
+            require(parsed.configs.size <= MAX_SUBSCRIPTION_CONFIGS) { "Subscription contains too many configurations" }
             storage.saveServerConfigs(parsed.configs)
             storage.saveServerNodes(parsed.servers)
             if (trimmed.startsWith("https://", ignoreCase = true)) {
-                storage.saveSubscriptionUrl(trimmed)
+                storage.saveSubscriptionUrl(trimmed, backendIssued = includeDeviceHeaders)
                 storage.setServerRefreshAttempt(System.currentTimeMillis())
             }
 
@@ -215,25 +238,31 @@ class SubscriptionManager private constructor(private val context: Context) {
         }
     }
 
-    private suspend fun fetchSubscriptionFromUrl(subUrl: String): ParsedSubscription = withContext(Dispatchers.IO) {
+    private suspend fun fetchSubscriptionFromUrl(
+        subUrl: String,
+        includeDeviceHeaders: Boolean = false
+    ): ParsedSubscription = withContext(Dispatchers.IO) {
         val resolved = SubscriptionUrlPolicy.resolve(subUrl, ApiConfig.BASE_URL)
         val url = resolved.url
         if (resolved.rewritten) {
             Log.w(TAG, "Subscription URL was server-local or plain HTTP; retrying over HTTPS on the public backend host")
         }
         require(url.protocol.equals("https", ignoreCase = true)) { "Subscription URL must use HTTPS" }
+        require(url.userInfo == null && url.ref == null) { "Subscription URL contains unsupported credentials or fragment" }
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             instanceFollowRedirects = false
             connectTimeout = 15000
             readTimeout = 15000
             setRequestProperty("User-Agent", "ByMeVPN/1.0 (Android; v2rayNG; Happ)")
-            // 3x-ui enforces the subscription's HWID device limit on fetch.
-            // Without these headers it intentionally returns HTTP 404.
-            setRequestProperty("X-HWID", storage.getInstallId(context))
-            setRequestProperty("X-Device-OS", "Android")
-            setRequestProperty("X-Ver-OS", Build.VERSION.RELEASE.orEmpty())
-            setRequestProperty("X-Device-Model", storage.getDeviceModel())
+            if (includeDeviceHeaders) {
+                // Only server-issued feeds receive device identifiers. External imports
+                // must not receive a stable device ID or model in request headers.
+                setRequestProperty("X-HWID", storage.getInstallId(context))
+                setRequestProperty("X-Device-OS", "Android")
+                setRequestProperty("X-Ver-OS", Build.VERSION.RELEASE.orEmpty())
+                setRequestProperty("X-Device-Model", storage.getDeviceModel())
+            }
         }
 
         try {
@@ -245,8 +274,23 @@ class SubscriptionManager private constructor(private val context: Context) {
 
             val userInfoHeader = conn.getHeaderField("Subscription-Userinfo")
                 ?: conn.getHeaderField("subscription-userinfo")
-            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val declaredLength = conn.getHeaderFieldLong("Content-Length", -1L)
+            require(declaredLength <= MAX_SUBSCRIPTION_RESPONSE_BYTES) { "Subscription response is too large" }
+            val body = conn.inputStream.use { input ->
+                val output = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8 * 1024)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    require(output.size().toLong() + count <= MAX_SUBSCRIPTION_RESPONSE_BYTES) {
+                        "Subscription response is too large"
+                    }
+                    output.write(buffer, 0, count)
+                }
+                output.toString(Charsets.UTF_8.name())
+            }
             val parsed = XraySubscriptionParser.parse(body, userInfoHeader)
+            require(parsed.configs.size <= MAX_SUBSCRIPTION_CONFIGS) { "Subscription contains too many configurations" }
             Log.d(TAG, "Subscription fetched: servers=${parsed.servers.size}, configs=${parsed.configs.size}")
             parsed
         } finally {
@@ -311,6 +355,24 @@ class SubscriptionManager private constructor(private val context: Context) {
     fun setAuthenticatedSnapshot(snapshot: SubscriptionStatus?) {
         _subscriptionStatus.value = snapshot
         if (snapshot != null) storage.saveCachedSubscription(snapshot)
+    }
+
+    /** Applies only after the user explicitly imports a third-party subscription. */
+    internal fun acceptExternalProfile(parsed: ParsedSubscription) {
+        require(parsed.servers.isNotEmpty() && parsed.configs.isNotEmpty()) {
+            "External subscription contains no usable servers"
+        }
+        val now = System.currentTimeMillis()
+        val expired = parsed.expireTimestampSec > 0 && parsed.expireTimestampSec <= now / 1000
+        val status = SubscriptionStatus(
+            status = if (expired) "expired" else "active",
+            planCode = "external",
+            planName = if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Внешняя подписка" else "External subscription",
+            secondsRemaining = if (parsed.expireTimestampSec > 0) (parsed.expireTimestampSec - now / 1000).coerceAtLeast(0) else 0,
+            lastFetchedAt = now
+        )
+        _subscriptionStatus.value = status
+        storage.saveCachedSubscription(status)
     }
 
 }

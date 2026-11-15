@@ -223,7 +223,7 @@ fun SettingsScreen(
                     )
                     ByMeSettingRow(
                         title = if (isRu) "Российские сайты напрямую" else "Russian sites directly",
-                        subtitle = if (isRu) "Банки и местные сервисы без VPN" else "Banks and local services without VPN",
+                        subtitle = if (isRu) "Часть трафика идёт напрямую, минуя VPN" else "Some traffic bypasses the VPN and connects directly",
                         icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
@@ -234,6 +234,17 @@ fun SettingsScreen(
                                 }
                             )
                         },
+                        showBottomDivider = false
+                    )
+                }
+
+                ByMeCardGroup {
+                    ByMeSettingRow(
+                        title = if (isRu) "Расширенные настройки" else "Advanced settings",
+                        subtitle = if (isRu) "Защита соединения и системные параметры" else "Connection protection and system options",
+                        icon = { ShieldSecurityIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = onNavigateToAdvanced,
                         showBottomDivider = false
                     )
                 }

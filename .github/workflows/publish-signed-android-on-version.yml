@@ -164,13 +164,14 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Android update: refined server selection, accessible controls, and smoother sheet interactions.
-          - Larger accessible touch targets for shared navigation and settings controls.
-          - Server selection now uses native radio semantics, built-in sheet gestures, and animated dismissal.
-          - FAQ accordion labels and text sizing are easier to read.
+          ByMeVPN Android update: safer subscription imports and clearer account flows.
+          - External subscription links require confirmation and are isolated from ByMeVPN accounts.
+          - Subscription downloads are bounded; only backend-issued feeds receive device registration headers.
+          - Manual server choice and the correct back destination are preserved.
+          - Device actions are easier to tap, and plan-value labels use confirmed prices.
 
           Android unit tests and release-certificate verification passed in GitHub Actions.
-          This GitHub APK remains distributed through the direct updater; the Play build is separate.
+          VPN traffic and payment behavior still depend on the server, device, and network; this build does not claim device-level leak or live-payment validation.
           EOF
           gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" "dist/update.json" \
             --target "$GITHUB_SHA" \

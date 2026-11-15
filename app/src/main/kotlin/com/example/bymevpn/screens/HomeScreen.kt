@@ -109,6 +109,7 @@ fun HomeScreen(
     val connectedSeconds by vpnManager.connectedSeconds.collectAsState()
     val serversError by vpnManager.serversError.collectAsState()
     val isLoadingServers by vpnManager.isLoadingServers.collectAsState()
+    val isAutoServerSelected by vpnManager.isAutomaticServerSelected.collectAsState()
 
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
@@ -126,7 +127,6 @@ fun HomeScreen(
     }
 
     var showServerSheet by remember { mutableStateOf(false) }
-    var isAutoServerSelected by remember { mutableStateOf(true) }
     var showFaqDialog by remember { mutableStateOf(false) }
     val secureStorage = remember { SecureTokenStorage.getInstance(context) }
     var isActivatingTrial by remember { mutableStateOf(false) }
@@ -501,12 +501,10 @@ fun HomeScreen(
                 error = serversError,
                 onRefresh = { scope.launch { vpnManager.loadServers() } },
                 onSelectAuto = {
-                    isAutoServerSelected = true
                     // "Automatic" must measure latency, not silently take the first row.
                     scope.launch { vpnManager.autoSelectFastestServer() }
                 },
                 onSelectServer = { server ->
-                    isAutoServerSelected = false
                     vpnManager.selectServer(server)
                 }
             )
