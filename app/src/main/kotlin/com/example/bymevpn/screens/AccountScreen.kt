@@ -56,6 +56,7 @@ import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
 import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.data.AccountRepository
+import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.subscription.SubscriptionPresentationPolicy
@@ -108,6 +109,7 @@ fun AccountScreen(
     var showDeleteAccountDialog by remember { mutableStateOf(false) }
     var deletingAccount by remember { mutableStateOf(false) }
     var refreshingAccount by remember { mutableStateOf(false) }
+    var resettingPassword by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val accountSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val dismissAccountSheet: (() -> Unit) -> Unit = { afterDismiss ->
@@ -443,11 +445,7 @@ fun AccountScreen(
                     )
                     ByMeSettingRow(
                         title = t("Автопродление", "Auto-renewal"),
-                        subtitle = when (subscription?.autoRenew) {
-                            true -> t("Включено · изменение недоступно", "On · changes unavailable")
-                            false -> t("Отключено · изменение недоступно", "Off · changes unavailable")
-                            null -> t("Нет подтверждённых данных", "No confirmed data")
-                        },
+                        subtitle = t("Посмотреть статус и управлять", "View and manage renewal"),
                         icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = onNavigateToRenewal,
@@ -466,8 +464,8 @@ fun AccountScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = t("Настройки аккаунта", "Account settings"),
-                        subtitle = t("Профиль и безопасность", "Profile and security"),
+                        title = t("Аккаунт и безопасность", "Account and security"),
+                        subtitle = t("Данные профиля, выход и удаление", "Profile details, sign out and deletion"),
                         icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showAccountDialog = true },
@@ -506,9 +504,9 @@ fun AccountScreen(
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(t("Настройки аккаунта", "Account settings"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                        Text(t("Аккаунт и безопасность", "Account and security"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            t("Профиль и управление доступом", "Profile and access"),
+                            t("Данные профиля и управление аккаунтом", "Profile details and account management"),
                             color = AppColors.TextSecondary,
                             fontSize = 13.sp
                         )
@@ -533,6 +531,32 @@ fun AccountScreen(
                     }
 
                     ByMeCardGroup {
+                        if (currentUser?.isGoogle == false && currentUser?.email?.contains("@") == true && currentUser?.email != "user@bymevpn.app") {
+                            ByMeSettingRow(
+                                title = t("Сменить пароль", "Change password"),
+                                subtitle = t("Получить ссылку на почту", "Receive a reset link by email"),
+                                icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                                trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                                onClick = {
+                                    if (!resettingPassword) {
+                                        val email = currentUser?.email.orEmpty()
+                                        resettingPassword = true
+                                        scope.launch {
+                                            try {
+                                                ByMeApiClient(context).requestPasswordReset(email)
+                                                Toast.makeText(context, t("Если пароль доступен для этого аккаунта, ссылка придёт на почту.", "If password reset is available, a link will be sent to your email."), Toast.LENGTH_LONG).show()
+                                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                                throw e
+                                            } catch (e: Exception) {
+                                                Toast.makeText(context, t("Не удалось отправить запрос. Попробуйте позже.", "Could not send the request. Try again later."), Toast.LENGTH_LONG).show()
+                                            } finally {
+                                                resettingPassword = false
+                                            }
+                                        }
+                                    }
+                                }
+                            )
+                        }
                         ByMeSettingRow(
                             title = t("Помощь и поддержка", "Help and support"),
                             subtitle = t("Связаться с нами", "Contact our team"),

@@ -27,8 +27,8 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 41
-        versionName = "1.0.40"
+        versionCode = 42
+        versionName = "1.0.41"
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
     }
 

@@ -426,6 +426,21 @@ class ByMeApiClient(private val context: Context) {
         request("DELETE", "/devices/$deviceId", null, requiresAuth = true)
     }
 
+    suspend fun getAutoRenewal(): Boolean {
+        val json = request("GET", "/mobile/v2/renewal", null, requiresAuth = true)
+        if (json.opt("auto_renew") !is Boolean) {
+            throw ApiError("INVALID_RESPONSE", "Auto-renewal status was not confirmed")
+        }
+        return json.getBoolean("auto_renew")
+    }
+
+    suspend fun cancelAutoRenewal() {
+        val json = request("POST", "/mobile/v2/renewal/cancel", JSONObject().put("confirm", true), requiresAuth = true)
+        if (json.opt("cancelled") != true || json.opt("auto_renew") != false || json.opt("paid_access_preserved") != true) {
+            throw ApiError("INVALID_RESPONSE", "Auto-renewal cancellation was not confirmed")
+        }
+    }
+
     // -------------------------------------------------------------
     // IN-APP PAYMENTS (YooKassa Cards/SBP & CryptoBot)
     // -------------------------------------------------------------

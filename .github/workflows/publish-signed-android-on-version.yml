@@ -164,15 +164,9 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          ByMeVPN Android update: safer standalone profiles and VPN service recovery.
-          - System Back follows the actual screen history; pricing and support return to their origin.
-          - Navigation state and screen arguments are restored after Activity recreation.
-          - Imported external VPN profiles no longer call account-protected ByMeVPN APIs and survive expired account sessions.
-          - Previously active and Android Always-on VPN sessions can recover after service process restart.
-          - Telegram session checks use POST only, and tunnel health checks tolerate one unavailable probe host.
+          Обновлены экран аккаунта и настройки. Добавлена поддержка серверного просмотра и отключения автопродления с подтверждением.
 
-          Android unit tests and release-certificate verification passed in GitHub Actions.
-          Full traffic routing, IPv6/DNS leak behavior, process recovery, and live payments still require device and production verification.
+          Работа автопродления в приложении зависит от наличия соответствующего API на сервере; на момент выпуска production ещё не предоставлял этот маршрут. Подключение автопродления через Android-оплату не реализовано.
           EOF
           gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" "dist/update.json" \
             --target "$GITHUB_SHA" \
