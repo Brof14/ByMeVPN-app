@@ -208,7 +208,7 @@ fun PricingScreen(
                 Text(
                     text = t("СКОЛЬКО УСТРОЙСТВ?", "HOW MANY DEVICES?"),
                     color = AppColors.TextKicker,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
                 )
@@ -279,7 +279,7 @@ fun PricingScreen(
                 Text(
                     text = t("СРОК ПОДПИСКИ", "SUBSCRIPTION LENGTH"),
                     color = AppColors.TextKicker,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp
                 )
@@ -334,7 +334,7 @@ fun PricingScreen(
                                 Text(
                                     text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month · 🎁 ${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus month(s)"),
                                     color = Color(0xFF8FA3A4),
-                                    fontSize = 11.5.sp
+                                    fontSize = 12.5.sp
                                 )
                             }
 
@@ -381,7 +381,7 @@ fun PricingScreen(
                                 Text(
                                     text = t("ЛУЧШАЯ ЦЕНА", "BEST VALUE"),
                                     color = Color(0xFF06231A),
-                                    fontSize = 9.sp,
+                                    fontSize = 10.5.sp,
                                     fontWeight = FontWeight.Bold,
                                     letterSpacing = 0.4.sp
                                 )
@@ -395,7 +395,7 @@ fun PricingScreen(
                 Text(
                     text = t("СПОСОБ ОПЛАТЫ", "PAYMENT METHOD"),
                     color = AppColors.TextKicker,
-                    fontSize = 10.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.2.sp,
                     modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)

@@ -467,8 +467,8 @@ fun ByMeSettingRow(
                     Text(
                         text = subtitle,
                         color = Color(0xFF88A09F),
-                        fontSize = 11.4.sp,
-                        lineHeight = 15.sp
+                        fontSize = 12.5.sp,
+                        lineHeight = 18.sp
                     )
                 }
             }
@@ -507,8 +507,8 @@ fun ByMeInfoBox(
         Text(
             text = text,
             color = Color(0xFF86AD9F),
-            fontSize = 11.5.sp,
-            lineHeight = 16.sp
+            fontSize = 12.5.sp,
+            lineHeight = 18.sp
         )
     }
 }

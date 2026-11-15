@@ -166,7 +166,7 @@ fun PaywallSheet(
                         Text(
                             text = if (isRu) "👑 ПРЕМИУМ" else "👑 PREMIUM",
                             color = AppColors.BrandGreen,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -415,7 +415,7 @@ private fun PaywallFeatureRow(
         Spacer(modifier = Modifier.width(10.dp))
         Column {
             Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-            Text(text = desc, color = AppColors.TextSecondary, fontSize = 11.5.sp, lineHeight = 16.sp)
+            Text(text = desc, color = AppColors.TextSecondary, fontSize = 12.5.sp, lineHeight = 18.sp)
         }
     }
 }
