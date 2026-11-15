@@ -534,9 +534,9 @@ fun AccountScreen(
                         ByMeSettingRow(
                             title = t("Автопродление", "Auto-renewal"),
                             subtitle = when (subscription?.autoRenew) {
-                                true -> t("Включено", "On")
-                                false -> t("Отключено", "Off")
-                                null -> t("Управление продлением подписки", "Manage subscription renewal")
+                                true -> t("Включено по данным сервера · изменение недоступно", "On per server · changes unavailable")
+                                false -> t("Отключено по данным сервера · изменение недоступно", "Off per server · changes unavailable")
+                                null -> t("Просмотр статуса; изменение пока недоступно", "Status only; changes are not supported yet")
                             },
                             icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                             trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },

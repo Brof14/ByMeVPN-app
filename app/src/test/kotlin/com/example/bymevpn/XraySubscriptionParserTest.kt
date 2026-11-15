@@ -46,6 +46,20 @@ class XraySubscriptionParserTest {
         assertEquals("bymevpn.duckdns.org", config.serverName)
     }
 
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsOversizedSubscriptionBeforeParsing() {
+        XraySubscriptionParser.parse("x".repeat(1_048_577))
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun rejectsSubscriptionWithMoreThanSixtyFourConfigs() {
+        val uuid = "11111111-2222-3333-4444-555555555555"
+        val links = (1..65).joinToString("\n") { index ->
+            "vless://$uuid@node$index.example.org:443?security=tls#node-$index"
+        }
+        XraySubscriptionParser.parse(links)
+    }
+
     @Test
     fun testParseVlessSubscription() {
         val link1 = "vless://a1b2c3d4-e5f6-7890-abcd-ef1234567890@138.124.240.14:16287?security=reality&flow=xtls-rprx-vision&pbk=fakeKey123&sid=12345678&sni=google.com&fp=chrome#%D0%93%D0%B5%D1%80%D0%BC%D0%B0%D0%BD%D0%B8%D1%8F%20Frankfurt"

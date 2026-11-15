@@ -1,6 +1,8 @@
 package com.example.bymevpn.screens
 
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -19,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,6 +61,7 @@ fun SupportScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
+    originTab: BottomNavTab = BottomNavTab.Account,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -66,6 +71,7 @@ fun SupportScreen(
     val scrollState = rememberScrollState()
     var showFaqDialog by remember { mutableStateOf(false) }
     var showTermsDialog by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -135,7 +141,13 @@ fun SupportScreen(
                             try {
                                 context.startActivity(intent)
                             } catch (_: Exception) {
-                                Toast.makeText(context, t("На устройстве не настроена почта", "No email app is configured"), Toast.LENGTH_SHORT).show()
+                                val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                                clipboard?.setPrimaryClip(ClipData.newPlainText("ByMeVPN support", "support@bymevpn.com"))
+                                Toast.makeText(
+                                    context,
+                                    t("Адрес поддержки скопирован: support@bymevpn.com", "Support address copied: support@bymevpn.com"),
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
                         }
                     )
@@ -174,7 +186,8 @@ fun SupportScreen(
                         title = t("О приложении", "About the app"),
                         subtitle = t("Версия ${BuildConfig.VERSION_NAME}", "Version ${BuildConfig.VERSION_NAME}"),
                         icon = { InfoCircleIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) }
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = { showAboutDialog = true }
                     )
                     ByMeSettingRow(
                         title = t("Документы и приватность", "Privacy and documents"),
@@ -198,7 +211,7 @@ fun SupportScreen(
             }
 
             ByMeBottomNav(
-                currentTab = BottomNavTab.Settings,
+                currentTab = originTab,
                 onTabSelected = { tab ->
                     when (tab) {
                         BottomNavTab.Home -> onNavigateToHome()
@@ -214,6 +227,18 @@ fun SupportScreen(
         }
         if (showTermsDialog) {
             LegalTermsDialog(onDismiss = { showTermsDialog = false })
+        }
+        if (showAboutDialog) {
+            AlertDialog(
+                onDismissRequest = { showAboutDialog = false },
+                title = { Text("ByMeVPN") },
+                text = { Text(t("Версия ${BuildConfig.VERSION_NAME}. Для связи: support@bymevpn.com", "Version ${BuildConfig.VERSION_NAME}. Contact: support@bymevpn.com")) },
+                confirmButton = {
+                    TextButton(onClick = { showAboutDialog = false }) {
+                        Text(t("Закрыть", "Close"))
+                    }
+                }
+            )
         }
     }
 }

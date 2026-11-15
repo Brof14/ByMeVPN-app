@@ -91,6 +91,9 @@ class VpnManager private constructor(private val context: Context) {
     private val _isLoadingServers = MutableStateFlow(false)
     val isLoadingServers: StateFlow<Boolean> = _isLoadingServers.asStateFlow()
 
+    private val _isAutomaticServerSelected = MutableStateFlow(storage.isAutomaticServerSelectionEnabled())
+    val isAutomaticServerSelected: StateFlow<Boolean> = _isAutomaticServerSelected.asStateFlow()
+
     private val _bytesIn = MutableStateFlow(0L)
     val bytesIn: StateFlow<Long> = _bytesIn.asStateFlow()
 
@@ -115,7 +118,7 @@ class VpnManager private constructor(private val context: Context) {
     private var disconnectJob: Job? = null
     @Volatile private var connectionRequested = false
     private val serverLoadMutex = Mutex()
-    @Volatile private var automaticSelection = true
+    @Volatile private var automaticSelection = storage.isAutomaticServerSelectionEnabled()
     private val pingMutex = Mutex()
 
     init {
@@ -139,6 +142,9 @@ class VpnManager private constructor(private val context: Context) {
 
     suspend fun autoSelectFastestServer(): ServerNode? = withContext(Dispatchers.IO) {
         automaticSelection = true
+        _isAutomaticServerSelected.value = true
+        storage.setAutomaticServerSelectionEnabled(true)
+        storage.saveSelectedServerCode(null)
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext null
         val pings = refreshAllPings()
@@ -149,6 +155,7 @@ class VpnManager private constructor(private val context: Context) {
         }
 
         val winner = bestNode ?: servers.firstOrNull()
+        if (bestNode == null) Log.i(TAG, "Automatic server selection used the panel's first server because latency probes did not produce a result")
         winner?.also {
             withContext(Dispatchers.Main) {
                 if (automaticSelection) applyServerSelection(it)
@@ -194,9 +201,19 @@ class VpnManager private constructor(private val context: Context) {
     fun setServers(servers: List<ServerNode>) {
         val sorted = servers
         _availableServers.value = sorted
-        val preferred = sorted.firstOrNull()
+        val savedCode = storage.getSelectedServerCode()
+        val preferred = if (!automaticSelection && !savedCode.isNullOrBlank()) {
+            sorted.firstOrNull { it.nodeCode == savedCode }
+        } else null
+        if (!automaticSelection && preferred == null && !savedCode.isNullOrBlank()) {
+            automaticSelection = true
+            _isAutomaticServerSelected.value = true
+            storage.setAutomaticServerSelectionEnabled(true)
+            storage.saveSelectedServerCode(null)
+        }
+        val defaultServer = preferred ?: sorted.firstOrNull()
         if (_currentServer.value == null || !sorted.any { it.nodeCode == _currentServer.value?.nodeCode }) {
-            _currentServer.value = preferred
+            _currentServer.value = defaultServer
         }
         scope.launch {
             val pings = refreshAllPings()
@@ -355,6 +372,9 @@ class VpnManager private constructor(private val context: Context) {
 
     fun selectServer(server: ServerNode) {
         automaticSelection = false
+        _isAutomaticServerSelected.value = false
+        storage.setAutomaticServerSelectionEnabled(false)
+        storage.saveSelectedServerCode(server.nodeCode)
         applyServerSelection(server)
     }
 

@@ -26,12 +26,22 @@ data class ParsedSubscription(
 object XraySubscriptionParser {
 
     private const val TAG = "XraySubParser"
+    private const val MAX_INPUT_BYTES = 1_048_576
+    private const val MAX_CONFIGS = 64
+    private const val MAX_LINES = 256
 
     fun parse(rawBody: String, userInfoHeader: String? = null): ParsedSubscription {
+        require(rawBody.toByteArray(Charsets.UTF_8).size <= MAX_INPUT_BYTES) {
+            "Subscription input is too large"
+        }
         val decodedText = decodeContent(rawBody)
+        require(decodedText.toByteArray(Charsets.UTF_8).size <= MAX_INPUT_BYTES) {
+            "Decoded subscription is too large"
+        }
         val lines = decodedText.lines()
             .map { it.trim() }
             .filter { it.isNotEmpty() && !it.startsWith("#") }
+        require(lines.size <= MAX_LINES) { "Subscription contains too many lines" }
 
         val serverList = mutableListOf<ServerNode>()
         val configMap = mutableMapOf<String, VpnSessionConfig>()
@@ -55,6 +65,8 @@ object XraySubscriptionParser {
                 }
             }
         }
+
+        require(serverList.size <= MAX_CONFIGS) { "Subscription contains too many configurations" }
 
         var upload = 0L
         var download = 0L

@@ -57,13 +57,12 @@ enum class PlanDuration(
     val title: String,
     val bonusSubtitle: String,
     val totalMonths: Int,
-    val totalDays: Int,
-    val isPopular: Boolean = false
+    val totalDays: Int
 ) {
     Month1("1 месяц", "за месяц", 1, 30),
     Month4("3 + 1 месяц", "· 🎁 1 мес. в подарок", 4, 120),
     Month8("6 + 2 месяца", "· 🎁 2 мес. в подарок", 8, 240),
-    Month15("12 + 3 месяца", "· 🎁 3 мес. в подарок", 15, 450, isPopular = true)
+    Month15("12 + 3 месяца", "· 🎁 3 мес. в подарок", 15, 450)
 }
 
 private fun PlanDuration.apiCode(): String = when (this) {
@@ -79,6 +78,18 @@ internal fun PlanDuration.matchesConfirmedPlan(plan: PlanItem, devices: Int): Bo
         plan.devices == devices &&
         plan.days == totalDays &&
         plan.priceRub > 0
+
+internal fun bestValuePlan(plans: List<PlanItem>, devices: Int): PlanDuration? {
+    val confirmed = PlanDuration.values().mapNotNull { duration ->
+        plans.firstOrNull { duration.matchesConfirmedPlan(it, devices) }
+            ?.let { duration to it.priceRub }
+    }
+    if (confirmed.size != PlanDuration.values().size) return null
+    return confirmed.minByOrNull { (duration, price) -> price.toDouble() / duration.totalDays }?.first
+}
+
+internal fun roundedMonthlyPrice(priceRub: Int, months: Int): Int =
+    if (months <= 0) 0 else ((priceRub.toLong() + months - 1) / months).toInt()
 
 @Composable
 fun PricingScreen(
@@ -96,7 +107,7 @@ fun PricingScreen(
     var selectedDeviceCount by remember(initialDeviceCount) {
         mutableIntStateOf(initialDeviceCount.takeIf { it in setOf(2, 5, 10) } ?: 2)
     }
-    var selectedPlan by remember { mutableStateOf(PlanDuration.Month15) }
+    var selectedPlan by remember { mutableStateOf(PlanDuration.Month1) }
     val selectedProvider = "yookassa" // Only payment method accepted by the current backend.
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
     var displayPlans by remember { mutableStateOf(ByMeApiClient(context).getCachedPlans(2)) }
@@ -136,13 +147,7 @@ fun PricingScreen(
         t("К оплате сейчас", "Amount due")
     }
     val currentPriceLabel = if (currentPrice > 0) "$currentPrice ₽" else t("Цена не подтверждена", "Price not confirmed")
-
-    val perMonthPrice = when (selectedPlan) {
-        PlanDuration.Month1 -> currentPrice
-        PlanDuration.Month4 -> currentPrice / 4
-        PlanDuration.Month8 -> currentPrice / 8
-        PlanDuration.Month15 -> currentPrice / 15
-    }
+    val bestValue = bestValuePlan(serverPlans, selectedDeviceCount)
 
     Box(
         modifier = modifier
@@ -290,15 +295,10 @@ fun PricingScreen(
                     }?.priceRub
                     val priceForPlan = verifiedPrice ?: 0
 
-                    val monthlyRate = when (plan) {
-                        PlanDuration.Month1 -> priceForPlan
-                        PlanDuration.Month4 -> priceForPlan / 4
-                        PlanDuration.Month8 -> priceForPlan / 8
-                        PlanDuration.Month15 -> priceForPlan / 15
-                    }
+                    val monthlyRate = roundedMonthlyPrice(priceForPlan, plan.totalMonths)
 
                     val isSelected = selectedPlan == plan
-                    val isPopular = plan.isPopular
+                    val isPopular = plan == bestValue
 
                     Box(
                         modifier = Modifier

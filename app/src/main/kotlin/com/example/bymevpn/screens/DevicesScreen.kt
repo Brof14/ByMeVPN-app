@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -304,7 +305,10 @@ fun DevicesScreen(
                                 text = if (isRu) "Удалить" else "Remove",
                                 color = Color(0xFFFF8A8A),
                                 fontSize = 11.sp,
-                                modifier = Modifier.clickable { pendingRemoveId = dev.id }.padding(6.dp)
+                                modifier = Modifier
+                                    .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .clickable { pendingRemoveId = dev.id }
+                                    .padding(horizontal = 8.dp)
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -357,8 +361,8 @@ fun DevicesScreen(
                                     if (isRu) "Выберите тариф с большим лимитом, чтобы подключить ещё устройства."
                                     else "Choose a plan with a higher limit to connect more devices."
                                 } else {
-                                    if (isRu) "Увеличьте лимит устройств в любое время."
-                                    else "You can increase your device limit at any time."
+                                    if (isRu) "Сравните полную цену нового тарифа перед оплатой. Доплата за остаток срока здесь не рассчитывается."
+                                    else "Review the full price of the new plan before paying. Prorated charges are not calculated here."
                                 },
                                 color = Color(0xFF9DB6AC),
                                 fontSize = 12.5.sp,

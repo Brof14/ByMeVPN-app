@@ -1,6 +1,7 @@
 package com.example.bymevpn
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
 import android.widget.Toast
@@ -10,7 +11,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -21,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Box
@@ -53,6 +54,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 
 enum class AppScreen {
     SignIn,
@@ -71,6 +75,7 @@ enum class AppScreen {
 class MainActivity : ComponentActivity() {
     private var telegramLoginJob: Job? = null
     private var lastAccountRefreshAt = 0L
+    private var pendingExternalSubscription by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme)
@@ -80,21 +85,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ByMeVPNTheme {
-                var showStartup by remember { mutableStateOf(true) }
-                LaunchedEffect(Unit) {
-                    delay(280)
-                    showStartup = false
-                }
                 Box(Modifier.fillMaxSize()) {
                     MainAppNav(onRestoreViaTelegram = {
                         startTelegramLoginFromConnection(allowAccountSwitch = true)
                     })
-                    AnimatedVisibility(
-                        visible = showStartup,
-                        enter = fadeIn(tween(80)),
-                        exit = fadeOut(tween(180))
-                    ) {
-                        com.example.bymevpn.components.AppStartupOverlay()
+                    pendingExternalSubscription?.let { rawImport ->
+                        ExternalSubscriptionImportDialog(
+                            sourceHost = externalImportHost(rawImport),
+                            onDismiss = { pendingExternalSubscription = null },
+                            onConfirm = {
+                                pendingExternalSubscription = null
+                                importExternalSubscription(rawImport)
+                            }
+                        )
                     }
                 }
             }
@@ -124,26 +127,59 @@ class MainActivity : ComponentActivity() {
             return
         }
 
-        val subUrl = data.getQueryParameter("url")
-            ?: data.getQueryParameter("sub")
-            ?: if (data.scheme == "http" || data.scheme == "https") data.toString() else null
-        val userName = data.getQueryParameter("name") ?: "ByMeVPN user"
+        if (data.scheme.equals("bymevpn", ignoreCase = true) && data.host.equals("sub", ignoreCase = true)) {
+            val subUrl = data.getQueryParameter("url") ?: data.getQueryParameter("sub")
+            if (!subUrl.isNullOrBlank()) pendingExternalSubscription = subUrl
+        }
+    }
 
-        if (!subUrl.isNullOrBlank()) {
-            CoroutineScope(Dispatchers.Main).launch {
-                val result = SubscriptionManager.getInstance(applicationContext).applySubscriptionUrl(subUrl)
-                if (result.isSuccess) {
-                    if (com.example.bymevpn.data.storage.SecureTokenStorage.getInstance(applicationContext).getAccessToken().isNullOrBlank() && AccountRepository.currentUser.value == null) {
-                        AccountRepository.createLocalProfile(applicationContext, userName)
-                    }
-                    Toast.makeText(applicationContext, if (com.example.bymevpn.data.LocaleManager.isRussian()) "Подписка успешно подключена!" else "Subscription imported successfully!", Toast.LENGTH_LONG).show()
-                    VpnManager.getInstance(applicationContext).loadServers()
+    private fun importExternalSubscription(rawImport: String) {
+        val storage = SecureTokenStorage.getInstance(applicationContext)
+        if (!storage.getAccessToken().isNullOrBlank() || AccountRepository.currentUser.value != null) {
+            Toast.makeText(
+                applicationContext,
+                if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                    "Внешнюю подписку нельзя импортировать в аккаунт ByMeVPN. Выйдите из аккаунта, чтобы открыть её отдельно."
                 } else {
-                    Toast.makeText(applicationContext, (if (com.example.bymevpn.data.LocaleManager.isRussian()) "Ошибка добавления подписки: " else "Could not import subscription: ") + result.exceptionOrNull()?.message, Toast.LENGTH_LONG).show()
-                }
+                    "External subscriptions cannot replace your ByMeVPN account. Sign out to open one separately."
+                },
+                Toast.LENGTH_LONG
+            ).show()
+            return
+        }
+
+        lifecycleScope.launch {
+            val result = SubscriptionManager.getInstance(applicationContext)
+                .applySubscriptionUrl(rawImport, includeDeviceHeaders = false)
+            if (result.isSuccess) {
+                AccountRepository.createLocalProfile(applicationContext, "Imported subscription")
+                storage.setExternalProfileMode(true)
+                SubscriptionManager.getInstance(applicationContext)
+                    .acceptExternalProfile(result.getOrThrow())
+                VpnManager.getInstance(applicationContext).loadServers()
+                Toast.makeText(
+                    applicationContext,
+                    if (com.example.bymevpn.data.LocaleManager.isRussian()) "Подписка импортирована" else "Subscription imported",
+                    Toast.LENGTH_LONG
+                ).show()
+            } else {
+                Toast.makeText(
+                    applicationContext,
+                    if (com.example.bymevpn.data.LocaleManager.isRussian()) {
+                        "Не удалось импортировать подписку. Проверьте ссылку и подключение к интернету."
+                    } else {
+                        "Could not import the subscription. Check the link and internet connection."
+                    },
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
+
+    private fun externalImportHost(rawImport: String): String = runCatching {
+        val uri = Uri.parse(rawImport)
+        uri.host?.takeIf { it.isNotBlank() } ?: ""
+    }.getOrDefault("")
 
     private fun startTelegramLoginFromConnection(allowAccountSwitch: Boolean = false) {
         if (telegramLoginJob?.isActive == true) return
@@ -262,6 +298,42 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+private fun ExternalSubscriptionImportDialog(
+    sourceHost: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    val isRu = com.example.bymevpn.data.LocaleManager.isRussian()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (isRu) "Импортировать конфигурацию?" else "Import this configuration?")
+        },
+        text = {
+            Text(
+                if (isRu) {
+                    val source = sourceHost.ifBlank { "внешняя ссылка" }
+                    "Источник: $source. Это сторонняя конфигурация: её оператор может видеть метаданные вашего трафика. Импорт заменит список серверов отдельного профиля. Продолжайте, только если доверяете источнику."
+                } else {
+                    val source = sourceHost.ifBlank { "external link" }
+                    "Source: $source. This is a third-party configuration; its operator may see your traffic metadata. Importing replaces the server list in a separate profile. Continue only if you trust the source."
+                }
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(if (isRu) "Импортировать" else "Import")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(if (isRu) "Отмена" else "Cancel")
+            }
+        }
+    )
+}
+
+@Composable
 fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
     val context = LocalContext.current
     val currentUser by AccountRepository.currentUser.collectAsState()
@@ -271,12 +343,15 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
         }
     }
 
-    var currentScreen by remember {
+    var currentScreen by rememberSaveable {
         mutableStateOf(if (currentUser != null) AppScreen.Home else AppScreen.SignIn)
     }
     var pricingDeviceCount by remember { mutableStateOf(2) }
+    var pricingReturnScreen by rememberSaveable { mutableStateOf(AppScreen.Home) }
+    var supportReturnScreen by rememberSaveable { mutableStateOf(AppScreen.Account) }
     fun openPricing(deviceCount: Int = 2) {
         pricingDeviceCount = deviceCount
+        pricingReturnScreen = currentScreen
         currentScreen = AppScreen.Pricing
     }
 
@@ -326,7 +401,7 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
                     onNavigateToSettings = { currentScreen = AppScreen.Settings },
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
                     onNavigateToPricing = { openPricing() },
-                    onNavigateToSupport = { currentScreen = AppScreen.Support },
+                    onNavigateToSupport = { supportReturnScreen = AppScreen.Home; currentScreen = AppScreen.Support },
                     onRestoreViaTelegram = onRestoreViaTelegram,
                     onLogOut = {
                         VpnManager.stopVpn(context)
@@ -358,7 +433,7 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
                     onNavigateToSettings = { currentScreen = AppScreen.Settings },
                     onNavigateToDevices = { currentScreen = AppScreen.Devices },
                     onNavigateToRenewal = { currentScreen = AppScreen.Renewal },
-                    onNavigateToSupport = { currentScreen = AppScreen.Support },
+                    onNavigateToSupport = { supportReturnScreen = AppScreen.Account; currentScreen = AppScreen.Support },
                     onNavigateToTrial = { currentScreen = AppScreen.Trial },
                     onNavigateToPricing = { openPricing() },
                     onLogOut = {
@@ -387,10 +462,11 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
             }
             AppScreen.Support -> {
                 SupportScreen(
-                    onBackClick = { currentScreen = AppScreen.Account },
+                    onBackClick = { currentScreen = supportReturnScreen },
                     onNavigateToHome = { currentScreen = AppScreen.Home },
                     onNavigateToSettings = { currentScreen = AppScreen.Settings },
-                    onNavigateToAccount = { currentScreen = AppScreen.Account }
+                    onNavigateToAccount = { currentScreen = AppScreen.Account },
+                    originTab = if (supportReturnScreen == AppScreen.Home) com.example.bymevpn.components.BottomNavTab.Home else com.example.bymevpn.components.BottomNavTab.Account
                 )
             }
             AppScreen.Trial -> {
@@ -402,7 +478,7 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
             }
             AppScreen.Pricing -> {
                 PricingScreen(
-                    onBackClick = { currentScreen = AppScreen.Home },
+                    onBackClick = { currentScreen = pricingReturnScreen },
                     initialDeviceCount = pricingDeviceCount
                 )
             }
