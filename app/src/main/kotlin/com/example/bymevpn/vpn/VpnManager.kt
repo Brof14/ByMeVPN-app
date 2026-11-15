@@ -839,7 +839,9 @@ class VpnManager private constructor(private val context: Context) {
                     true
                 } ?: false
                 if (!stopped) Log.w(TAG, "VPN tunnel did not report teardown within timeout")
-                apiClient.deleteVpnSession()
+                if (ProfileApiRoutingPolicy.useAccountApi(storage.isExternalProfileMode())) {
+                    apiClient.deleteVpnSession()
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
