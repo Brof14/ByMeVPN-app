@@ -219,7 +219,7 @@ class ByMeApiClient(private val context: Context) {
             put("error_code", errorCode)
             put("app_version", com.example.bymevpn.BuildConfig.VERSION_NAME)
         }
-        val result = request("POST", "/diagnostics/report", payload, requiresAuth = true)
+        val result = request("POST", "/diagnostics/report", payload, requiresAuth = true, includeDeviceMetadata = false)
         return result.optString("status") == "received"
     }
 
@@ -488,7 +488,8 @@ class ByMeApiClient(private val context: Context) {
         requiresAuth: Boolean,
         isRetry: Boolean = false,
         authTokenOverride: String? = null,
-        confirmAccountDeletion: Boolean = false
+        confirmAccountDeletion: Boolean = false,
+        includeDeviceMetadata: Boolean = true
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
         if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
@@ -514,19 +515,21 @@ class ByMeApiClient(private val context: Context) {
                 if (ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()) {
                     setRequestProperty("X-Entitlement-Version", "es256-v1")
                 }
-                val installId = storage.getInstallId(context)
-                if (installId.isNotBlank()) {
-                    setRequestProperty("X-HWID", installId)
+                if (includeDeviceMetadata) {
+                    val installId = storage.getInstallId(context)
+                    if (installId.isNotBlank()) {
+                        setRequestProperty("X-HWID", installId)
+                    }
+                    setRequestProperty("X-Device-OS", "Android")
+                    setRequestProperty(
+                        "X-Ver-OS",
+                        android.os.Build.VERSION.RELEASE?.ifBlank { "unknown" } ?: "unknown"
+                    )
+                    setRequestProperty(
+                        "X-Device-Model",
+                        storage.getDeviceModel().ifBlank { "Android device" }
+                    )
                 }
-                setRequestProperty("X-Device-OS", "Android")
-                setRequestProperty(
-                    "X-Ver-OS",
-                    android.os.Build.VERSION.RELEASE?.ifBlank { "unknown" } ?: "unknown"
-                )
-                setRequestProperty(
-                    "X-Device-Model",
-                    storage.getDeviceModel().ifBlank { "Android device" }
-                )
 
                 if (requiresAuth || authTokenOverride != null) {
                     val token = authTokenOverride ?: tokenAtRequest
@@ -571,7 +574,7 @@ class ByMeApiClient(private val context: Context) {
                     throw ApiError("ACCOUNT_CHANGED", "Account changed during the request")
                 }
                 return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
-                    confirmAccountDeletion = confirmAccountDeletion)
+                    confirmAccountDeletion = confirmAccountDeletion, includeDeviceMetadata = includeDeviceMetadata)
             }
             when (refreshAccessToken()) {
                 RefreshSessionResult.REFRESHED -> {
@@ -582,7 +585,7 @@ class ByMeApiClient(private val context: Context) {
                         throw ApiError("ACCOUNT_CHANGED", "Account changed during token refresh")
                     }
                     return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
-                        confirmAccountDeletion = confirmAccountDeletion)
+                        confirmAccountDeletion = confirmAccountDeletion, includeDeviceMetadata = includeDeviceMetadata)
                 }
                 RefreshSessionResult.TEMPORARY_FAILURE -> {
                     // A timeout, offline device or 5xx is not a revoked account:
