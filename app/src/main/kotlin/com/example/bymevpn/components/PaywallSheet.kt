@@ -227,12 +227,12 @@ fun PaywallSheet(
                     PaywallFeatureRow(
                         icon = "🛡️",
                         title = if (isRu) "VLESS Reality & Hysteria 2" else "VLESS Reality & Hysteria 2",
-                        desc = if (isRu) "Полная маскировка трафика от блокировок" else "Undetectable traffic masking"
+                        desc = if (isRu) "Протоколы для подключения в разных сетях" else "Protocols for connecting across different networks"
                     )
                     PaywallFeatureRow(
                         icon = "🚫",
                         title = if (isRu) "Блокировка рекламы" else "Ad-blocking built in",
-                        desc = if (isRu) "AdGuard DNS защищает от баннеров и слежки" else "AdGuard DNS blocks banners & trackers"
+                        desc = if (isRu) "AdGuard DNS фильтрует часть рекламных и следящих доменов" else "AdGuard DNS filters some ad and tracking domains"
                     )
                     PaywallFeatureRow(
                         icon = "📱",
