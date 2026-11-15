@@ -501,12 +501,10 @@ fun HomeScreen(
                 error = serversError,
                 onRefresh = { scope.launch { vpnManager.loadServers() } },
                 onSelectAuto = {
-                    isAutoServerSelected = true
                     // "Automatic" must measure latency, not silently take the first row.
                     scope.launch { vpnManager.autoSelectFastestServer() }
                 },
                 onSelectServer = { server ->
-                    isAutoServerSelected = false
                     vpnManager.selectServer(server)
                 }
             )
