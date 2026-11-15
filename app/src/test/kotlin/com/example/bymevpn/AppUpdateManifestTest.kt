@@ -1,6 +1,10 @@
 package com.example.bymevpn
 
 import com.example.bymevpn.data.update.parseUpdateManifest
+import com.example.bymevpn.data.update.copyUpdateAndHash
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertNotNull
@@ -8,6 +12,25 @@ import org.junit.Test
 
 class AppUpdateManifestTest {
     private val checksum = "a".repeat(64)
+
+    @Test
+    fun updateDownloadAcceptsUnknownLengthAndHashesTheBytesWritten() {
+        val bytes = "signed update bytes".toByteArray()
+        val output = ByteArrayOutputStream()
+        val digest = copyUpdateAndHash(ByteArrayInputStream(bytes), output, -1, 1024)
+        assertEquals(bytes.toList(), output.toByteArray().toList())
+        assertEquals(MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it.toInt() and 0xff) }, digest)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun updateDownloadRejectsTruncatedResponse() {
+        copyUpdateAndHash(ByteArrayInputStream(byteArrayOf(1)), ByteArrayOutputStream(), 2, 1024)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun updateDownloadRejectsUnknownLengthAboveLimit() {
+        copyUpdateAndHash(ByteArrayInputStream(byteArrayOf(1, 2)), ByteArrayOutputStream(), -1, 1)
+    }
 
     @Test
     fun acceptsNewerVersionFromTrustedHttpsHost() {
