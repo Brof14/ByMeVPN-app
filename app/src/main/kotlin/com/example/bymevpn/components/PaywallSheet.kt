@@ -344,6 +344,17 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                Text(
+                    text = if (isRu)
+                        "Оплата разовая: карта не сохраняется, автопродление этим платежом не включается. Автосписания, настроенные ранее в Telegram, управляются отдельно."
+                    else
+                        "One-time payment: your card is not saved and auto-renewal is not enabled by this purchase. Existing Telegram renewals are managed separately.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+
                 // Primary YooKassa Button
                 Box(
                     modifier = Modifier

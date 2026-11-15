@@ -451,6 +451,17 @@ fun PricingScreen(
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
                 )
 
+                Text(
+                    text = t(
+                        "Оплата через приложение разовая: карта не сохраняется для будущих списаний, автопродление этим платежом не подключается. Ранее подключённое в Telegram автопродление управляется отдельно.",
+                        "This in-app payment is one-time: the card is not saved for future charges and the payment does not enable auto-renewal. Existing Telegram renewals are managed separately."
+                    ),
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    modifier = Modifier.padding(bottom = 15.dp)
+                )
+
                 // CTA Button
                 ByMePrimaryButton(
                     text = when {

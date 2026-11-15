@@ -1,5 +1,8 @@
 package com.example.bymevpn.screens
 
+import android.content.Intent
+import android.net.Uri
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -68,6 +71,15 @@ fun DevicesScreen(
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
     val scope = rememberCoroutineScope()
+    val openTelegramBilling: () -> Unit = {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNbot")))
+        }.onFailure {
+            Toast.makeText(context,
+                if (isRu) "Не удалось открыть Telegram" else "Could not open Telegram",
+                Toast.LENGTH_LONG).show()
+        }
+    }
     var pendingRemoveId by remember { mutableStateOf<String?>(null) }
     var isRemoving by remember { mutableStateOf(false) }
     var isRefreshingDevices by remember { mutableStateOf(false) }
@@ -358,11 +370,11 @@ fun DevicesScreen(
                             Spacer(Modifier.height(8.dp))
                             Text(
                                 text = if (isFull) {
-                                    if (isRu) "Выберите тариф с большим лимитом. Вы увидите полную цену до оплаты; доплата за остаток срока не рассчитывается."
-                                    else "Choose a plan with a higher limit. You will see the full price before payment; prorated charges are not calculated."
+                                    if (isRu) "Для доплаты за оставшийся срок откройте ByMeVPN-бот в Telegram, если ваша подписка привязана к нему. Покупка полного тарифа в приложении не является доплатой."
+                                    else "For a prorated upgrade, open the ByMeVPN Telegram bot if your subscription is linked to it. Purchasing a full plan in the app is not a prorated upgrade."
                                 } else {
-                                    if (isRu) "Сравните полную цену нового тарифа перед оплатой. Доплата за остаток срока здесь не рассчитывается."
-                                    else "Review the full price of the new plan before paying. Prorated charges are not calculated here."
+                                    if (isRu) "Доплата за оставшийся срок доступна в Telegram-боте для привязанных подписок. В приложении показываются только полные тарифы."
+                                    else "Prorated upgrades are available in the Telegram bot for linked subscriptions. The app shows full-price plans only."
                                 },
                                 color = Color(0xFF9DB6AC),
                                 fontSize = 12.5.sp,
@@ -377,12 +389,12 @@ fun DevicesScreen(
                                             .clip(RoundedCornerShape(12.dp))
                                             .background(AppColors.BgSurfaceAccent)
                                             .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(12.dp))
-                                            .clickable { onNavigateToPricing(tier) }
+                                            .clickable { openTelegramBilling() }
                                             .padding(vertical = 12.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
-                                            text = if (isRu) "До $tier устройств" else "Up to $tier devices",
+                                            text = if (isRu) "До $tier в боте" else "Up to $tier in bot",
                                             color = AppColors.BrandMint,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold
