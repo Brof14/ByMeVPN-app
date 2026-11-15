@@ -344,6 +344,15 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                Text(
+                    text = if (isRu) "Разовая оплата. В Android карта не сохраняется для автопродления."
+                        else "One-time payment. Android checkout does not save a card for auto-renewal.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                )
+
                 // Primary YooKassa Button
                 Box(
                     modifier = Modifier

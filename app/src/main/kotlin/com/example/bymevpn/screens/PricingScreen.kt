@@ -451,6 +451,17 @@ fun PricingScreen(
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
                 )
 
+                Text(
+                    text = t(
+                        "Разовый платёж. Новое автопродление и привязка карты через Android не включаются.",
+                        "One-time checkout. Android does not enable new auto-renewal or save your card."
+                    ),
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(bottom = 14.dp)
+                )
+
                 // CTA Button
                 ByMePrimaryButton(
                     text = when {
