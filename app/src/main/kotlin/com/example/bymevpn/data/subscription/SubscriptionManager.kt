@@ -188,9 +188,13 @@ class SubscriptionManager private constructor(private val context: Context) {
                 }
             }
 
+            val requestedOwner = storage.getCachedUser()?.id
             val status = apiClient.getSubscriptionStatus()
-            _subscriptionStatus.value = status
-            storage.saveCachedSubscription(status)
+            val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+                else { _subscriptionStatus.value = status; storage.saveCachedSubscription(status); true }
+            }
+            check(saved == true) { "Account changed while loading subscription" }
             Result.success(status)
         } catch (e: CancellationException) {
             throw e
@@ -344,6 +348,7 @@ class SubscriptionManager private constructor(private val context: Context) {
         return trialActivationMutex.withLock {
             _isSyncing.value = true
             try {
+                val requestedOwner = storage.getCachedUser()?.id
                 val cached = _subscriptionStatus.value
                 if (TrialActivationPolicy.isConfirmedActiveTrial(cached, System.currentTimeMillis())) {
                     return@withLock Result.success(cached!!)
@@ -377,8 +382,11 @@ class SubscriptionManager private constructor(private val context: Context) {
                     }
                     activeStatus = refreshed
                 }
-                _subscriptionStatus.value = activeStatus
-                storage.saveCachedSubscription(activeStatus)
+                val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                    if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+                    else { _subscriptionStatus.value = activeStatus; storage.saveCachedSubscription(activeStatus); true }
+                }
+                check(saved == true) { "Account changed while activating trial" }
                 Result.success(activeStatus)
             } catch (e: CancellationException) {
                 throw e

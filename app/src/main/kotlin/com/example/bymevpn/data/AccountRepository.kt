@@ -194,14 +194,23 @@ object AccountRepository {
 
     suspend fun refreshDevices(context: Context) {
         val storage = SecureTokenStorage.getInstance(context)
+        val requestedOwner = storage.getCachedUser()?.id
         try {
             val api = ByMeApiClient(context)
             val devices = api.getDevices()
-            _userDevices.value = devices
-            _deviceListUnavailable.value = false
-            storage.saveRegisteredDevices(devices)
+            val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
+                if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+                else {
+                    _userDevices.value = devices
+                    _deviceListUnavailable.value = false
+                    storage.saveRegisteredDevices(devices)
+                    true
+                }
+            }
+            if (saved != true) return
             return
         } catch (e: Exception) {
+            if (storage.getCachedUser()?.id != requestedOwner && !storage.getAccessToken().isNullOrBlank()) return
             logRequestFailure("Failed to refresh devices from API", e)
             clearExpiredSession(context, e)
             _deviceListUnavailable.value = true

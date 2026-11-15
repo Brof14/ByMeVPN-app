@@ -225,20 +225,32 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getSubscriptionStatus(): SubscriptionStatus {
+        val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/subscription/status", null, requiresAuth = true)
         val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        storage.saveCachedSubscription(sub)
+        val token = storage.getAccessToken().orEmpty()
+        val saved = storage.withCurrentAccount(token) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+            else { storage.saveCachedSubscription(sub); true }
+        }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading subscription")
         return sub
     }
 
     suspend fun activateTrial(): SubscriptionStatus {
+        val requestedOwner = storage.getCachedUser()?.id
         val body = JSONObject().apply {
             put("install_id", storage.getInstallId(context))
             put("device_model", storage.getDeviceModel())
         }
         val json = request("POST", "/subscription/trial", body, requiresAuth = true)
         val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        storage.saveCachedSubscription(sub)
+        val token = storage.getAccessToken().orEmpty()
+        val saved = storage.withCurrentAccount(token) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
+            else { storage.saveCachedSubscription(sub); true }
+        }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while activating trial")
         return sub
     }
 
