@@ -164,7 +164,10 @@ class VpnManager private constructor(private val context: Context) {
         }
     }
 
-    suspend fun refreshAllPings(): Map<String, Int> = withContext(Dispatchers.IO) { pingMutex.withLock {
+    suspend fun refreshAllPings(onlyWhenDisconnected: Boolean = false): Map<String, Int> = withContext(Dispatchers.IO) { pingMutex.withLock {
+        // Automatic refreshes can queue behind a manual measurement. Do not
+        // start another set of native probes if connection began meanwhile.
+        if (onlyWhenDisconnected && _state.value != VpnConnectionState.DISCONNECTED) return@withContext emptyMap()
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext emptyMap()
 
@@ -216,12 +219,14 @@ class VpnManager private constructor(private val context: Context) {
         if (_currentServer.value == null || !sorted.any { it.nodeCode == _currentServer.value?.nodeCode }) {
             _currentServer.value = defaultServer
         }
-        scope.launch {
-            val pings = refreshAllPings()
-            if (automaticSelection && _state.value == VpnConnectionState.DISCONNECTED) {
-                val winner = _availableServers.value.filter { (pings[it.nodeCode] ?: -1) > 0 }
-                    .minByOrNull { pings[it.nodeCode] ?: Int.MAX_VALUE }
-                if (winner != null) applyServerSelection(winner)
+        if (_state.value == VpnConnectionState.DISCONNECTED) {
+            scope.launch {
+                val pings = refreshAllPings(onlyWhenDisconnected = true)
+                if (automaticSelection && _state.value == VpnConnectionState.DISCONNECTED) {
+                    val winner = _availableServers.value.filter { (pings[it.nodeCode] ?: -1) > 0 }
+                        .minByOrNull { pings[it.nodeCode] ?: Int.MAX_VALUE }
+                    if (winner != null) applyServerSelection(winner)
+                }
             }
         }
     }
