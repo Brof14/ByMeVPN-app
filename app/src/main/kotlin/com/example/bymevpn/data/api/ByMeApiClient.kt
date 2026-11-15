@@ -290,29 +290,37 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getServers(awaitSubscriptionRefresh: Boolean = false): List<ServerNode> {
+        val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/servers", null, requiresAuth = true)
         val accountToken = storage.getAccessToken().orEmpty()
-        com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
-            .acceptServerAccessProof(json)
         val subUrl = json.optString("subscription_url")
-        if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
         val array = json.optJSONArray("servers") ?: JSONArray()
         // No URLs or tokens here: only counts and presence flags are diagnostic.
         Log.d(TAG, "GET /servers: nodes=${array.length()}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}")
         val parsed = ApiJsonParsers.parseServers(array)
-        for (i in 0 until array.length()) {
-            val sObj = array.getJSONObject(i)
-            val code = sObj.optString("node_code", sObj.optString("code"))
-            val cfgObj = sObj.optJSONObject("config")
-            if (code.isNotBlank() && cfgObj != null) {
-                val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
-                storage.saveServerConfig(code, cfg)
-            } else if (code.isNotBlank() && awaitSubscriptionRefresh) {
-                // A fresh API response without a config is not confirmation of
-                // an old cached endpoint. Let the subscription/session API supply it.
-                storage.removeServerConfig(code)
+        val saved = storage.withCurrentAccount(accountToken) {
+            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) {
+                false
+            } else {
+                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
+                    .acceptServerAccessProof(json)
+                if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
+                for (i in 0 until array.length()) {
+                    val sObj = array.getJSONObject(i)
+                    val code = sObj.optString("node_code", sObj.optString("code"))
+                    val cfgObj = sObj.optJSONObject("config")
+                    if (code.isNotBlank() && cfgObj != null) {
+                        val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
+                        storage.saveServerConfig(code, cfg)
+                    } else if (code.isNotBlank() && awaitSubscriptionRefresh) {
+                        // An omitted endpoint must not revive a stale cached configuration.
+                        storage.removeServerConfig(code)
+                    }
+                }
+                true
             }
         }
+        if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading servers")
         if (subUrl.isNotBlank()) {
             val subManager = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             val registeringDevice = subManager.subscriptionStatus.value?.entitlementBootstrap == true
