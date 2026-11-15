@@ -93,6 +93,10 @@ fun AccountScreen(
 
     val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
     val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
+    val accessConfirmationRequired = SubscriptionPresentationPolicy.requiresAccessConfirmation(
+        subscription,
+        subManager.canConnect()
+    )
     val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.size
@@ -204,11 +208,12 @@ fun AccountScreen(
                     ) {
                         Text(
                             text = when {
+                                accessConfirmationRequired -> t("Проверка доступа", "Checking access")
                                 isActive -> t("Активен", "Active")
                                 subscriptionUnknown -> t("Проверяем", "Checking")
                                 else -> t("Без подписки", "No subscription")
                             },
-                            color = if (isActive) Color(0xFF8CDECA) else Color(0xFFE3A29A),
+                            color = if (isActive && !accessConfirmationRequired) Color(0xFF8CDECA) else Color(0xFFE3A29A),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -216,7 +221,7 @@ fun AccountScreen(
                 }
 
                 // Plan Card: Active (10_account_active) vs Inactive (09_account_no_plan)
-                if (isActive) {
+                if (isActive && !accessConfirmationRequired) {
                     // Active Plan Card
                     Column(
                         modifier = Modifier
@@ -289,7 +294,7 @@ fun AccountScreen(
                             onClick = onNavigateToPricing
                         )
                     }
-                } else if (subscriptionUnknown) {
+                } else if (subscriptionUnknown || accessConfirmationRequired) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -309,6 +314,8 @@ fun AccountScreen(
                         Text(
                             text = if (isCheckingSubscription || refreshingAccount) {
                                 t("Проверяем подписку", "Checking subscription")
+                            } else if (accessConfirmationRequired) {
+                                t("Доступ не подтверждён", "Access not confirmed")
                             } else {
                                 t("Не удалось проверить подписку", "Could not verify subscription")
                             },
@@ -318,7 +325,10 @@ fun AccountScreen(
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = t(
+                            text = if (accessConfirmationRequired) t(
+                                "Подписка активна, но доступ этого устройства ещё не подтверждён. Обновите данные; пробный период не будет списан.",
+                                "Your subscription is active, but this device's access is not confirmed yet. Refresh your account; your trial will not be used."
+                            ) else t(
                                 "Доступ пока не подтверждён. Обновите данные аккаунта; пробный период и подписка не менялись.",
                                 "Access is not confirmed yet. Refresh your account; your trial and subscription have not been changed."
                             ),

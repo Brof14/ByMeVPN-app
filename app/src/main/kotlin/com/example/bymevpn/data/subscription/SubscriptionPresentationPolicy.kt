@@ -6,4 +6,8 @@ import com.example.bymevpn.data.api.SubscriptionStatus
 internal object SubscriptionPresentationPolicy {
     fun isUnknown(status: SubscriptionStatus?): Boolean =
         status == null || status.isUndetermined
+
+    /** An active plan with an invalid/missing device entitlement needs an access check, not a trial offer. */
+    fun requiresAccessConfirmation(status: SubscriptionStatus?, canConnect: Boolean): Boolean =
+        status?.isUsable == true && !canConnect
 }

@@ -72,6 +72,9 @@ object XrayConfigGenerator {
                     put("userLevel", 8)
                     put("gateway", JSONArray().apply {
                         put("26.26.26.2/24")
+                        // VpnService routes ::/0 and assigns fd00:26:26::1/126;
+                        // the Xray TUN stack needs its paired IPv6 address too.
+                        put("fd00:26:26::2/126")
                     })
                 })
                 put("sniffing", JSONObject().apply {

@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.payment.roundedMonthlyPrice
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.PlanItem
@@ -104,7 +105,7 @@ fun PaywallSheet(
             name = plan.name,
             period = plan.period,
             priceRub = plan.priceRub,
-            pricePerMonthRub = if (plan.days > 0) plan.priceRub * 30 / plan.days else plan.priceRub,
+            pricePerMonthRub = roundedMonthlyPrice(plan.priceRub, plan.days),
             discountPercent = plan.discountPercent,
             isBestValue = plan.isPopular,
             days = plan.days,
@@ -117,7 +118,7 @@ fun PaywallSheet(
             name = plan.name,
             period = plan.period,
             priceRub = plan.priceRub,
-            pricePerMonthRub = if (plan.days > 0) plan.priceRub * 30 / plan.days else plan.priceRub,
+            pricePerMonthRub = roundedMonthlyPrice(plan.priceRub, plan.days),
             discountPercent = plan.discountPercent,
             isBestValue = plan.isPopular,
             days = plan.days,
