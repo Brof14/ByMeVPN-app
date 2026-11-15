@@ -15,6 +15,12 @@ Support depends on server configuration, availability, and the user's network. D
 
 ## Build
 
+The production application is the native Kotlin/Compose module at `app/`.
+The superseded Flutter prototype (`android/`, `lib/`, `web/`, and Dart build files)
+was removed from the working tree to avoid accidentally building a different client.
+Its history remains available in Git.
+
+
 Requirements: JDK 17, Android SDK 36, and Gradle 8.11.1 (the version used by GitHub Actions).
 
 ```sh
