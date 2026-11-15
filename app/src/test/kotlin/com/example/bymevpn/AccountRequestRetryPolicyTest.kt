@@ -23,3 +23,4 @@ class AccountRequestRetryPolicyTest {
         assertFalse(AccountRequestRetryPolicy.sameSession("", ""))
         assertFalse(AccountRequestRetryPolicy.sameSession("account-session-A", null))
     }
+}
