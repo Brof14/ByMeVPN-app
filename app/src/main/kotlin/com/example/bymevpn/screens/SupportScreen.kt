@@ -136,8 +136,7 @@ fun SupportScreen(
                     ByMePrimaryButton(
                         text = t("Написать в поддержку", "Contact support"),
                         onClick = {
-                            val message = if (isRu) "Здравствуйте, у меня вопрос по ByMeVPN." else "Hello, I have a question about ByMeVPN."
-                            val url = "https://t.me/ByMeVPNSupportBot?text=${Uri.encode(message)}"
+                            val url = "https://t.me/ByMeVPNSupportBot"
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                 .onFailure {
                                     Toast.makeText(

@@ -33,6 +33,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.withLock
 
 /**
@@ -168,10 +169,11 @@ class ByMeVpnService : VpnService() {
                 // Let Android finish restoring the physical route before probing.
                 delay(2_000)
                 val engine = XrayVpnEngine.getInstance(applicationContext)
-                if (!isServiceRunning || engine.checkConnectivity()) return@launch
-                delay(2_000)
-                if (isServiceRunning && !engine.checkConnectivity()) {
-                    stopFailedTunnel(engine)
+                if (!isServiceRunning) return@launch
+                if (!engine.checkConnectivity()) {
+                    // A Wi-Fi/mobile handover can briefly interrupt TLS. Keep the tunnel
+                    // until the periodic monitor confirms repeated failed rounds.
+                    Log.i(TAG, "Physical route changed; awaiting periodic tunnel health confirmation")
                 }
             }
         } else if (!hasPhysicalInternet) {
@@ -203,9 +205,12 @@ class ByMeVpnService : VpnService() {
             vpnManager.prepareForServiceRestore()
             vpnManager.connect()
             serviceScope.launch {
-                val outcome = vpnManager.state.first { VpnServiceRestorePolicy.outcomeFor(it) != null }
-                    .let { VpnServiceRestorePolicy.outcomeFor(it) }
+                val outcome = withTimeoutOrNull(VpnServiceRestorePolicy.RESTORE_TIMEOUT_MS) {
+                    vpnManager.state.first { VpnServiceRestorePolicy.outcomeFor(it) != null }
+                        .let { VpnServiceRestorePolicy.outcomeFor(it) }
+                }
                 if (outcome != VpnServiceRestorePolicy.Outcome.RESTORED) {
+                    if (outcome == null) vpnManager.abortServiceRestore()
                     setRestoreAfterRestart(false)
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf(startId)

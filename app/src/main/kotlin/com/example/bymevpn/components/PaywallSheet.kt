@@ -363,6 +363,7 @@ fun PaywallSheet(
                                     YooKassaPaymentHandler.openCheckout(
                                         context = context,
                                         tariff = tariff,
+                                        devices = selectedDeviceCount,
                                         onCheckoutFailed = { isProcessingPayment = false },
                                         onCheckoutLaunched = { isProcessingPayment = false }
                                     )
