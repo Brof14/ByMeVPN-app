@@ -149,20 +149,13 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun checkTelegramSession(token: String): TelegramCheckResult {
-        // Prefer POST so the one-time state stays out of URLs and proxy access logs.
-        // Older production runtimes answer 405 and only support GET, so retain a
-        // narrow migration fallback until that route is deployed.
-        val json = try {
-            request(
-                "POST",
-                TelegramAuthRequest.CHECK_SESSION_PATH,
-                TelegramAuthRequest.sessionBody(token),
-                requiresAuth = false
-            )
-        } catch (error: ApiError) {
-            if (!TelegramAuthRequest.shouldFallbackToLegacyGet(error.httpStatusCode)) throw error
-            request("GET", TelegramAuthRequest.legacyGetPath(token), null, requiresAuth = false)
-        }
+        // Keep the one-time state out of URLs and intermediary access logs.
+        val json = request(
+            "POST",
+            TelegramAuthRequest.CHECK_SESSION_PATH,
+            TelegramAuthRequest.sessionBody(token),
+            requiresAuth = false
+        )
         val status = TelegramAuthStatus.parse(json.optString("status").takeIf { it.isNotBlank() })
         if (status == TelegramAuthStatus.AUTHENTICATED) {
             val accessToken = json.optString("access_token").ifBlank { json.optString("access") }
