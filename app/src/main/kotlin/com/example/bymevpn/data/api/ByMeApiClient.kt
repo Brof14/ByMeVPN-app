@@ -32,9 +32,10 @@ import java.util.UUID
  */
 class ByMeApiClient(private val context: Context) {
 
-    private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     companion object {
+        // One app-process scope rather than an uncancelled SupervisorJob per API instance.
+        // Account-specific writes still require SecureTokenStorage.withCurrentAccount.
+        private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private const val TAG = "ByMeApiClient"
         private const val TIMEOUT_MS = 15000
         private const val PLAN_CATALOG_PREFS = "bymevpn_plan_catalog"
@@ -473,14 +474,22 @@ class ByMeApiClient(private val context: Context) {
         requiresAuth: Boolean,
         isRetry: Boolean = false,
         authTokenOverride: String? = null,
-        confirmAccountDeletion: Boolean = false
+        confirmAccountDeletion: Boolean = false,
+        expectedSessionId: String? = null
     ): JSONObject = withContext(Dispatchers.IO) {
         val fullUrl = "${ApiConfig.BASE_URL}$endpoint"
         if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) {
             throw ApiError("INSECURE_BACKEND", "Backend HTTPS is required before account requests can be sent")
         }
 
-        val tokenAtRequest = if (requiresAuth) storage.getAccessToken() else null
+        val authSnapshot = if (requiresAuth) storage.readAuthSession() else null
+        val tokenAtRequest = authSnapshot?.first
+        val sessionAtRequest = authSnapshot?.second
+        if (expectedSessionId != null &&
+            !AccountRequestRetryPolicy.sameSession(expectedSessionId, sessionAtRequest)
+        ) {
+            throw ApiError("ACCOUNT_CHANGED", "Account changed before retrying a protected request.")
+        }
         val connection = try {
             (URL(fullUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = method
@@ -541,12 +550,19 @@ class ByMeApiClient(private val context: Context) {
 
         // Handle 401 Unauthorized -> try refresh token once
         if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED && requiresAuth && !isRetry) {
-            // Another client may have already rotated the token while this request was in flight.
+            // Rotating an access token is normal; switching accounts is not. In
+            // particular, never replay DELETE /me or a payment against a new user.
+            if (!AccountRequestRetryPolicy.sameSession(sessionAtRequest, storage.getAccountSessionId())) {
+                throw ApiError("ACCOUNT_CHANGED", "Account changed while the request was in flight.")
+            }
             val newerTokenAvailable = tokenAtRequest != storage.getAccessToken() && !storage.getAccessToken().isNullOrBlank()
-            val refreshSuccess = newerTokenAvailable || refreshAccessToken()
+            val refreshSuccess = newerTokenAvailable || refreshAccessToken(sessionAtRequest!!)
+            if (!AccountRequestRetryPolicy.sameSession(sessionAtRequest, storage.getAccountSessionId())) {
+                throw ApiError("ACCOUNT_CHANGED", "Account changed while refreshing credentials.")
+            }
             if (refreshSuccess) {
                 return@withContext request(method, endpoint, body, requiresAuth, isRetry = true,
-                    confirmAccountDeletion = confirmAccountDeletion)
+                    confirmAccountDeletion = confirmAccountDeletion, expectedSessionId = sessionAtRequest)
             } else {
                 if (storage.getAccessToken() == tokenAtRequest) storage.clearExpiredAccountSession()
                 throw ApiError("UNAUTHORIZED", "Session expired. Please log in again.")
@@ -602,8 +618,11 @@ class ByMeApiClient(private val context: Context) {
         else "${e.javaClass.simpleName}: ${message.take(160)}"
     }
 
-    private suspend fun refreshAccessToken(): Boolean = refreshMutex.withLock {
+    private suspend fun refreshAccessToken(expectedSessionId: String): Boolean = refreshMutex.withLock {
         withContext(Dispatchers.IO) {
+            if (!AccountRequestRetryPolicy.sameSession(expectedSessionId, storage.getAccountSessionId())) {
+                return@withContext false
+            }
             val refreshToken = storage.getRefreshToken() ?: return@withContext false
             val fullUrl = "${ApiConfig.BASE_URL}/auth/refresh"
             if (!URL(fullUrl).protocol.equals("https", ignoreCase = true)) return@withContext false
@@ -632,7 +651,8 @@ class ByMeApiClient(private val context: Context) {
                     val newRefresh = json.optString("refresh", json.optString("refresh_token", refreshToken))
                     if (newAccess.isNotBlank()) {
                         synchronized(storage) {
-                            if (storage.getRefreshToken() != refreshToken) false
+                            if (!AccountRequestRetryPolicy.sameSession(expectedSessionId, storage.getAccountSessionId()) ||
+                                storage.getRefreshToken() != refreshToken) false
                             else {
                                 storage.saveTokens(newAccess, newRefresh)
                                 true
