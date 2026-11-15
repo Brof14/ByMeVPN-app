@@ -53,6 +53,7 @@ import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.components.ShieldSecurityIcon
 import com.example.bymevpn.components.SparkleStarIcon
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.data.settings.AppSettings
 import com.example.bymevpn.data.settings.SettingsRepository
 import com.example.bymevpn.theme.AppColors
 
@@ -70,6 +71,7 @@ fun SettingsScreen(
 
     val autoConnect by settingsRepo.autoConnectOnLaunch.collectAsState(initial = false)
     val bypassRuSites by settingsRepo.bypassRussianSites.collectAsState(initial = true)
+    val settings by settingsRepo.settingsFlow.collectAsState(initial = AppSettings())
 
     val language by LocaleManager.currentLanguage.collectAsState()
     val isRu = LocaleManager.isRussian(language = language)
@@ -209,14 +211,27 @@ fun SettingsScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = if (isRu) "Подключаться автоматически" else "Connect automatically",
-                        subtitle = if (isRu) "После включения телефона" else "After the phone starts",
+                        title = if (isRu) "Подключение при запуске устройства" else "Connect when device starts",
+                        subtitle = if (isRu) "Запускать VPN после перезагрузки телефона" else "Start VPN after the phone restarts",
                         icon = { PowerIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = autoConnect,
                                 onCheckedChange = { checked ->
                                     settingsRepo.setAutoConnectOnLaunch(checked)
+                                }
+                            )
+                        }
+                    )
+                    ByMeSettingRow(
+                        title = if (isRu) "Переподключаться после обрыва" else "Reconnect after a drop",
+                        subtitle = if (isRu) "Повторно подключать VPN после потери сети" else "Retry the VPN after network loss",
+                        icon = { PowerIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        trailing = {
+                            ByMeToggle(
+                                checked = settings.autoReconnect,
+                                onCheckedChange = { checked ->
+                                    scope.launch { settingsRepo.updateAutoReconnect(checked) }
                                 }
                             )
                         }

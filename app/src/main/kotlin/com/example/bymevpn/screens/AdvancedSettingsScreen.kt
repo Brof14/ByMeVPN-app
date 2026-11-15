@@ -102,6 +102,18 @@ fun AdvancedSettingsScreen(
 
                 }
 
+                Text(
+                    text = if (isRu) {
+                        "Автозапуск включает VPN после перезагрузки. Переподключение повторяет попытку после обрыва сети. Always-on и блокировка без VPN настраиваются отдельно в Android."
+                    } else {
+                        "Auto-start launches VPN after reboot. Reconnect retries after a network drop. Android Always-on and blocking without VPN are configured separately in system settings."
+                    },
+                    color = Color(0xFF8EA4A2),
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 14.dp, bottom = 20.dp)
+                )
+
                 Spacer(modifier = Modifier.height(24.dp))
             }
 
