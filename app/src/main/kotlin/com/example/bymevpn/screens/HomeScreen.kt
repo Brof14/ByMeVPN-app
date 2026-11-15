@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -686,7 +687,7 @@ private fun HomeDisconnectedContent(
     ) {
         Spacer(modifier = Modifier.height(12.dp))
 
-        Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
         }
 
@@ -728,7 +729,7 @@ private fun HomeDisconnectedContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
                         color = Color(0xFF698589),
@@ -787,7 +788,7 @@ private fun HomeDisconnectedContent(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Text(
+                        if (LocalDensity.current.fontScale < 1.3f || currentServer == null) Text(
                             text = when {
                                 currentServer == null -> serversError ?: if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
                                 isRu -> "Текущий сервер"
@@ -884,7 +885,7 @@ private fun HomeConnectedContent(
     ) {
         Spacer(modifier = Modifier.height(12.dp))
 
-        Box(modifier = Modifier.weight(1f, fill = false).fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             VpnPowerButton(
                 connected = true,
                 connecting = false,
@@ -948,7 +949,7 @@ private fun HomeConnectedContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
                         color = Color(0xFF698589),
@@ -1007,7 +1008,7 @@ private fun HomeConnectedContent(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Text(
+                        if (LocalDensity.current.fontScale < 1.3f) Text(
                             text = if (isRu) "Подключено" else "Connected",
                             color = AppColors.BrandMint,
                             fontSize = 11.sp,
@@ -1152,6 +1153,7 @@ private fun HomeConnectionErrorContent(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(horizontal = 25.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -1230,7 +1232,7 @@ private fun HomeConnectionErrorContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (isRu) "ВЫБРАННЫЙ СЕРВЕР" else "SELECTED SERVER",
                         color = Color(0xFF698589),
@@ -1289,7 +1291,7 @@ private fun HomeConnectionErrorContent(
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        Text(
+                        if (LocalDensity.current.fontScale < 1.3f) Text(
                             text = if (isRu) "Текущий сервер" else "Current server",
                             color = Color(0xFF81999B),
                             fontSize = 11.sp
