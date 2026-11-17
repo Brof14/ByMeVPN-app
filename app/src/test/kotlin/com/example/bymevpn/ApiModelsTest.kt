@@ -14,6 +14,16 @@ import org.junit.Test
 
 class ApiModelsTest {
     @Test
+    fun serverFlagsCoverCountryCodesAndFlagsInRemarks() {
+        val servers = ApiJsonParsers.parseServers(JSONArray("""[{"node_code":"fi","country_code":"fi"},{"node_code":"au","remark":"🇦🇺 Sydney"},{"node_code":"jp","remark":"Japan 1"},{"node_code":"unknown","country_code":"ZZ"}]"""))
+        assertEquals("🇫🇮", servers[0].flag)
+        assertEquals("au", servers[1].countryCode)
+        assertEquals("🇦🇺", servers[1].flag)
+        assertEquals("jp", servers[2].countryCode)
+        assertEquals("🇯🇵", servers[2].flag)
+        assertEquals("🌐", servers[3].flag)
+    }
+    @Test
     fun preservesTrialUnavailabilityReason() {
         val status = ApiJsonParsers.parseSubscriptionStatus(JSONObject("""{"status":"none","trial_available":false,"trial_unavailable_reason":"trial_already_used"}"""))
         assertEquals("trial_already_used", status.trialUnavailableReason)

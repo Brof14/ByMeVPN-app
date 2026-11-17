@@ -263,6 +263,7 @@ fun ServerSelectionSheet(
                     ) {
                         CountryFlagView(
                             countryCode = server.countryCode,
+                            fallbackFlag = server.flag,
                             size = 26.dp
                         )
 

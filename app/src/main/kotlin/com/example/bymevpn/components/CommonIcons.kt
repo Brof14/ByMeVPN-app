@@ -1,6 +1,10 @@
 package com.example.bymevpn.components
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.sp
+import com.example.bymevpn.data.CountryFlags
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -278,69 +282,22 @@ fun ChangeServerIcon(
     }
 }
 
-/**
- * Vector rendering for country flag pill (e.g. Netherlands flag matching reference image).
- */
+/** Displays the system emoji flag for any known country code. */
 @Composable
 fun CountryFlagView(
     countryCode: String,
     modifier: Modifier = Modifier,
-    size: Dp = 28.dp
+    size: Dp = 28.dp,
+    fallbackFlag: String = ""
 ) {
+    val flag = CountryFlags.emoji(countryCode)
+        ?: CountryFlags.regionIn(fallbackFlag)?.let(CountryFlags::emoji)
+        ?: "🌐"
     Box(
-        modifier = modifier
-            .size(width = size * 1.4f, height = size)
-            .clip(RoundedCornerShape(4.dp))
-            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(4.dp))
+        modifier = modifier.size(width = size * 1.4f, height = size),
+        contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w = this.size.width
-            val h = this.size.height
-
-            when (countryCode.uppercase()) {
-                "NL" -> {
-                    // Netherlands: Red, White, Blue horizontal
-                    val stripeH = h / 3f
-                    drawRect(color = Color(0xFFA21B27), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                    drawRect(color = Color(0xFFFFFFFF), topLeft = Offset(0f, stripeH), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                    drawRect(color = Color(0xFF1E4582), topLeft = Offset(0f, stripeH * 2f), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                }
-                "DE" -> {
-                    // Germany: Black, Red, Gold horizontal
-                    val stripeH = h / 3f
-                    drawRect(color = Color(0xFF111111), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                    drawRect(color = Color(0xFFDD0000), topLeft = Offset(0f, stripeH), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                    drawRect(color = Color(0xFFFFCE00), topLeft = Offset(0f, stripeH * 2f), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                }
-                "US" -> {
-                    // USA: Red & white stripes + blue canton
-                    val stripeH = h / 5f
-                    for (i in 0..4) {
-                        val c = if (i % 2 == 0) Color(0xFFB22234) else Color(0xFFFFFFFF)
-                        drawRect(color = c, topLeft = Offset(0f, i * stripeH), size = androidx.compose.ui.geometry.Size(w, stripeH))
-                    }
-                    drawRect(color = Color(0xFF3C3B6E), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(w * 0.42f, stripeH * 3f))
-                }
-                "GB" -> {
-                    // UK: Blue background with cross
-                    drawRect(color = Color(0xFF012169), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(w, h))
-                    drawLine(color = Color.White, start = Offset(0f, 0f), end = Offset(w, h), strokeWidth = 3.dp.toPx())
-                    drawLine(color = Color.White, start = Offset(w, 0f), end = Offset(0f, h), strokeWidth = 3.dp.toPx())
-                    drawRect(color = Color.White, topLeft = Offset(w * 0.38f, 0f), size = androidx.compose.ui.geometry.Size(w * 0.24f, h))
-                    drawRect(color = Color.White, topLeft = Offset(0f, h * 0.35f), size = androidx.compose.ui.geometry.Size(w, h * 0.30f))
-                    drawRect(color = Color(0xFFC8102E), topLeft = Offset(w * 0.43f, 0f), size = androidx.compose.ui.geometry.Size(w * 0.14f, h))
-                    drawRect(color = Color(0xFFC8102E), topLeft = Offset(0f, h * 0.40f), size = androidx.compose.ui.geometry.Size(w, h * 0.20f))
-                }
-                "JP" -> {
-                    // Japan: White with red circle
-                    drawRect(color = Color(0xFFFFFFFF), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(w, h))
-                    drawCircle(color = Color(0xFFBC002D), radius = h * 0.32f, center = Offset(w / 2f, h / 2f))
-                }
-                else -> {
-                    drawRect(color = Color(0xFF1E293B), topLeft = Offset(0f, 0f), size = androidx.compose.ui.geometry.Size(w, h))
-                }
-            }
-        }
+        Text(text = flag, fontSize = (size.value * 0.8f).sp, maxLines = 1)
     }
 }
 

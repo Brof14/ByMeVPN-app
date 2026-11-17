@@ -7,6 +7,21 @@ import org.junit.Test
 import java.util.Base64
 
 class XraySubscriptionParserTest {
+    @Test
+    fun recognizesFlagsOutsideTheOldCountryList() {
+        val link = "vless://11111111-2222-3333-4444-555555555555@example.org:443?security=tls#%F0%9F%87%A6%F0%9F%87%BA%20Sydney"
+        val server = XraySubscriptionParser.parse(link).servers.single()
+        assertEquals("AU", server.countryCode)
+        assertEquals("🇦🇺", server.flag)
+    }
+
+    @Test
+    fun ordinaryWordsDoNotBecomeCountryCodes() {
+        val link = "vless://11111111-2222-3333-4444-555555555555@example.org:443?security=tls#profile"
+        val server = XraySubscriptionParser.parse(link).servers.single()
+        assertEquals("", server.countryCode)
+        assertEquals("🌐", server.flag)
+    }
 
     @Test
     fun preservesGrpcServiceAndMixedProtocolOrder() {

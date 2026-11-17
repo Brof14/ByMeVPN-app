@@ -744,6 +744,7 @@ private fun HomeDisconnectedContent(
                     ) {
                         CountryFlagView(
                             countryCode = currentServer?.countryCode.orEmpty(),
+                            fallbackFlag = currentServer?.flag.orEmpty(),
                             size = 24.dp
                         )
                         Text(
@@ -964,6 +965,7 @@ private fun HomeConnectedContent(
                     ) {
                         CountryFlagView(
                             countryCode = currentServer?.countryCode.orEmpty(),
+                            fallbackFlag = currentServer?.flag.orEmpty(),
                             size = 24.dp
                         )
                         Text(
@@ -1247,6 +1249,7 @@ private fun HomeConnectionErrorContent(
                     ) {
                         CountryFlagView(
                             countryCode = currentServer?.countryCode.orEmpty(),
+                            fallbackFlag = currentServer?.flag.orEmpty(),
                             size = 24.dp
                         )
                         Text(

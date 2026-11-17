@@ -2,6 +2,7 @@ package com.example.bymevpn.data.subscription
 
 import android.util.Base64
 import android.util.Log
+import com.example.bymevpn.data.CountryFlags
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.api.VpnSessionConfig
 import java.net.URLDecoder
@@ -296,55 +297,35 @@ object XraySubscriptionParser {
         URLDecoder.decode(value.replace("+", "%2B"), "UTF-8")
 
     private fun detectLocation(remark: String): Triple<String, String, String> {
-        val flagList = listOf(
-            "🇩🇪" to Pair("Германия", "DE"),
-            "🇳🇱" to Pair("Нидерланды", "NL"),
-            "🇺🇸" to Pair("США", "US"),
-            "🇫🇮" to Pair("Финляндия", "FI"),
-            "🇸🇪" to Pair("Швеция", "SE"),
-            "🇬🇧" to Pair("Великобритания", "GB"),
-            "🇫🇷" to Pair("Франция", "FR"),
-            "🇹🇷" to Pair("Турция", "TR"),
-            "🇵🇱" to Pair("Польша", "PL"),
-            "🇷🇺" to Pair("Россия", "RU"),
-            "🇨🇦" to Pair("Канада", "CA"),
-            "🇯🇵" to Pair("Япония", "JP"),
-            "🇸🇬" to Pair("Сингапур", "SG"),
-            "🇨🇭" to Pair("Швейцария", "CH"),
-            "🇦🇹" to Pair("Австрия", "AT"),
-            "🇪🇸" to Pair("Испания", "ES"),
-            "🇮🇹" to Pair("Италия", "IT")
-        )
-        for ((f, info) in flagList) {
-            if (remark.contains(f)) {
-                return Triple(info.first, info.second, f)
-            }
+        (CountryFlags.regionIn(remark) ?: CountryFlags.regionInCountryName(remark))?.let { code ->
+            val country = Locale("", code).getDisplayCountry(Locale("ru"))
+            return Triple(country.ifBlank { "Сервер" }, code, CountryFlags.emoji(code) ?: "🌐")
         }
-
-        val lower = remark.lowercase()
+        val lower = remark.lowercase(Locale.ROOT)
+        fun hasCode(code: String): Boolean = Regex("(?<![\\p{L}])" + code + "(?![\\p{L}])", RegexOption.IGNORE_CASE).containsMatchIn(remark)
         return when {
-            lower.contains("герман") || lower.contains("germany") || lower.contains("de") ->
+            lower.contains("герман") || lower.contains("germany") || hasCode("de") ->
                 Triple("Германия", "DE", "🇩🇪")
-            lower.contains("нидерланд") || lower.contains("netherlands") || lower.contains("nl") || lower.contains("amsterdam") ->
+            lower.contains("нидерланд") || lower.contains("netherlands") || hasCode("nl") || lower.contains("amsterdam") ->
                 Triple("Нидерланды", "NL", "🇳🇱")
-            lower.contains("финлянд") || lower.contains("finland") || lower.contains("fi") || lower.contains("helsinki") ->
+            lower.contains("финлянд") || lower.contains("finland") || hasCode("fi") || lower.contains("helsinki") ->
                 Triple("Финляндия", "FI", "🇫🇮")
-            lower.contains("швеци") || lower.contains("sweden") || lower.contains("se") || lower.contains("stockholm") ->
+            lower.contains("швеци") || lower.contains("sweden") || hasCode("se") || lower.contains("stockholm") ->
                 Triple("Швеция", "SE", "🇸🇪")
-            lower.contains("сша") || lower.contains("usa") || lower.contains("us") || lower.contains("york") || lower.contains("miami") ->
+            lower.contains("сша") || lower.contains("usa") || hasCode("us") || lower.contains("york") || lower.contains("miami") ->
                 Triple("США", "US", "🇺🇸")
-            lower.contains("турци") || lower.contains("turkey") || lower.contains("tr") || lower.contains("istanbul") ->
+            lower.contains("турци") || lower.contains("turkey") || hasCode("tr") || lower.contains("istanbul") ->
                 Triple("Турция", "TR", "🇹🇷")
-            lower.contains("британи") || lower.contains("uk") || lower.contains("gb") || lower.contains("london") ->
+            lower.contains("британи") || hasCode("uk") || hasCode("gb") || lower.contains("london") ->
                 Triple("Великобритания", "GB", "🇬🇧")
-            lower.contains("франци") || lower.contains("france") || lower.contains("fr") || lower.contains("paris") ->
+            lower.contains("франци") || lower.contains("france") || hasCode("fr") || lower.contains("paris") ->
                 Triple("Франция", "FR", "🇫🇷")
-            lower.contains("польш") || lower.contains("poland") || lower.contains("pl") || lower.contains("warsaw") ->
+            lower.contains("польш") || lower.contains("poland") || hasCode("pl") || lower.contains("warsaw") ->
                 Triple("Польша", "PL", "🇵🇱")
-            lower.contains("росси") || lower.contains("russia") || lower.contains("ru") || lower.contains("moscow") ->
+            lower.contains("росси") || lower.contains("russia") || hasCode("ru") || lower.contains("moscow") ->
                 Triple("Россия", "RU", "🇷🇺")
             else ->
-                Triple("Сервер", "EU", "🌐")
+                Triple("Сервер", "", "🌐")
         }
     }
 }
