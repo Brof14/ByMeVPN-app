@@ -4,6 +4,7 @@ import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ApiJsonParsers
 import com.example.bymevpn.data.api.TelegramAuthStatus
+import com.example.bymevpn.data.CountryFlags
 import org.json.JSONObject
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
@@ -13,6 +14,14 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ApiModelsTest {
+    @Test
+    fun allIsoCountryCodesProduceRecognizableFlags() {
+        for (country in java.util.Locale.getISOCountries()) {
+            val flag = CountryFlags.emoji(country)
+            assertNotNull(country, flag)
+            assertEquals(country, CountryFlags.regionIn(flag!!))
+        }
+    }
     @Test
     fun serverFlagsCoverCountryCodesAndFlagsInRemarks() {
         val servers = ApiJsonParsers.parseServers(JSONArray("""[{"node_code":"fi","country_code":"fi"},{"node_code":"au","remark":"🇦🇺 Sydney"},{"node_code":"jp","remark":"Japan 1"},{"node_code":"unknown","country_code":"ZZ"}]"""))
