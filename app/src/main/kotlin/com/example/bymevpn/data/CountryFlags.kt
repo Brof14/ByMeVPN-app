@@ -16,7 +16,7 @@ object CountryFlags {
     }
 
     fun normalize(code: String): String? {
-        val normalized = code.trim().uppercase(Locale.ROOT)
+        val normalized = code.trim().uppercase(Locale.ROOT).let { if (it == "UK") "GB" else it }
         return normalized.takeIf { it.length == 2 && it in regions }
     }
 

@@ -21,6 +21,7 @@ class ApiModelsTest {
             assertNotNull(country, flag)
             assertEquals(country, CountryFlags.regionIn(flag!!))
         }
+        assertEquals("🇬🇧", CountryFlags.emoji("UK"))
     }
     @Test
     fun serverFlagsCoverCountryCodesAndFlagsInRemarks() {

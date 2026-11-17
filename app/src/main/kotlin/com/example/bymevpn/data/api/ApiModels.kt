@@ -319,6 +319,7 @@ object ApiJsonParsers {
             val obj = array.getJSONObject(i)
             val code = obj.optString("code", obj.optString("node_code", "default"))
             val cCode = CountryFlags.normalize(obj.optString("country_code", ""))
+                ?: CountryFlags.regionIn(obj.optString("country_code", ""))
                 ?: CountryFlags.regionIn(obj.optString("flag", ""))
                 ?: CountryFlags.regionIn(obj.optString("remark", ""))
                 ?: CountryFlags.regionIn(obj.optString("display_name", ""))
