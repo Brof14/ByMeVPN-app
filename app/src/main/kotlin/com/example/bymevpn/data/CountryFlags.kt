@@ -6,12 +6,14 @@ import java.util.Locale
 object CountryFlags {
     private val regions = Locale.getISOCountries().toSet() + setOf("EU", "XK")
     private const val REGIONAL_A = 0x1F1E6
-    private val countryNames = Locale.getISOCountries().flatMap { code ->
-        val country = Locale("", code)
-        listOf(country.getDisplayCountry(Locale.ENGLISH), country.getDisplayCountry(Locale("ru")))
-            .filter { it.length >= 4 }
-            .map { it.lowercase(Locale.ROOT) to code }
-    }.distinct().sortedByDescending { it.first.length }
+    private val countryNames by lazy {
+        Locale.getISOCountries().flatMap { code ->
+            val country = Locale("", code)
+            listOf(country.getDisplayCountry(Locale.ENGLISH), country.getDisplayCountry(Locale("ru")))
+                .filter { it.length >= 4 }
+                .map { it.lowercase(Locale.ROOT) to code }
+        }.distinct().sortedByDescending { it.first.length }
+    }
 
     fun normalize(code: String): String? {
         val normalized = code.trim().uppercase(Locale.ROOT)
