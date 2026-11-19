@@ -117,6 +117,7 @@ class VpnManager private constructor(private val context: Context) {
     private var connectionJob: Job? = null
     private var switchJob: Job? = null
     private var disconnectJob: Job? = null
+    private var automaticPingJob: Job? = null
     @Volatile private var connectionRequested = false
     private val serverLoadMutex = Mutex()
     @Volatile private var automaticSelection = storage.isAutomaticServerSelectionEnabled()
@@ -168,6 +169,9 @@ class VpnManager private constructor(private val context: Context) {
         // Automatic refreshes can queue behind a manual measurement. Do not
         // start another set of native probes if connection began meanwhile.
         if (onlyWhenDisconnected && _state.value != VpnConnectionState.DISCONNECTED) return@withContext emptyMap()
+        if (_state.value == VpnConnectionState.CONNECTING || _state.value == VpnConnectionState.DISCONNECTING) {
+            return@withContext emptyMap()
+        }
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext emptyMap()
 
@@ -187,21 +191,13 @@ class VpnManager private constructor(private val context: Context) {
             }
         }
         engine.initCoreEnv()
-        val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(targets)
-        if (pings.isNotEmpty()) {
+        val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(targets) { nodeCode, ping ->
             withContext(Dispatchers.Main) {
-                // The server list may have changed while the probes were in flight.
-                val updated = _availableServers.value.map { node ->
-                    val p = pings[node.nodeCode]
-                    if (p != null) node.copy(pingMs = if (p > 0) p else -2) else node
+                _availableServers.value = _availableServers.value.map { node ->
+                    if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
                 }
-                _availableServers.value = updated
-                val cur = _currentServer.value
-                if (cur != null) {
-                    val curPing = pings[cur.nodeCode]
-                    if (curPing != null) {
-                        _currentServer.value = cur.copy(pingMs = if (curPing > 0) curPing else -2)
-                    }
+                _currentServer.value?.takeIf { it.nodeCode == nodeCode }?.let { current ->
+                    _currentServer.value = current.copy(pingMs = if (ping > 0) ping else -2)
                 }
             }
         }
@@ -226,7 +222,8 @@ class VpnManager private constructor(private val context: Context) {
             _currentServer.value = defaultServer
         }
         if (_state.value == VpnConnectionState.DISCONNECTED) {
-            scope.launch {
+            automaticPingJob?.cancel()
+            automaticPingJob = scope.launch {
                 val pings = refreshAllPings(onlyWhenDisconnected = true)
                 if (automaticSelection && _state.value == VpnConnectionState.DISCONNECTED) {
                     val winner = _availableServers.value.filter { (pings[it.nodeCode] ?: -1) > 0 }
@@ -465,6 +462,8 @@ class VpnManager private constructor(private val context: Context) {
             return
         }
 
+        automaticPingJob?.cancel()
+        automaticPingJob = null
         connectionRequested = true
         _state.value = VpnConnectionState.CONNECTING
         _errorMessage.value = null

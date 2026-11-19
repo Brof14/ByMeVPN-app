@@ -1,49 +1,44 @@
 package com.example.bymevpn.data
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.CancellationException
 import java.net.InetSocketAddress
 import java.net.Socket
 import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.vpn.xray.XrayConfigGenerator
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import libv2ray.Libv2ray
 import org.json.JSONArray
 import org.json.JSONObject
 
 object PingTester {
-    private val probeLimit = Semaphore(3)
-    private val probeUrls = listOf(
-        "https://cp.cloudflare.com/generate_204",
-        "https://www.google.com/generate_204"
-    )
+    private const val PROBE_URL = "https://cp.cloudflare.com/generate_204"
 
-    suspend fun measureTunnelDelays(targets: List<Pair<String, VpnSessionConfig>>): Map<String, Int> = coroutineScope {
-        targets.map { (nodeCode, config) ->
-            async(Dispatchers.IO) {
-                probeLimit.withPermit {
-                    val delay = try {
-                        // Only the subscription's proxy outbound is used; no TUN or local listener is started.
-                        val generated = XrayConfigGenerator.generateJson(config)
-                        val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
-                        val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound))
-                        probeUrls.asSequence()
-                            .map { url -> Libv2ray.measureOutboundDelay(probeConfig.toString(), url) }
-                            .firstOrNull { it > 0 }
-                            ?.coerceAtMost(Int.MAX_VALUE.toLong())
-                            ?.toInt() ?: -1
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) { -1 }
-                    nodeCode to delay
-                }
-            }
-        }.awaitAll().toMap()
+    suspend fun measureTunnelDelays(
+        targets: List<Pair<String, VpnSessionConfig>>,
+        onMeasured: suspend (String, Int) -> Unit = { _, _ -> }
+    ): Map<String, Int> = withContext(Dispatchers.IO) {
+        val results = linkedMapOf<String, Int>()
+        for ((nodeCode, config) in targets) {
+            currentCoroutineContext().ensureActive()
+            val delay = try {
+                // Probe through the configured proxy outbound; never start a second TUN.
+                val generated = XrayConfigGenerator.generateJson(config)
+                val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
+                val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound))
+                Libv2ray.measureOutboundDelay(probeConfig.toString(), PROBE_URL)
+                    .takeIf { it > 0 }
+                    ?.coerceAtMost(Int.MAX_VALUE.toLong())
+                    ?.toInt() ?: -1
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) { -1 }
+            results[nodeCode] = delay
+            onMeasured(nodeCode, delay)
+        }
+        results
     }
 
     /**
