@@ -508,8 +508,9 @@ fun HomeScreen(
                 isLoading = isLoadingServers,
                 error = serversError,
                 onRefresh = { scope.launch { vpnManager.loadServers() } },
+                onRefreshPing = { scope.launch { vpnManager.refreshAllPings(force = true) } },
                 onSelectAuto = {
-                    // "Automatic" must measure latency, not silently take the first row.
+                    // Automatic selection uses fresh measurements, refreshing stale ones only.
                     scope.launch { vpnManager.autoSelectFastestServer() }
                 },
                 onSelectServer = { server ->

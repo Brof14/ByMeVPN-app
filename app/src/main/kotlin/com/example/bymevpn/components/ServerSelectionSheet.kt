@@ -23,6 +23,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -53,6 +54,7 @@ fun ServerSelectionSheet(
     isLoading: Boolean = false,
     error: String? = null,
     onRefresh: () -> Unit = {},
+    onRefreshPing: () -> Unit = {},
     onSelectAuto: () -> Unit,
     onSelectServer: (ServerNode) -> Unit,
     modifier: Modifier = Modifier
@@ -68,10 +70,6 @@ fun ServerSelectionSheet(
         }
     }
     val context = androidx.compose.ui.platform.LocalContext.current
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        com.example.bymevpn.vpn.VpnManager.getInstance(context).refreshAllPings()
-    }
-
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
@@ -131,6 +129,27 @@ fun ServerSelectionSheet(
                 color = Color(0xFF889EA0),
                 fontSize = 12.sp
             )
+
+            TextButton(
+                onClick = onRefreshPing,
+                enabled = servers.none { it.pingMs == -3 },
+                modifier = Modifier.semantics {
+                    contentDescription = if (isRu) "Проверить задержку серверов" else "Measure server latency"
+                }
+            ) {
+                if (servers.any { it.pingMs == -3 }) {
+                    androidx.compose.material3.CircularProgressIndicator(
+                        color = AppColors.BrandMint,
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                } else {
+                    RefreshIcon(color = AppColors.BrandMint, size = 16.dp)
+                    Spacer(Modifier.width(8.dp))
+                }
+                Text(if (isRu) "Проверить задержку" else "Measure latency")
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
