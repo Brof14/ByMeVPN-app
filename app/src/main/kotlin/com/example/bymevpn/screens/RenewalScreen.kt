@@ -51,22 +51,67 @@ fun RenewalScreen(
     val scope = rememberCoroutineScope()
     var refreshing by remember { mutableStateOf(true) }
     var enabled by remember { mutableStateOf<Boolean?>(null) }
+    var canEnable by remember { mutableStateOf(false) }
     var showConfirmation by remember { mutableStateOf(false) }
+    var showEnableConfirmation by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
+    var enabling by remember { mutableStateOf(false) }
 
     suspend fun refreshRenewal() {
         refreshing = true
         try {
-            enabled = api.getAutoRenewal()
+            val renewal = api.getAutoRenewal()
+            enabled = renewal.enabled
+            canEnable = renewal.canEnable
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
             enabled = null
+            canEnable = false
         } finally {
             refreshing = false
         }
     }
     LaunchedEffect(Unit) { refreshRenewal() }
+
+    if (showEnableConfirmation) {
+        AlertDialog(
+            onDismissRequest = { if (!enabling) showEnableConfirmation = false },
+            title = { Text(if (isRu) "Включить автопродление?" else "Enable auto-renewal?") },
+            text = {
+                Text(
+                    if (isRu) "Будут использованы только ранее сохранённый способ оплаты и данное вами согласие. Списание произойдёт при продлении подписки. Отключить можно в любой момент."
+                    else "Only your previously saved payment method and consent will be used. The charge is scheduled for subscription renewal. You can turn it off at any time."
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = !enabling, onClick = {
+                    enabling = true
+                    scope.launch {
+                        try {
+                            api.enableAutoRenewal()
+                            enabled = true
+                            canEnable = false
+                            showEnableConfirmation = false
+                        } catch (e: kotlinx.coroutines.CancellationException) {
+                            throw e
+                        } catch (_: Exception) {
+                            showEnableConfirmation = false
+                            Toast.makeText(context, if (isRu) "Не удалось подтвердить включение. Обновите статус." else "Activation could not be confirmed. Refresh the status.", Toast.LENGTH_LONG).show()
+                            refreshRenewal()
+                        } finally {
+                            enabling = false
+                        }
+                    }
+                }) { Text(if (enabling) "…" else if (isRu) "Включить" else "Enable") }
+            },
+            dismissButton = {
+                TextButton(enabled = !enabling, onClick = { showEnableConfirmation = false }) {
+                    Text(if (isRu) "Отмена" else "Cancel")
+                }
+            }
+        )
+    }
     val status = when {
         refreshing -> if (isRu) "Проверяем…" else "Checking…"
         enabled == true -> if (isRu) "Включено" else "On"
@@ -138,28 +183,37 @@ fun RenewalScreen(
                     enabled = !refreshing && !cancelling
                 )
                 Spacer(Modifier.height(10.dp))
+            } else if (enabled == false && canEnable) {
+                ByMePrimaryButton(
+                    text = if (isRu) "Включить автопродление" else "Enable auto-renewal",
+                    onClick = { showEnableConfirmation = true },
+                    enabled = !refreshing && !cancelling && !enabling
+                )
+                Spacer(Modifier.height(10.dp))
             }
-            ByMeSecondaryButton(
-                text = if (isRu) "Управлять в Telegram" else "Manage in Telegram",
-                onClick = {
-                    runCatching {
-                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNbot")))
-                    }.onFailure {
-                        Toast.makeText(
-                            context,
-                            if (isRu) "Найдите @ByMeVPNbot в Telegram." else "Find @ByMeVPNbot in Telegram.",
-                            Toast.LENGTH_LONG
-                        ).show()
+            if (enabled == false && !canEnable) {
+                ByMeSecondaryButton(
+                    text = if (isRu) "Настроить способ оплаты в Telegram" else "Set up a payment method in Telegram",
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNbot")))
+                        }.onFailure {
+                            Toast.makeText(
+                                context,
+                                if (isRu) "Найдите @ByMeVPNbot в Telegram." else "Find @ByMeVPNbot in Telegram.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
                     }
-                }
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                if (isRu) "В боте: Мои подписки → Оплата и автопродление."
-                else "In the bot: My subscriptions → Payments and auto-renewal.",
-                color = AppColors.TextSecondary,
-                fontSize = 12.sp
-            )
+                )
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    if (isRu) "Для автопродления нужен ранее сохранённый способ оплаты с вашим согласием."
+                    else "Auto-renewal requires a previously saved payment method with your consent.",
+                    color = AppColors.TextSecondary,
+                    fontSize = 12.sp
+                )
+            }
             Spacer(Modifier.height(20.dp))
             ByMeSecondaryButton(
                 text = if (refreshing) {

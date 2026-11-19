@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.data.LocaleManager
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.data.payment.roundedMonthlyPrice
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ByMeApiClient
@@ -330,6 +331,7 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
                 // Payment methods preview (SBP, SberPay, Mir)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -406,6 +408,15 @@ fun PaywallSheet(
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
+                } else {
+                    Text(
+                        text = if (isRu) "Покупки в этой версии приложения пока недоступны." else "Purchases are not available in this version of the app yet.",
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)
+                    )
+                }
             }
         }
     }

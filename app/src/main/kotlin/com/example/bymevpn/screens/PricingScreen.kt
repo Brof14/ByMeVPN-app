@@ -41,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.ByMePrimaryButton
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronLeftIcon
 import com.example.bymevpn.components.LockIcon
@@ -455,6 +456,7 @@ fun PricingScreen(
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
                 )
 
+                if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
                 Text(
                     text = t(
                         "Разовый платёж. Новое автопродление и привязка карты через Android не включаются.",
@@ -513,6 +515,18 @@ fun PricingScreen(
                         text = t("Безопасная оплата через ЮKassa", "Secure checkout via YooKassa"),
                         color = Color(0xFF729D90),
                         fontSize = 11.sp
+                    )
+                }
+                } else {
+                    Text(
+                        text = t(
+                            "Покупки в этой версии приложения пока недоступны.",
+                            "Purchases are not available in this version of the app yet."
+                        ),
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        modifier = Modifier.padding(top = 14.dp)
                     )
                 }
             }

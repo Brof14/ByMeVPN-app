@@ -11,6 +11,7 @@ import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.vpn.VpnManager
 import com.example.bymevpn.data.api.ByMeApiClient
+import com.example.bymevpn.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
@@ -51,6 +52,8 @@ object YooKassaPaymentHandler {
         onCheckoutFailed: () -> Unit = {},
         onCheckoutLaunched: () -> Unit = {}
     ): Boolean {
+        if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) return false
+
         val storage = SecureTokenStorage.getInstance(context)
 
         // YooKassa hosted payment URL or Bot fallback

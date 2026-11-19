@@ -48,6 +48,11 @@ data class PaymentCheckResult(
     val subscription: SubscriptionStatus? = null
 )
 
+data class AutoRenewalStatus(
+    val enabled: Boolean,
+    val canEnable: Boolean
+)
+
 data class UserProfile(
     val id: String,
     val email: String,
