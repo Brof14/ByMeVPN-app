@@ -25,11 +25,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:bundlePlay --no-daemon
+      - run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:bundlePlay cyclonedxBom --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-debug
           path: app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bymevpn-dependency-sbom
+          path: build/reports/cyclonedx/bom.json
       # Keep this test build separate from an already installed production app.
       - run: gradle :app:assembleDebug -PsideBySideDebug=true -PpreviewSuffix=preview2 --no-daemon
       - uses: actions/upload-artifact@v4
