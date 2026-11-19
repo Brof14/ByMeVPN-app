@@ -325,6 +325,7 @@ fun ServerSelectionSheet(
                                         server.connectionCheck < 0 -> if (isRu) "Не удалось подключиться" else "Connection failed"
                                         server.pingMs == -2 -> if (isRu) "Нет ответа" else "No response"
                                         server.pingMs > 0 -> "${server.pingMs} ${if (isRu) "мс" else "ms"}"
+                                        server.pingMs == -3 -> if (isRu) "Проверяем…" else "Checking…"
                                         else -> if (isRu) "Не проверен" else "Not tested"
                                     },
                                     color = pingColor,
