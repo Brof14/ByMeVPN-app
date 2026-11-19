@@ -217,26 +217,36 @@ class VpnManager private constructor(private val context: Context) {
         val targetCodes = targets.mapTo(hashSetOf()) { it.first }
         withContext(Dispatchers.Main) {
             _availableServers.value = _availableServers.value.map { node ->
-                if (node.nodeCode in targetCodes) node.copy(pingMs = -3) else node
+                if (node.nodeCode in targetCodes) node.copy(pingMs = -4) else node
             }
         }
         engine.initCoreEnv()
-        val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(targets) { nodeCode, ping ->
-            cacheKeys[nodeCode]?.let { cacheKey ->
-                cache.edit()
-                    .putLong("${cacheKey}_at", System.currentTimeMillis())
-                    .putInt("${cacheKey}_ping", ping)
-                    .apply()
-            }
-            withContext(Dispatchers.Main) {
-                _availableServers.value = _availableServers.value.map { node ->
-                    if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
+        val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(
+            targets = targets,
+            onChecking = { nodeCode ->
+                withContext(Dispatchers.Main) {
+                    _availableServers.value = _availableServers.value.map { node ->
+                        if (node.nodeCode == nodeCode) node.copy(pingMs = -3) else node
+                    }
                 }
-                _currentServer.value?.takeIf { it.nodeCode == nodeCode }?.let { current ->
-                    _currentServer.value = current.copy(pingMs = if (ping > 0) ping else -2)
+            },
+            onMeasured = { nodeCode, ping ->
+                cacheKeys[nodeCode]?.let { cacheKey ->
+                    cache.edit()
+                        .putLong("${cacheKey}_at", System.currentTimeMillis())
+                        .putInt("${cacheKey}_ping", ping)
+                        .apply()
+                }
+                withContext(Dispatchers.Main) {
+                    _availableServers.value = _availableServers.value.map { node ->
+                        if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
+                    }
+                    _currentServer.value?.takeIf { it.nodeCode == nodeCode }?.let { current ->
+                        _currentServer.value = current.copy(pingMs = if (ping > 0) ping else -2)
+                    }
                 }
             }
-        }
+        )
         cachedPings + pings
     } }
 
@@ -250,8 +260,26 @@ class VpnManager private constructor(private val context: Context) {
         return "$PING_CACHE_PREFIX$hex"
     }
 
+    private fun cachedPing(nodeCode: String, now: Long = System.currentTimeMillis()): Int? {
+        val config = storage.getServerConfig(nodeCode) ?: return null
+        if (config.server.isBlank()) return null
+
+        val key = pingCacheKey(nodeCode, config)
+        val cache = context.getSharedPreferences(PING_CACHE_PREFS, Context.MODE_PRIVATE)
+        val checkedAt = cache.getLong("${key}_at", 0L)
+        if (checkedAt <= 0L || now - checkedAt !in 0 until PING_CACHE_TTL_MS) return null
+
+        // Keep a recent failed measurement distinguishable from a server that
+        // has never been checked, just as refreshAllPings does.
+        return cache.getInt("${key}_ping", -1).let { if (it > 0) it else -2 }
+    }
+
     fun setServers(servers: List<ServerNode>) {
-        val sorted = servers
+        // Server refreshes recreate ServerNode objects. Rehydrate their recent
+        // measurements locally so a refresh/connect cannot erase the ping UI.
+        val sorted = servers.map { node ->
+            cachedPing(node.nodeCode)?.let { node.copy(pingMs = it) } ?: node
+        }
         _availableServers.value = sorted
         val savedCode = storage.getSelectedServerCode()
         val preferred = if (!automaticSelection && !savedCode.isNullOrBlank()) {
@@ -264,9 +292,8 @@ class VpnManager private constructor(private val context: Context) {
             storage.saveSelectedServerCode(null)
         }
         val defaultServer = preferred ?: sorted.firstOrNull()
-        if (_currentServer.value == null || !sorted.any { it.nodeCode == _currentServer.value?.nodeCode }) {
-            _currentServer.value = defaultServer
-        }
+        val currentCode = _currentServer.value?.nodeCode
+        _currentServer.value = sorted.firstOrNull { it.nodeCode == currentCode } ?: defaultServer
         if (sorted.isNotEmpty() && !initialPingStarted) {
             initialPingStarted = true
             automaticPingJob?.cancel()

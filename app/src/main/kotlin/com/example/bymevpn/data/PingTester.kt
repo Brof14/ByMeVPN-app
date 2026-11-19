@@ -19,11 +19,13 @@ object PingTester {
 
     suspend fun measureTunnelDelays(
         targets: List<Pair<String, VpnSessionConfig>>,
+        onChecking: suspend (String) -> Unit = {},
         onMeasured: suspend (String, Int) -> Unit = { _, _ -> }
     ): Map<String, Int> = withContext(Dispatchers.IO) {
         val results = linkedMapOf<String, Int>()
         for ((nodeCode, config) in targets) {
             currentCoroutineContext().ensureActive()
+            onChecking(nodeCode)
             val delay = try {
                 // Probe through the configured proxy outbound; never start a second TUN.
                 val generated = XrayConfigGenerator.generateJson(config)
