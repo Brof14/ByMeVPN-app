@@ -78,30 +78,44 @@ jobs:
           EXPECTED_CERT_SHA256: 0C2160CEDAFAAE98B32AAF83F8B22229A67C98513DF93A8FE759EA910B177222
         run: |
           set -euo pipefail
-          apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
-          test -n "$apk"
+          apk_dir="app/build/outputs/apk/release"
+          test -n "$(find "$apk_dir" -maxdepth 1 -name '*.apk' -print -quit)"
           sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           test -n "$sdk"
           apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$apksigner"
-          cert_output="$("$apksigner" verify --print-certs "$apk")"
-          actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
-          test "$actual" = "$EXPECTED_CERT_SHA256"
+          for apk in "$apk_dir"/*.apk; do
+            cert_output="$("$apksigner" verify --print-certs "$apk")"
+            actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+            test "$actual" = "$EXPECTED_CERT_SHA256"
+          done
           mkdir -p dist
-          APK_PATH="$apk" python3 - <<'PY'
+          APK_DIR="$apk_dir" python3 - <<'PY'
           import hashlib, json, os, re, shutil
           from pathlib import Path
           gradle = Path('app/build.gradle.kts').read_text()
           code = int(re.search(r'versionCode\s*=\s*(\d+)', gradle).group(1))
           version = re.search(r'versionName\s*=\s*"([^"]+)"', gradle).group(1)
-          apk = Path(f'dist/ByMeVPN-v{version}.apk')
-          shutil.copy2(os.environ['APK_PATH'], apk)
-          digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+          apk_dir = Path(os.environ['APK_DIR'])
+          def asset(source_name, target_name):
+              target = Path(f'dist/{target_name}')
+              shutil.copy2(apk_dir / source_name, target)
+              return {
+                  'download_url': f'https://github.com/Brof14/ByMeVPN-app/releases/download/v{version}/{target_name}',
+                  'sha256': hashlib.sha256(target.read_bytes()).hexdigest(),
+              }
+          downloads = {
+              abi: asset(f'app-{abi}-release.apk', f'ByMeVPN-v{version}-{abi}.apk')
+              for abi in ('arm64-v8a', 'armeabi-v7a', 'x86', 'x86_64')
+          }
+          universal_name = f'ByMeVPN-v{version}.apk'
+          universal = asset('app-universal-release.apk', universal_name)
           manifest = {
               'version_name': version,
               'version_code': code,
-              'download_url': f'https://github.com/Brof14/ByMeVPN-app/releases/download/v{version}/{apk.name}',
-              'sha256': digest,
+              'download_url': universal['download_url'],
+              'sha256': universal['sha256'],
+              'abi_downloads': {**downloads, 'universal': universal},
               'release_notes': f'ByMeVPN {version} — исправления стабильности авторизации и состояния подписки.'
           }
           Path('dist/update.json').write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')) + '\n')
@@ -114,7 +128,7 @@ jobs:
           gh release create "$RELEASE_REF" dist/*.apk dist/update.json \
             --verify-tag \
             --title "ByMeVPN $RELEASE_REF" \
-            --notes "Исправления стабильности входа, загрузки подписки и списка устройств."
+            --notes "Улучшена отзывчивость, обновление пинга и размер APK-загрузки для устройств."
       - uses: actions/upload-artifact@v4
         with:
           name: ByMeVPN-direct-${{ github.ref_name }}

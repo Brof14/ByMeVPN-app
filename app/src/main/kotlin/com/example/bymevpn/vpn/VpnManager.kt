@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -37,6 +38,9 @@ class VpnManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "VpnManager"
+        private const val PING_CACHE_TTL_MS = 10 * 60 * 1000L
+        private const val PING_CACHE_PREFS = "vpn_latency_cache"
+        private const val PING_CACHE_PREFIX = "probe_"
 
         @Volatile
         private var INSTANCE: VpnManager? = null
@@ -119,7 +123,6 @@ class VpnManager private constructor(private val context: Context) {
     private var disconnectJob: Job? = null
     private var automaticPingJob: Job? = null
     private var initialPingStarted = false
-    private val pingCheckedAt = mutableMapOf<String, Long>()
     @Volatile private var connectionRequested = false
     private val serverLoadMutex = Mutex()
     @Volatile private var automaticSelection = storage.isAutomaticServerSelectionEnabled()
@@ -181,20 +184,35 @@ class VpnManager private constructor(private val context: Context) {
         if (servers.isEmpty()) return@withContext emptyMap()
 
         val storage = SecureTokenStorage.getInstance(context)
+        val cache = context.getSharedPreferences(PING_CACHE_PREFS, Context.MODE_PRIVATE)
         val now = System.currentTimeMillis()
-        val cachedPings = servers.mapNotNull { node ->
-            if (node.pingMs > 0 && now - (pingCheckedAt[node.nodeCode] ?: 0L) < 10 * 60 * 1000L) {
-                node.nodeCode to node.pingMs
-            } else null
-        }.toMap()
-        val targets = servers.mapNotNull { node ->
-            if (!force && now - (pingCheckedAt[node.nodeCode] ?: 0L) < 10 * 60 * 1000L) return@mapNotNull null
-            val cfg = storage.getServerConfig(node.nodeCode)
-            if (cfg != null && cfg.server.isNotBlank()) {
-                node.nodeCode to cfg
-            } else null
+        val cachedPings = linkedMapOf<String, Int>()
+        val targets = mutableListOf<Pair<String, com.example.bymevpn.data.api.VpnSessionConfig>>()
+        val cacheKeys = mutableMapOf<String, String>()
+        for (node in servers) {
+            val cfg = storage.getServerConfig(node.nodeCode) ?: continue
+            if (cfg.server.isBlank()) continue
+            val cacheKey = pingCacheKey(node.nodeCode, cfg)
+            cacheKeys[node.nodeCode] = cacheKey
+            val checkedAt = cache.getLong("${cacheKey}_at", 0L)
+            val age = now - checkedAt
+            if (!force && checkedAt > 0L && age in 0 until PING_CACHE_TTL_MS) {
+                cachedPings[node.nodeCode] = cache.getInt("${cacheKey}_ping", -1)
+            } else {
+                targets += node.nodeCode to cfg
+            }
         }
 
+        if (cachedPings.isNotEmpty()) {
+            withContext(Dispatchers.Main) {
+                _availableServers.value = _availableServers.value.map { node ->
+                    cachedPings[node.nodeCode]?.let { node.copy(pingMs = if (it > 0) it else -2) } ?: node
+                }
+                _currentServer.value?.let { current ->
+                    cachedPings[current.nodeCode]?.let { _currentServer.value = current.copy(pingMs = if (it > 0) it else -2) }
+                }
+            }
+        }
         if (targets.isEmpty()) return@withContext cachedPings
         val targetCodes = targets.mapTo(hashSetOf()) { it.first }
         withContext(Dispatchers.Main) {
@@ -204,7 +222,12 @@ class VpnManager private constructor(private val context: Context) {
         }
         engine.initCoreEnv()
         val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(targets) { nodeCode, ping ->
-            pingCheckedAt[nodeCode] = System.currentTimeMillis()
+            cacheKeys[nodeCode]?.let { cacheKey ->
+                cache.edit()
+                    .putLong("${cacheKey}_at", System.currentTimeMillis())
+                    .putInt("${cacheKey}_ping", ping)
+                    .apply()
+            }
             withContext(Dispatchers.Main) {
                 _availableServers.value = _availableServers.value.map { node ->
                     if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
@@ -216,6 +239,16 @@ class VpnManager private constructor(private val context: Context) {
         }
         cachedPings + pings
     } }
+
+    private fun pingCacheKey(
+        nodeCode: String,
+        config: com.example.bymevpn.data.api.VpnSessionConfig
+    ): String {
+        val material = "$nodeCode\u0000${config.copy(expiresAt = null)}"
+        val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray(Charsets.UTF_8))
+        val hex = digest.joinToString("") { "%02x".format(it.toInt() and 0xff) }
+        return "$PING_CACHE_PREFIX$hex"
+    }
 
     fun setServers(servers: List<ServerNode>) {
         val sorted = servers
@@ -238,7 +271,7 @@ class VpnManager private constructor(private val context: Context) {
             initialPingStarted = true
             automaticPingJob?.cancel()
             automaticPingJob = scope.launch {
-                val pings = refreshAllPings(onlyWhenDisconnected = true, force = true)
+                val pings = refreshAllPings(onlyWhenDisconnected = true)
                 if (automaticSelection && _state.value == VpnConnectionState.DISCONNECTED) {
                     val winner = _availableServers.value.filter { (pings[it.nodeCode] ?: -1) > 0 }
                         .minByOrNull { pings[it.nodeCode] ?: Int.MAX_VALUE }

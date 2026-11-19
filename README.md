@@ -35,6 +35,8 @@ gradle :app:assembleDebug -PsideBySideDebug=true
 
 The side-by-side build uses a separate application ID and app data. Debug builds use a local debug signing key and are not suitable for release distribution.
 
+Direct releases include architecture-specific APKs and a universal fallback. The in-app updater selects the matching Android ABI to avoid downloading Xray binaries for unrelated CPU architectures.
+
 GitHub Actions runs unit tests and creates debug artifacts. A version change merged to `main` triggers the signed Android release workflow, which checks the release certificate and publishes the APK, checksum, and update manifest to GitHub Releases. See [`docs/DIRECT_DISTRIBUTION.md`](docs/DIRECT_DISTRIBUTION.md).
 
 ## Known release blockers

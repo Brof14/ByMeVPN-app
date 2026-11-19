@@ -27,9 +27,20 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 48
-        versionName = "1.0.47"
+        versionCode = 49
+        versionName = "1.0.48"
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
+    }
+
+    // Ship ABI-specific direct-download APKs so phones do not download native
+    // Xray binaries for unrelated CPU architectures. Keep a universal fallback.
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+            isUniversalApk = true
+        }
     }
 
     signingConfigs {

@@ -38,6 +38,12 @@ object AppUpdateManager {
     // updates depend on the VPS upload host or its SSH deployment key.
     private const val MANIFEST_URL = "https://github.com/Brof14/ByMeVPN-app/releases/latest/download/update.json"
     private const val MAX_APK_BYTES = 200L * 1024L * 1024L
+    private const val PREFS_NAME = "app_update_cache"
+    private const val KEY_LAST_ATTEMPT = "last_attempt_at"
+    private const val KEY_LAST_SUCCESS = "last_success_at"
+    private const val KEY_CACHED_MANIFEST = "manifest"
+    private const val UPDATE_CHECK_INTERVAL_MS = 6L * 60 * 60 * 1000
+    private const val FAILED_CHECK_RETRY_MS = 10L * 60 * 1000
 
     private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
     private val updateCheckMutex = Mutex()
@@ -48,10 +54,27 @@ object AppUpdateManager {
             _updateInfo.value = null
             return@withContext null
         }
+        val appContext = context.applicationContext
+        val preferences = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        val current = currentAppVersion(appContext)
+        val lastSuccess = preferences.getLong(KEY_LAST_SUCCESS, 0L)
+        val lastAttempt = preferences.getLong(KEY_LAST_ATTEMPT, 0L)
+        val freshSuccess = lastSuccess > 0L && now >= lastSuccess && now - lastSuccess < UPDATE_CHECK_INTERVAL_MS
+        val recentFailure = lastAttempt > 0L && now >= lastAttempt && now - lastAttempt < FAILED_CHECK_RETRY_MS
+        if (freshSuccess || recentFailure) {
+            val cachedManifest = preferences.getString(KEY_CACHED_MANIFEST, null)
+            val cachedUpdate = cachedManifest?.let {
+                parseUpdateManifest(it, current.first, current.second, "github.com", Build.SUPPORTED_ABIS.toList())
+            }
+            _updateInfo.value = cachedUpdate
+            return@withContext cachedUpdate
+        }
         // Activity resumes can overlap; a slower failed request must not erase a newer result.
         if (!updateCheckMutex.tryLock()) return@withContext _updateInfo.value
         var connection: HttpURLConnection? = null
         try {
+            preferences.edit().putLong(KEY_LAST_ATTEMPT, now).apply()
             val activeConnection = (URL(MANIFEST_URL).openConnection() as HttpURLConnection).apply {
                 requestMethod = "GET"
                 instanceFollowRedirects = true
@@ -70,8 +93,11 @@ object AppUpdateManager {
                 require(bytes.size <= 32_768) { "Update manifest is too large" }
                 bytes.toString(Charsets.UTF_8)
             }
-            val current = currentAppVersion(context)
-            val update = parseUpdateManifest(manifestText, current.first, current.second, "github.com")
+            preferences.edit()
+                .putString(KEY_CACHED_MANIFEST, manifestText)
+                .putLong(KEY_LAST_SUCCESS, System.currentTimeMillis())
+                .commit()
+            val update = parseUpdateManifest(manifestText, current.first, current.second, "github.com", Build.SUPPORTED_ABIS.toList())
             _updateInfo.value = update
             update
         } catch (e: CancellationException) {
@@ -212,13 +238,18 @@ internal fun parseUpdateManifest(
     manifestText: String,
     currentVersionCode: Long,
     currentVersion: String,
-    expectedHost: String
+    expectedHost: String,
+    supportedAbis: List<String> = emptyList()
 ): AppUpdateInfo? {
     val root = JSONObject(manifestText)
     val versionCode = root.optLong("version_code", 0L)
     val versionName = root.optString("version_name", "").trim()
-    val downloadUrl = root.optString("download_url", "").trim()
-    val checksum = root.optString("sha256", "").trim()
+    val abiDownloads = root.optJSONObject("abi_downloads")
+    val selectedDownload = supportedAbis.firstNotNullOfOrNull { abiDownloads?.optJSONObject(it) }
+        ?: abiDownloads?.optJSONObject("universal")
+        ?: root
+    val downloadUrl = selectedDownload.optString("download_url", "").trim()
+    val checksum = selectedDownload.optString("sha256", "").trim()
     if (versionCode <= currentVersionCode || versionName.isBlank() || !checksum.matches(Regex("[a-fA-F0-9]{64}"))) return null
     if (!downloadUrl.isTrustedUpdateUrl(expectedHost)) return null
     return AppUpdateInfo(
@@ -238,6 +269,6 @@ internal fun String.isTrustedUpdateUrl(expectedHost: String = "bymevpn.duckdns.o
     val legacyBymeOrigin = expectedHost.equals("bymevpn.duckdns.org", ignoreCase = true) &&
         uri.host.equals(expectedHost, ignoreCase = true)
     val githubRelease = uri.host.equals("github.com", ignoreCase = true) &&
-        uri.path.matches(Regex("/Brof14/ByMeVPN-app/releases/download/v\\d+\\.\\d+\\.\\d+/ByMeVPN-v\\d+\\.\\d+\\.\\d+\\.apk"))
+        uri.path.matches(Regex("/Brof14/ByMeVPN-app/releases/download/v\\d+\\.\\d+\\.\\d+/ByMeVPN-v\\d+\\.\\d+\\.\\d+(-(arm64-v8a|armeabi-v7a|x86|x86_64))?\\.apk"))
     secureOrigin && (legacyBymeOrigin || githubRelease)
 }.getOrDefault(false)
