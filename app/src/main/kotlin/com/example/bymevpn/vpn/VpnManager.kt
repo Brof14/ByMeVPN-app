@@ -180,6 +180,12 @@ class VpnManager private constructor(private val context: Context) {
         }
 
         if (targets.isEmpty()) return@withContext emptyMap()
+        val targetCodes = targets.mapTo(hashSetOf()) { it.first }
+        withContext(Dispatchers.Main) {
+            _availableServers.value = _availableServers.value.map { node ->
+                if (node.nodeCode in targetCodes) node.copy(pingMs = -3) else node
+            }
+        }
         engine.initCoreEnv()
         val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(targets)
         if (pings.isNotEmpty()) {

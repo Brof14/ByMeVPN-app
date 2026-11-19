@@ -5,6 +5,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import java.net.InetSocketAddress
 import java.net.Socket
 import com.example.bymevpn.data.api.VpnSessionConfig
@@ -17,6 +18,10 @@ import org.json.JSONObject
 
 object PingTester {
     private val probeLimit = Semaphore(3)
+    private val probeUrls = listOf(
+        "https://cp.cloudflare.com/generate_204",
+        "https://www.google.com/generate_204"
+    )
 
     suspend fun measureTunnelDelays(targets: List<Pair<String, VpnSessionConfig>>): Map<String, Int> = coroutineScope {
         targets.map { (nodeCode, config) ->
@@ -27,8 +32,13 @@ object PingTester {
                         val generated = XrayConfigGenerator.generateJson(config)
                         val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
                         val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound))
-                        val measured = Libv2ray.measureOutboundDelay(probeConfig.toString(), "https://www.google.com/generate_204")
-                        if (measured < 0) -1 else measured.coerceIn(1, Int.MAX_VALUE.toLong()).toInt()
+                        probeUrls.asSequence()
+                            .map { url -> Libv2ray.measureOutboundDelay(probeConfig.toString(), url) }
+                            .firstOrNull { it > 0 }
+                            ?.coerceAtMost(Int.MAX_VALUE.toLong())
+                            ?.toInt() ?: -1
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (_: Exception) { -1 }
                     nodeCode to delay
                 }
