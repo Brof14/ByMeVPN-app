@@ -123,32 +123,48 @@ jobs:
           EXPECTED_CERT_SHA256: 0C2160CEDAFAAE98B32AAF83F8B22229A67C98513DF93A8FE759EA910B177222
         run: |
           set -euo pipefail
-          apk="$(find app/build/outputs/apk/release -maxdepth 1 -name '*.apk' -print -quit)"
-          test -n "$apk"
+          apk_dir="app/build/outputs/apk/release"
+          test -n "$(find "$apk_dir" -maxdepth 1 -name '*.apk' -print -quit)"
           sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
           test -n "$sdk"
           apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$apksigner"
-          output="$("$apksigner" verify --print-certs "$apk")"
-          actual="$(printf '%s\n' "$output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
-          test "$actual" = "$EXPECTED_CERT_SHA256"
+          for apk in "$apk_dir"/*.apk; do
+            output="$("$apksigner" verify --print-certs "$apk")"
+            actual="$(printf '%s\n' "$output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+            test "$actual" = "$EXPECTED_CERT_SHA256"
+          done
           mkdir -p dist
-          cp "$apk" "dist/ByMeVPN-v$VERSION.apk"
-          sha256sum "dist/ByMeVPN-v$VERSION.apk" > dist/SHA256SUMS.txt
-          APK_PATH="dist/ByMeVPN-v$VERSION.apk" python3 - <<'PY'
+          mkdir -p dist
+          for abi in arm64-v8a armeabi-v7a x86 x86_64; do
+            cp "$apk_dir/app-$abi-release.apk" "dist/ByMeVPN-v$VERSION-$abi.apk"
+          done
+          cp "$apk_dir/app-universal-release.apk" "dist/ByMeVPN-v$VERSION.apk"
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          VERSION="$VERSION" python3 - <<'PY'
           import hashlib, json, os, re
           from pathlib import Path
 
           gradle = Path("app/build.gradle.kts").read_text()
           version_name = re.search(r'versionName\s*=\s*"([^"]+)"', gradle).group(1)
           version_code = int(re.search(r"versionCode\s*=\s*(\d+)", gradle).group(1))
-          apk_path = Path(os.environ["APK_PATH"])
+          def asset(name):
+              path = Path("dist") / name
+              return {
+                  "download_url": f"https://github.com/Brof14/ByMeVPN-app/releases/download/v{version_name}/{name}",
+                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              }
+          universal = f"ByMeVPN-v{version_name}.apk"
           manifest = {
               "version_name": version_name,
               "version_code": version_code,
-              "download_url": f"https://github.com/Brof14/ByMeVPN-app/releases/download/v{version_name}/{apk_path.name}",
-              "sha256": hashlib.sha256(apk_path.read_bytes()).hexdigest(),
-              "release_notes": f"ByMeVPN {version_name} — исправления стабильности приложения и подписки."
+              "download_url": asset(universal)["download_url"],
+              "sha256": asset(universal)["sha256"],
+              "abi_downloads": {
+                  abi: asset(f"ByMeVPN-v{version_name}-{abi}.apk")
+                  for abi in ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
+              } | {"universal": asset(universal)},
+              "release_notes": f"ByMeVPN {version_name} — ускорены повторные проверки, облегчены загрузки APK для каждой архитектуры."
           }
           Path("dist/update.json").write_text(
               json.dumps(manifest, ensure_ascii=False, separators=(",", ":")) + "\n",
@@ -164,11 +180,11 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Задержка серверов измеряется последовательно при первом открытии и по отдельной кнопке. Результаты кэшируются на 10 минут, автоматический выбор использует свежие значения.
+          Задержка серверов измеряется последовательно, имеет резервный адрес проверки и сохраняется на 10 минут. Проверка обновлений ограничена по частоте. Для каждой архитектуры подготовлен уменьшенный APK; универсальный APK также доступен.
 
           Работа автопродления в приложении зависит от наличия соответствующего API на сервере. Подключение автопродления через Android-оплату пока не реализовано.
           EOF
-          gh release create "v$VERSION" "dist/ByMeVPN-v$VERSION.apk" "dist/SHA256SUMS.txt" "dist/update.json" \
+          gh release create "v$VERSION" dist/*.apk dist/SHA256SUMS.txt dist/update.json \
             --target "$GITHUB_SHA" \
             --title "ByMeVPN v$VERSION (Android)" \
             --notes-file dist/release-notes.md
