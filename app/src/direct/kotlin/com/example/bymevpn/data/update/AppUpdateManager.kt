@@ -9,8 +9,10 @@ import android.os.Build
 import android.util.Log
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
@@ -38,6 +40,7 @@ object AppUpdateManager {
     private const val MAX_APK_BYTES = 200L * 1024L * 1024L
 
     private val _updateInfo = MutableStateFlow<AppUpdateInfo?>(null)
+    private val updateCheckMutex = Mutex()
     val updateInfo = _updateInfo.asStateFlow()
 
     suspend fun checkForUpdates(context: Context): AppUpdateInfo? = withContext(Dispatchers.IO) {
@@ -45,6 +48,8 @@ object AppUpdateManager {
             _updateInfo.value = null
             return@withContext null
         }
+        // Activity resumes can overlap; a slower failed request must not erase a newer result.
+        if (!updateCheckMutex.tryLock()) return@withContext _updateInfo.value
         var connection: HttpURLConnection? = null
         try {
             val activeConnection = (URL(MANIFEST_URL).openConnection() as HttpURLConnection).apply {
@@ -57,8 +62,7 @@ object AppUpdateManager {
             }
             connection = activeConnection
             if (activeConnection.responseCode !in 200..299) {
-                _updateInfo.value = null
-                return@withContext null
+                return@withContext _updateInfo.value
             }
             require(activeConnection.contentLengthLong in -1..32_768L) { "Update manifest is too large" }
             val manifestText = activeConnection.inputStream.use { input ->
@@ -70,13 +74,15 @@ object AppUpdateManager {
             val update = parseUpdateManifest(manifestText, current.first, current.second, "github.com")
             _updateInfo.value = update
             update
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             // Network and parsing errors are expected on offline launches; never log URLs or response bodies.
             Log.w(TAG, "Update check failed: ${e.javaClass.simpleName}")
-            _updateInfo.value = null
-            null
+            _updateInfo.value
         } finally {
             connection?.disconnect()
+            updateCheckMutex.unlock()
         }
     }
 

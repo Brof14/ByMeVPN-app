@@ -1,5 +1,6 @@
 package com.example.bymevpn.data.api
 
+import com.example.bymevpn.data.CountryFlags
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -317,16 +318,16 @@ object ApiJsonParsers {
         for (i in 0 until array.length()) {
             val obj = array.getJSONObject(i)
             val code = obj.optString("code", obj.optString("node_code", "default"))
-            val cCode = obj.optString("country_code", "").uppercase()
-            val flagEmoji = when (cCode) {
-                "NL" -> "🇳🇱"
-                "DE" -> "🇩🇪"
-                "US" -> "🇺🇸"
-                "FI" -> "🇫🇮"
-                "SE" -> "🇸🇪"
-                "GB" -> "🇬🇧"
-                else -> "🌐"
-            }
+            val cCode = CountryFlags.normalize(obj.optString("country_code", ""))
+                ?: CountryFlags.regionIn(obj.optString("country_code", ""))
+                ?: CountryFlags.regionIn(obj.optString("flag", ""))
+                ?: CountryFlags.regionIn(obj.optString("remark", ""))
+                ?: CountryFlags.regionIn(obj.optString("display_name", ""))
+                ?: CountryFlags.regionInCountryName(obj.optString("country", ""))
+                ?: CountryFlags.regionInCountryName(obj.optString("remark", ""))
+                ?: CountryFlags.regionInCountryName(obj.optString("display_name", ""))
+                ?: ""
+            val flagEmoji = CountryFlags.emoji(cCode) ?: "🌐"
             val countryRaw = obj.optString("country")
             val countryRu = when {
                 countryRaw.isNotBlank() && countryRaw != "Unknown" -> countryRaw
@@ -375,7 +376,7 @@ object ApiJsonParsers {
                     country = countryRu,
                     countryCode = cCode.lowercase(),
                     city = cityRu,
-                    flag = obj.optString("flag", flagEmoji),
+                    flag = flagEmoji,
                     pingMs = -1,
                     loadPercent = load,
                     isPremium = obj.optBoolean("is_premium", false),
