@@ -37,11 +37,12 @@ The side-by-side build uses a separate application ID and app data. Debug builds
 
 Direct releases include architecture-specific APKs and a universal fallback. The in-app updater selects the matching Android ABI to avoid downloading Xray binaries for unrelated CPU architectures.
 
-GitHub Actions runs unit tests and creates debug artifacts. A version change merged to `main` triggers the signed Android release workflow, which checks the release certificate and publishes the APK, checksum, and update manifest to GitHub Releases. See [`docs/DIRECT_DISTRIBUTION.md`](docs/DIRECT_DISTRIBUTION.md).
+GitHub Actions runs unit tests and creates debug artifacts. A version change merged to `main` triggers the signed Android release workflow, which checks the release certificate and publishes the APKs, Play-format AAB, checksums, and update manifest to GitHub Releases. The Play build excludes external YooKassa checkout; Google Play Billing is not yet integrated, so this AAB is not ready to sell subscriptions through Play. See [`docs/DIRECT_DISTRIBUTION.md`](docs/DIRECT_DISTRIBUTION.md).
 
 ## Known release blockers
 
 - Payment, subscription renewal, and device-limit changes require provider-backed end-to-end verification. Do not infer correct live billing from unit tests or mock providers.
+- Google Play Billing and server-side purchase-token verification are not implemented. Play builds deliberately do not open the external YooKassa checkout.
 - Direct APK updates require a signed upgrade from an existing release APK and a verified HTTPS update manifest.
 - VPN release acceptance requires real traffic checks for DNS, IPv4/IPv6, reconnects, and clean shutdown on supported devices; source checks alone cannot establish leak-free routing.
 - The release build currently keeps R8/minification disabled. Enable it only after validating native Xray integration and upgrade behavior.

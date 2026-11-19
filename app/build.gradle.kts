@@ -66,6 +66,7 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "true")
             if (providers.gradleProperty("sideBySideDebug").orNull == "true") {
                 applicationIdSuffix = ".${providers.gradleProperty("previewSuffix").orElse("preview").get()}"
             }
@@ -74,6 +75,7 @@ android {
             }
         }
         release {
+            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "true")
             isMinifyEnabled = false
             signingConfig = signingConfigs.findByName("release")
             proguardFiles(
@@ -83,6 +85,7 @@ android {
         }
         create("play") {
             initWith(getByName("release"))
+            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "false")
             matchingFallbacks += listOf("release")
         }
     }

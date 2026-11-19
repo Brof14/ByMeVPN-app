@@ -426,12 +426,22 @@ class ByMeApiClient(private val context: Context) {
         request("DELETE", "/devices/$deviceId", null, requiresAuth = true)
     }
 
-    suspend fun getAutoRenewal(): Boolean {
+    suspend fun getAutoRenewal(): AutoRenewalStatus {
         val json = request("GET", "/mobile/v2/renewal", null, requiresAuth = true)
         if (json.opt("auto_renew") !is Boolean) {
             throw ApiError("INVALID_RESPONSE", "Auto-renewal status was not confirmed")
         }
-        return json.getBoolean("auto_renew")
+        return AutoRenewalStatus(
+            enabled = json.getBoolean("auto_renew"),
+            canEnable = json.optBoolean("can_enable", false)
+        )
+    }
+
+    suspend fun enableAutoRenewal() {
+        val json = request("POST", "/mobile/v2/renewal/enable", JSONObject().put("confirm", true), requiresAuth = true)
+        if (json.opt("enabled") != true || json.opt("auto_renew") != true) {
+            throw ApiError("INVALID_RESPONSE", "Auto-renewal activation was not confirmed")
+        }
     }
 
     suspend fun cancelAutoRenewal() {
