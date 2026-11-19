@@ -114,7 +114,7 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SERVER_ES256_PUBLIC_KEY"
-          gradle :app:assembleRelease :app:bundlePlay --no-daemon
+          gradle :app:assembleRelease :app:bundlePlay cyclonedxBom --no-daemon
 
       - name: Verify APK signature and fingerprint
         if: steps.version_change.outputs.changed == 'true'
@@ -146,7 +146,9 @@ jobs:
           aab_cert="$(keytool -printcert -jarfile "$aab" | sed -nE 's/^[[:space:]]*SHA256:[[:space:]]*([0-9A-Fa-f:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           test "$aab_cert" = "$EXPECTED_CERT_SHA256"
           cp "$aab" "dist/ByMeVPN-v$VERSION-play.aab"
-          sha256sum dist/*.apk dist/*.aab > dist/SHA256SUMS.txt
+          cp build/reports/cyclonedx/bom.json "dist/ByMeVPN-v$VERSION-sbom.cdx.json"
+          cp docs/XRAY_RUNTIME_PROVENANCE.md "dist/ByMeVPN-v$VERSION-native-runtime-provenance.md"
+          sha256sum dist/*.apk dist/*.aab dist/*.json dist/*.md > dist/SHA256SUMS.txt
           VERSION="$VERSION" python3 - <<'PY'
           import hashlib, json, os, re
           from pathlib import Path
@@ -190,7 +192,7 @@ jobs:
 
           К релизу приложен подписанный AAB для проверки в Google Play Console. Вариант Play не открывает ЮKassa: Google Play Billing и серверная проверка покупок пока не подключены, поэтому AAB пока не готов принимать оплату.
           EOF
-          gh release create "v$VERSION" dist/*.apk dist/*.aab dist/SHA256SUMS.txt dist/update.json \
+          gh release create "v$VERSION" dist/*.apk dist/*.aab dist/SHA256SUMS.txt dist/update.json dist/*-sbom.cdx.json dist/*-native-runtime-provenance.md \
             --target "$GITHUB_SHA" \
             --title "ByMeVPN v$VERSION (Android)" \
             --notes-file dist/release-notes.md
