@@ -83,6 +83,11 @@ jobs:
           printf '%s\n' "$cert_output"
           actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
           test "$actual" = "$EXPECTED_CERT_SHA256"
+          aab="app/build/outputs/bundle/play/app-play.aab"
+          test -s "$aab"
+          jarsigner -verify "$aab"
+          aab_cert="$(keytool -printcert -jarfile "$aab" | sed -nE 's/^[[:space:]]*SHA256:[[:space:]]*([0-9A-Fa-f:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$aab_cert" = "$EXPECTED_CERT_SHA256"
       - name: Read app version
         id: app-version
         shell: bash
