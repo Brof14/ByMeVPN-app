@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -132,12 +133,12 @@ fun ServerSelectionSheet(
 
             TextButton(
                 onClick = onRefreshPing,
-                enabled = servers.none { it.pingMs == -3 },
+                enabled = servers.none { it.pingMs == -3 || it.pingMs == -4 },
                 modifier = Modifier.semantics {
                     contentDescription = if (isRu) "Проверить задержку серверов" else "Measure server latency"
                 }
             ) {
-                if (servers.any { it.pingMs == -3 }) {
+                if (servers.any { it.pingMs == -3 || it.pingMs == -4 }) {
                     androidx.compose.material3.CircularProgressIndicator(
                         color = AppColors.BrandMint,
                         modifier = Modifier.size(16.dp),
@@ -188,9 +189,23 @@ fun ServerSelectionSheet(
                     )
                     Spacer(modifier = Modifier.height(5.dp))
                     Text(
-                        text = if (isRu) "Подберём сервер" else "We will choose a server",
+                        text = if (isAutoSelected) {
+                            selectedServer?.let { server ->
+                                val name = server.displayName.ifBlank { server.name }
+                                val ping = server.pingMs.takeIf { it > 0 }
+                                if (ping != null) {
+                                    if (isRu) "Выбран: $name · $ping мс" else "Selected: $name · $ping ms"
+                                } else {
+                                    if (isRu) "Выбран: $name" else "Selected: $name"
+                                }
+                            } ?: if (isRu) "Подбираем сервер…" else "Choosing a server…"
+                        } else {
+                            if (isRu) "Подберём сервер" else "We will choose a server"
+                        },
                         color = Color(0xFF89A6A0),
-                        fontSize = 11.sp
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
@@ -328,6 +343,7 @@ fun ServerSelectionSheet(
                                 val pingColor = when {
                                     server.connectionCheck < 0 -> Color(0xFFFF8A65)
                                     server.pingMs == -2 -> Color(0xFFFF8A65)
+                                    server.pingMs == -4 -> Color(0xFF89A6A0)
                                     server.pingMs <= 0 -> Color(0xFF89A6A0)
                                     server.pingMs <= 200 -> Color(0xFF69D3BC)
                                     server.pingMs <= 350 -> Color(0xFFFFD54F)
@@ -345,6 +361,7 @@ fun ServerSelectionSheet(
                                         server.pingMs == -2 -> if (isRu) "Нет ответа" else "No response"
                                         server.pingMs > 0 -> "${server.pingMs} ${if (isRu) "мс" else "ms"}"
                                         server.pingMs == -3 -> if (isRu) "Проверяем…" else "Checking…"
+                                        server.pingMs == -4 -> if (isRu) "В очереди" else "Queued"
                                         else -> if (isRu) "Не проверен" else "Not tested"
                                     },
                                     color = pingColor,
