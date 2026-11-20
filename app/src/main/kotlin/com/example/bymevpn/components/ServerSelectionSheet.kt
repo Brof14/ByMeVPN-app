@@ -151,6 +151,16 @@ fun ServerSelectionSheet(
                 }
                 Text(if (isRu) "Проверить задержку" else "Measure latency")
             }
+            val checkingCount = servers.count { it.pingMs == -3 }
+            val queuedCount = servers.count { it.pingMs == -4 }
+            if (checkingCount + queuedCount > 0) {
+                Text(
+                    text = if (isRu) "Проверяем серверы: $checkingCount сейчас, $queuedCount в очереди" else "Checking servers: $checkingCount active, $queuedCount queued",
+                    color = Color(0xFF9BB7B7),
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(start = 12.dp, top = 2.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(20.dp))
 
