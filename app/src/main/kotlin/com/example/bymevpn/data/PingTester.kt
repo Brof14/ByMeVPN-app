@@ -11,8 +11,11 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
+import java.util.concurrent.Future
+import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import libv2ray.Libv2ray
 import org.json.JSONArray
 import org.json.JSONObject
@@ -20,6 +23,15 @@ import org.json.JSONObject
 object PingTester {
     private const val MAX_CONCURRENT_PROBES = 4
     private const val PROBE_TIMEOUT_MS = 4_000L
+    private val nativeProbeExecutor = ThreadPoolExecutor(
+        MAX_CONCURRENT_PROBES,
+        MAX_CONCURRENT_PROBES,
+        0L,
+        TimeUnit.MILLISECONDS,
+        SynchronousQueue(),
+        { task -> Thread(task, "bymevpn-ping").apply { isDaemon = true } },
+        ThreadPoolExecutor.AbortPolicy()
+    )
     private val probeUrls = listOf(
         "https://cp.cloudflare.com/generate_204",
         "https://www.google.com/generate_204"
@@ -42,10 +54,9 @@ object PingTester {
                             val generated = XrayConfigGenerator.generateJson(config)
                             val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
                             val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound)).toString()
-                            withTimeoutOrNull(PROBE_TIMEOUT_MS) {
+                            val future: Future<Int> = nativeProbeExecutor.submit<Int> {
                                 var measured = -1
                                 for (url in probeUrls) {
-                                    currentCoroutineContext().ensureActive()
                                     measured = Libv2ray.measureOutboundDelay(probeConfig, url)
                                         .takeIf { it > 0 }
                                         ?.coerceAtMost(Int.MAX_VALUE.toLong())
@@ -53,7 +64,15 @@ object PingTester {
                                     if (measured > 0) break
                                 }
                                 measured
-                            } ?: -1
+                            }
+                            try {
+                                future.get(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                            } catch (_: java.util.concurrent.TimeoutException) {
+                                future.cancel(true)
+                                -1
+                            } catch (_: java.util.concurrent.RejectedExecutionException) {
+                                -1
+                            }
                         } catch (e: CancellationException) {
                             throw e
                         } catch (_: Exception) {

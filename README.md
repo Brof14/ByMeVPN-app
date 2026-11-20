@@ -46,7 +46,7 @@ GitHub Actions runs unit tests and creates debug artifacts. A version change mer
 - Direct APK updates require a signed upgrade from an existing release APK and a verified HTTPS update manifest.
 - VPN release acceptance requires real traffic checks for DNS, IPv4/IPv6, reconnects, and clean shutdown on supported devices; source checks alone cannot establish leak-free routing.
 - The release build currently keeps R8/minification disabled. Enable it only after validating native Xray integration and upgrade behavior.
-- The native VPN runtime is committed as a binary dependency. Its provenance and a release SBOM should be documented before formal Play publication.
+- Release SBOMs list Gradle dependencies, but upstream source and build provenance for the checked-in native `libv2ray.aar` remain unknown.
 - Referral data shown by the bot is not yet connected to an app-side server API.
 
 Do not present local UI state as proof of an authenticated account, completed payment, or active entitlement.
