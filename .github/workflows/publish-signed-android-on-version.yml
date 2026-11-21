@@ -188,11 +188,23 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          Задержка серверов измеряется последовательно, имеет резервный адрес проверки и сохраняется на 10 минут. Проверка обновлений ограничена по частоте. Для каждой архитектуры подготовлен уменьшенный APK; универсальный APK также доступен.
+          **Для установки:** скачайте универсальный APK — файл `ByMeVPN-v...apk` без суффикса архитектуры. Для меньшего размера можно выбрать `arm64-v8a` — этот вариант подходит большинству современных телефонов.
 
-          К релизу приложен подписанный AAB для проверки в Google Play Console. Вариант Play не открывает ЮKassa: Google Play Billing и серверная проверка покупок пока не подключены, поэтому AAB пока не готов принимать оплату.
+          APK по архитектурам нужны для более компактных загрузок и автообновления. Файл `.aab` предназначен для загрузки через Google Play Console, а не для ручной установки. Каталог и обновления приложения используют `update.json`.
           EOF
-          gh release create "v$VERSION" dist/*.apk dist/*.aab dist/SHA256SUMS.txt dist/update.json dist/*-sbom.cdx.json dist/*-native-runtime-provenance.md \
+          gh release create "v$VERSION" dist/*.apk dist/*.aab dist/update.json \
             --target "$GITHUB_SHA" \
             --title "ByMeVPN v$VERSION (Android)" \
             --notes-file dist/release-notes.md
+
+      - name: Keep technical verification files in Actions
+        if: steps.version_change.outputs.changed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ByMeVPN-${{ steps.release_version.outputs.version }}-technical-verification
+          path: |
+            dist/SHA256SUMS.txt
+            dist/*-sbom.cdx.json
+            dist/*-native-runtime-provenance.md
+          if-no-files-found: error
+          retention-days: 90
