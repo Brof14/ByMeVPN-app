@@ -14,8 +14,12 @@ import com.example.bymevpn.vpn.xray.XrayVpnEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +31,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.withPermit
 import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
 
@@ -57,11 +63,10 @@ class VpnManager private constructor(private val context: Context) {
 
         fun getVpnPrepareIntent(context: Context): Intent? = VpnService.prepare(context)
 
-        fun startVpn(context: Context, server: ServerNode? = null) {
-            // Require a user-accepted prominent disclosure even from tiles/boot receivers.
+        fun startVpn(context: Context) {
+            // Require a user-accepted prominent disclosure even from Quick Settings.
             if (!SecureTokenStorage.getInstance(context).isVpnDisclosureAccepted()) return
             val manager = getInstance(context)
-            server?.let { manager.selectServer(it) }
             manager.connect()
         }
 
@@ -182,72 +187,164 @@ class VpnManager private constructor(private val context: Context) {
         }
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext emptyMap()
+        val queuedCodes = servers.mapTo(hashSetOf()) { it.nodeCode }
 
-        val storage = SecureTokenStorage.getInstance(context)
-        val cache = context.getSharedPreferences(PING_CACHE_PREFS, Context.MODE_PRIVATE)
-        val now = System.currentTimeMillis()
-        val cachedPings = linkedMapOf<String, Int>()
-        val targets = mutableListOf<Pair<String, com.example.bymevpn.data.api.VpnSessionConfig>>()
-        val cacheKeys = mutableMapOf<String, String>()
-        for (node in servers) {
-            val cfg = storage.getServerConfig(node.nodeCode) ?: continue
-            if (cfg.server.isBlank()) continue
-            val cacheKey = pingCacheKey(node.nodeCode, cfg)
-            cacheKeys[node.nodeCode] = cacheKey
-            val checkedAt = cache.getLong("${cacheKey}_at", 0L)
-            val age = now - checkedAt
-            if (!force && checkedAt > 0L && age in 0 until PING_CACHE_TTL_MS) {
-                cachedPings[node.nodeCode] = cache.getInt("${cacheKey}_ping", -1)
-            } else {
-                targets += node.nodeCode to cfg
-            }
-        }
+        try {
+            val storage = SecureTokenStorage.getInstance(context)
+            val cache = context.getSharedPreferences(PING_CACHE_PREFS, Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            val accountToken = storage.getAccessToken().orEmpty()
+            val accountId = storage.getCachedUser()?.id
+            val cachedPings = linkedMapOf<String, Int>()
+            val targets = mutableListOf<Pair<String, com.example.bymevpn.data.api.VpnSessionConfig>>()
+            val cacheKeys = mutableMapOf<String, String>()
+            val externalProfile = storage.isExternalProfileMode()
 
-        if (cachedPings.isNotEmpty()) {
+            // The server list can arrive before endpoint configs (for example after a
+            // fresh login). Refresh the authenticated server response once to populate
+            // them; request individual configs only if the response still omitted one.
+            // External profiles must provide their own endpoints.
             withContext(Dispatchers.Main) {
                 _availableServers.value = _availableServers.value.map { node ->
-                    cachedPings[node.nodeCode]?.let { node.copy(pingMs = if (it > 0) it else -2) } ?: node
+                    if (node.nodeCode in queuedCodes && node.pingMs <= 0) node.copy(pingMs = -3) else node
                 }
-                _currentServer.value?.let { current ->
-                    cachedPings[current.nodeCode]?.let { _currentServer.value = current.copy(pingMs = if (it > 0) it else -2) }
+            }
+            if (!externalProfile && accountToken.isNotBlank() &&
+                servers.any { storage.getServerConfig(it.nodeCode) == null }
+            ) {
+                try {
+                    apiClient.getServers()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // The per-node session request below is the fallback when /servers
+                    // cannot return endpoint configs for this account/device yet.
+                }
+            }
+            val configSemaphore = Semaphore(com.example.bymevpn.data.PingTester.MAX_CONCURRENT_PROBES)
+            val resolvedConfigs = coroutineScope {
+                servers.map { node ->
+                    async {
+                        configSemaphore.withPermit {
+                            val existing = storage.getServerConfig(
+                                node.nodeCode,
+                                allowStaleImportedConfig = externalProfile
+                            )
+                            val config = existing ?: if (!externalProfile) {
+                                try {
+                                    if (accountToken.isBlank()) null else {
+                                        val fresh = apiClient.createVpnSession(node.nodeCode)
+                                        val stored = storage.withCurrentAccount(accountToken) {
+                                            if (storage.getCachedUser()?.id != accountId) false
+                                            else {
+                                                storage.saveServerConfig(node.nodeCode, fresh)
+                                                true
+                                            }
+                                        }
+                                        fresh.takeIf { stored == true }
+                                    }
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (_: Exception) {
+                                    null
+                                }
+                            } else null
+                            node.nodeCode to config
+                        }
+                    }
+                }.awaitAll().toMap()
+            }
+            for (node in servers) {
+                val cfg = resolvedConfigs[node.nodeCode]
+                if (cfg == null || cfg.server.isBlank() || cfg.port !in 1..65535) {
+                    withContext(Dispatchers.Main) {
+                        _availableServers.value = _availableServers.value.map { current ->
+                            if (current.nodeCode == node.nodeCode) current.copy(pingMs = -5) else current
+                        }
+                    }
+                    continue
+                }
+                val cacheKey = pingCacheKey(node.nodeCode, cfg)
+                cacheKeys[node.nodeCode] = cacheKey
+                val checkedAt = cache.getLong("${cacheKey}_at", 0L)
+                val age = now - checkedAt
+                if (!force && checkedAt > 0L && age in 0 until PING_CACHE_TTL_MS) {
+                    cachedPings[node.nodeCode] = cache.getInt("${cacheKey}_ping", -1)
+                } else {
+                    targets += node.nodeCode to cfg
+                }
+            }
+
+            if (cachedPings.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    _availableServers.value = _availableServers.value.map { node ->
+                        cachedPings[node.nodeCode]?.let { node.copy(pingMs = if (it > 0) it else -2) } ?: node
+                    }
+                    _currentServer.value?.let { current ->
+                        cachedPings[current.nodeCode]?.let { _currentServer.value = current.copy(pingMs = if (it > 0) it else -2) }
+                    }
+                }
+            }
+            if (targets.isEmpty()) return@withContext cachedPings
+            if (_state.value == VpnConnectionState.CONNECTING || _state.value == VpnConnectionState.DISCONNECTING) {
+                return@withContext cachedPings
+            }
+            val targetCodes = targets.mapTo(hashSetOf()) { it.first }
+            withContext(Dispatchers.Main) {
+                _availableServers.value = _availableServers.value.map { node ->
+                    if (node.nodeCode in targetCodes) node.copy(pingMs = -4) else node
+                }
+            }
+            try {
+                engine.initCoreEnv()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                withContext(Dispatchers.Main) {
+                    _availableServers.value = _availableServers.value.map { node ->
+                        if (node.nodeCode in targetCodes) node.copy(pingMs = -5) else node
+                    }
+                }
+                return@withContext cachedPings + targets.associate { it.first to -1 }
+            }
+            val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(
+                targets = targets,
+                onChecking = { nodeCode ->
+                    withContext(Dispatchers.Main) {
+                        _availableServers.value = _availableServers.value.map { node ->
+                            if (node.nodeCode == nodeCode) node.copy(pingMs = -3) else node
+                        }
+                    }
+                },
+                onMeasured = { nodeCode, ping ->
+                    cacheKeys[nodeCode]?.let { cacheKey ->
+                        cache.edit()
+                            .putLong("${cacheKey}_at", System.currentTimeMillis())
+                            .putInt("${cacheKey}_ping", ping)
+                            .apply()
+                    }
+                    withContext(Dispatchers.Main) {
+                        _availableServers.value = _availableServers.value.map { node ->
+                            if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
+                        }
+                        _currentServer.value?.takeIf { it.nodeCode == nodeCode }?.let { current ->
+                            _currentServer.value = current.copy(pingMs = if (ping > 0) ping else -2)
+                        }
+                    }
+                }
+            )
+            cachedPings + pings
+        } finally {
+            // A connection start can cancel the preflight. Never leave the sheet's
+            // progress indicator stuck after cancellation or a core initialization error.
+            withContext(NonCancellable + Dispatchers.Main) {
+                _availableServers.value = _availableServers.value.map { node ->
+                        if (node.nodeCode in queuedCodes && (node.pingMs == -3 || node.pingMs == -4)) {
+                        node.copy(pingMs = -1)
+                    } else node
                 }
             }
         }
-        if (targets.isEmpty()) return@withContext cachedPings
-        val targetCodes = targets.mapTo(hashSetOf()) { it.first }
-        withContext(Dispatchers.Main) {
-            _availableServers.value = _availableServers.value.map { node ->
-                if (node.nodeCode in targetCodes) node.copy(pingMs = -4) else node
-            }
-        }
-        engine.initCoreEnv()
-        val pings = com.example.bymevpn.data.PingTester.measureTunnelDelays(
-            targets = targets,
-            onChecking = { nodeCode ->
-                withContext(Dispatchers.Main) {
-                    _availableServers.value = _availableServers.value.map { node ->
-                        if (node.nodeCode == nodeCode) node.copy(pingMs = -3) else node
-                    }
-                }
-            },
-            onMeasured = { nodeCode, ping ->
-                cacheKeys[nodeCode]?.let { cacheKey ->
-                    cache.edit()
-                        .putLong("${cacheKey}_at", System.currentTimeMillis())
-                        .putInt("${cacheKey}_ping", ping)
-                        .apply()
-                }
-                withContext(Dispatchers.Main) {
-                    _availableServers.value = _availableServers.value.map { node ->
-                        if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
-                    }
-                    _currentServer.value?.takeIf { it.nodeCode == nodeCode }?.let { current ->
-                        _currentServer.value = current.copy(pingMs = if (ping > 0) ping else -2)
-                    }
-                }
-            }
-        )
-        cachedPings + pings
     } }
 
     private fun pingCacheKey(

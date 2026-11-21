@@ -21,7 +21,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 object PingTester {
-    private const val MAX_CONCURRENT_PROBES = 4
+    internal const val MAX_CONCURRENT_PROBES = 4
     private const val PROBE_TIMEOUT_MS = 4_000L
     private val nativeProbeExecutor = ThreadPoolExecutor(
         MAX_CONCURRENT_PROBES,
@@ -55,15 +55,17 @@ object PingTester {
                             val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
                             val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound)).toString()
                             val future: Future<Int> = nativeProbeExecutor.submit<Int> {
-                                var measured = -1
-                                for (url in probeUrls) {
-                                    measured = Libv2ray.measureOutboundDelay(probeConfig, url)
+                                val measurements = probeUrls.mapNotNull { url ->
+                                    Libv2ray.measureOutboundDelay(probeConfig, url)
                                         .takeIf { it > 0 }
                                         ?.coerceAtMost(Int.MAX_VALUE.toLong())
-                                        ?.toInt() ?: -1
-                                    if (measured > 0) break
+                                        ?.toInt()
+                                }.sorted()
+                                when (measurements.size) {
+                                    0 -> -1
+                                    1 -> measurements[0]
+                                    else -> ((measurements[0].toLong() + measurements[1]) / 2L).toInt()
                                 }
-                                measured
                             }
                             try {
                                 future.get(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)

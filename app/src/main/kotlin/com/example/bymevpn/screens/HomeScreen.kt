@@ -276,7 +276,7 @@ fun HomeScreen(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            VpnManager.startVpn(context, currentServer)
+            VpnManager.startVpn(context)
         } else {
             Toast.makeText(context, if (isRu) "Требуется разрешение для создания VPN-туннеля" else "VPN permission is required", Toast.LENGTH_SHORT).show()
         }
@@ -287,7 +287,7 @@ fun HomeScreen(
         if (prepareIntent != null) {
             vpnPrepareLauncher.launch(prepareIntent)
         } else {
-            VpnManager.startVpn(context, currentServer)
+            VpnManager.startVpn(context)
         }
     }
 

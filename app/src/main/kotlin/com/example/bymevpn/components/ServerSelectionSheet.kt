@@ -151,6 +151,16 @@ fun ServerSelectionSheet(
                 }
                 Text(if (isRu) "Проверить задержку" else "Measure latency")
             }
+            Text(
+                text = if (isRu)
+                    "Измеряется задержка через каждый сервер до интернета. VPN включать не нужно."
+                else
+                    "Measures internet latency through each server. VPN does not need to be connected.",
+                color = Color(0xFF789394),
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 2.dp)
+            )
             val checkingCount = servers.count { it.pingMs == -3 }
             val queuedCount = servers.count { it.pingMs == -4 }
             if (checkingCount + queuedCount > 0) {
@@ -353,6 +363,7 @@ fun ServerSelectionSheet(
                                 val pingColor = when {
                                     server.connectionCheck < 0 -> Color(0xFFFF8A65)
                                     server.pingMs == -2 -> Color(0xFFFF8A65)
+                                    server.pingMs == -5 -> Color(0xFFFF8A65)
                                     server.pingMs == -4 -> Color(0xFF89A6A0)
                                     server.pingMs <= 0 -> Color(0xFF89A6A0)
                                     server.pingMs <= 200 -> Color(0xFF69D3BC)
@@ -369,6 +380,7 @@ fun ServerSelectionSheet(
                                     text = when {
                                         server.connectionCheck < 0 -> if (isRu) "Не удалось подключиться" else "Connection failed"
                                         server.pingMs == -2 -> if (isRu) "Нет ответа" else "No response"
+                                        server.pingMs == -5 -> if (isRu) "Не удалось измерить" else "Could not measure"
                                         server.pingMs > 0 -> "${server.pingMs} ${if (isRu) "мс" else "ms"}"
                                         server.pingMs == -3 -> if (isRu) "Проверяем…" else "Checking…"
                                         server.pingMs == -4 -> if (isRu) "В очереди" else "Queued"
