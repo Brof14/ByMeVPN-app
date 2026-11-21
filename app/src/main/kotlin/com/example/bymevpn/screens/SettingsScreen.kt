@@ -67,7 +67,6 @@ fun SettingsScreen(
     val scrollState = rememberScrollState()
     val settingsRepo = remember { SettingsRepository.getInstance(context) }
 
-    val autoConnect by settingsRepo.autoConnectOnLaunch.collectAsState(initial = false)
     val bypassRuSites by settingsRepo.bypassRussianSites.collectAsState(initial = true)
     val settings by settingsRepo.settingsFlow.collectAsState(initial = AppSettings())
 
@@ -208,19 +207,6 @@ fun SettingsScreen(
                 )
 
                 ByMeCardGroup {
-                    ByMeSettingRow(
-                        title = if (isRu) "Подключение при запуске устройства" else "Connect when device starts",
-                        subtitle = if (isRu) "Запускать VPN после перезагрузки телефона" else "Start VPN after the phone restarts",
-                        icon = { PowerIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = {
-                            ByMeToggle(
-                                checked = autoConnect,
-                                onCheckedChange = { checked ->
-                                    settingsRepo.setAutoConnectOnLaunch(checked)
-                                }
-                            )
-                        }
-                    )
                     ByMeSettingRow(
                         title = if (isRu) "Переподключаться после обрыва" else "Reconnect after a drop",
                         subtitle = if (isRu) "Повторно подключать VPN после потери сети" else "Retry the VPN after network loss",

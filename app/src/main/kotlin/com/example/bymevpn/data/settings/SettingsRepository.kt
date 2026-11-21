@@ -18,7 +18,6 @@ private val Context.dataStore by preferencesDataStore(name = "bymevpn_settings")
 data class AppSettings(
     val protocol: String = "VLESS + Reality",
     val bypassRussianTraffic: Boolean = true, // Requested default: Russian sites use the direct route; can be disabled
-    val autoConnectOnBoot: Boolean = false,
     val autoConnectOpenWifi: Boolean = false,
     val autoReconnect: Boolean = true,
     val killSwitch: Boolean = false,
@@ -37,7 +36,6 @@ class SettingsRepository(private val context: Context) {
     companion object {
         private val KEY_PROTOCOL = stringPreferencesKey("protocol")
         private val KEY_BYPASS_RU = booleanPreferencesKey("bypass_ru")
-        private val KEY_AUTO_BOOT = booleanPreferencesKey("auto_boot")
         private val KEY_AUTO_WIFI = booleanPreferencesKey("auto_wifi")
         private val KEY_AUTO_RECONNECT = booleanPreferencesKey("auto_reconnect")
         private val KEY_KILL_SWITCH = booleanPreferencesKey("kill_switch")
@@ -62,7 +60,6 @@ class SettingsRepository(private val context: Context) {
         AppSettings(
             protocol = prefs[KEY_PROTOCOL] ?: "VLESS + Reality",
             bypassRussianTraffic = prefs[KEY_BYPASS_RU] ?: true,
-            autoConnectOnBoot = prefs[KEY_AUTO_BOOT] ?: false,
             autoConnectOpenWifi = prefs[KEY_AUTO_WIFI] ?: false,
             autoReconnect = prefs[KEY_AUTO_RECONNECT] ?: true,
             killSwitch = prefs[KEY_KILL_SWITCH] ?: false,
@@ -81,10 +78,6 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun updateBypassRussianTraffic(enabled: Boolean) {
         context.dataStore.edit { it[KEY_BYPASS_RU] = enabled }
-    }
-
-    suspend fun updateAutoBoot(enabled: Boolean) {
-        context.dataStore.edit { it[KEY_AUTO_BOOT] = enabled }
     }
 
     suspend fun updateAutoWifi(enabled: Boolean) {
@@ -119,17 +112,10 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { it[KEY_NOTIF_ENABLED] = enabled }
     }
 
-    val autoConnectOnLaunch: Flow<Boolean> = settingsFlow.map { it.autoConnectOnBoot }
     val bypassRussianSites: Flow<Boolean> = settingsFlow.map { it.bypassRussianTraffic }
     val batteryOptimizationDismissed: Flow<Boolean> = settingsFlow.map { it.autoReconnect }
     val killSwitchEnabled: Flow<Boolean> = settingsFlow.map { it.killSwitch }
     val dnsMode: Flow<String> = settingsFlow.map { it.dnsMode }
-
-    fun setAutoConnectOnLaunch(enabled: Boolean) {
-        repositoryScope.launch {
-            updateAutoBoot(enabled)
-        }
-    }
 
     fun setBypassRussianSites(enabled: Boolean) {
         repositoryScope.launch {
