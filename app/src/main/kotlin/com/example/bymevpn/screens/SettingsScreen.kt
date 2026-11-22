@@ -61,6 +61,7 @@ fun SettingsScreen(
     onBackClick: () -> Unit,
     onNavigateToHome: () -> Unit = onBackClick,
     onNavigateToAccount: () -> Unit = {},
+    onNavigateToAdvancedSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -249,6 +250,22 @@ fun SettingsScreen(
                         icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
                         trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
                         onClick = { showLanguage = true },
+                        showBottomDivider = false
+                    )
+                }
+
+                Text(
+                    text = if (isRu) "Дополнительно" else "Advanced",
+                    color = Color(0xFF8BA3A4), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
+                )
+                ByMeCardGroup {
+                    ByMeSettingRow(
+                        title = if (isRu) "Расширенные настройки" else "Advanced settings",
+                        subtitle = if (isRu) "DNS, защита от утечек, уведомления о скорости" else "DNS, leak protection, speed in notifications",
+                        icon = { SettingsGearIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        onClick = onNavigateToAdvancedSettings,
                         showBottomDivider = false
                     )
                 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeCardGroup
+import com.example.bymevpn.components.ByMeHaptics
 import com.example.bymevpn.components.ByMePrimaryButton
 import com.example.bymevpn.components.ByMeSettingRow
 import com.example.bymevpn.components.ByMeTopBar
@@ -103,10 +104,10 @@ fun SupportScreen(
                         modifier = Modifier
                             .size(64.dp)
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color(0xFF19382E)),
+                            .background(AppColors.Teal.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
-                        ChatHeartIcon(color = Color(0xFF45E3AE), size = 30.dp)
+                        ChatHeartIcon(color = AppColors.NeonTeal, size = 30.dp)
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -124,7 +125,7 @@ fun SupportScreen(
 
                     Text(
                         text = t("Напишите нам о проблеме или задайте вопрос по работе ByMeVPN.", "Contact us with a question or a problem using ByMeVPN."),
-                        color = Color(0xFF92AAA4),
+                        color = AppColors.TextSecondary,
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp,
                         textAlign = TextAlign.Center,
@@ -136,6 +137,7 @@ fun SupportScreen(
                     ByMePrimaryButton(
                         text = t("Написать в поддержку", "Contact support"),
                         onClick = {
+                            ByMeHaptics.tap(context)
                             val url = "https://t.me/ByMeVPNSupportBot"
                             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                                 .onFailure {
@@ -152,7 +154,7 @@ fun SupportScreen(
                 // Section: Полезное
                 Text(
                     text = t("Полезное", "Useful links"),
-                    color = Color(0xFF8BA3A4),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 12.dp, bottom = 10.dp, start = 2.dp)
@@ -162,16 +164,20 @@ fun SupportScreen(
                     ByMeSettingRow(
                         title = t("Ответы на вопросы", "FAQ"),
                         subtitle = t("Оплата, подключение и устройства", "Payments, connection and devices"),
-                        icon = { QuestionHelpIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { showFaqDialog = true }
+                        icon = { QuestionHelpIcon(color = AppColors.Teal, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                        onClick = {
+                            ByMeHaptics.tap(context)
+                            showFaqDialog = true
+                        }
                     )
                     ByMeSettingRow(
                         title = t("Написать по email", "Contact by email"),
                         subtitle = "support@bymevpn.com",
-                        icon = { MailIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        icon = { MailIcon(color = AppColors.Teal, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
+                            ByMeHaptics.tap(context)
                             val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:support@bymevpn.com")).apply {
                                 putExtra(Intent.EXTRA_SUBJECT, t("Поддержка ByMeVPN", "ByMeVPN support"))
                             }
@@ -192,7 +198,7 @@ fun SupportScreen(
                 // Section: Информация
                 Text(
                     text = t("Информация", "Information"),
-                    color = Color(0xFF8BA3A4),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
@@ -202,16 +208,22 @@ fun SupportScreen(
                     ByMeSettingRow(
                         title = t("О приложении", "About the app"),
                         subtitle = t("Версия ${BuildConfig.VERSION_NAME}", "Version ${BuildConfig.VERSION_NAME}"),
-                        icon = { InfoCircleIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { showAboutDialog = true }
+                        icon = { InfoCircleIcon(color = AppColors.Teal, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                        onClick = {
+                            ByMeHaptics.tap(context)
+                            showAboutDialog = true
+                        }
                     )
                     ByMeSettingRow(
                         title = t("Документы и приватность", "Privacy and documents"),
                         subtitle = null,
-                        icon = { ShieldSecurityIcon(color = Color(0xFF62CBB0), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = { showTermsDialog = true },
+                        icon = { ShieldSecurityIcon(color = AppColors.Teal, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                        onClick = {
+                            ByMeHaptics.tap(context)
+                            showTermsDialog = true
+                        },
                         showBottomDivider = false
                     )
                 }
@@ -220,7 +232,7 @@ fun SupportScreen(
 
                 Text(
                     text = t("Поддержка ByMeVPN", "ByMeVPN support"),
-                    color = Color(0xFF617E79),
+                    color = AppColors.TextMuted,
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)

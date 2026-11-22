@@ -62,6 +62,7 @@ fun ServerSelectionSheet(
 ) {
     val language by com.example.bymevpn.data.LocaleManager.currentLanguage.collectAsState()
     val isRu = com.example.bymevpn.data.LocaleManager.isRussian(language = language)
+    val haptics = rememberByMeHaptics()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val scope = rememberCoroutineScope()
     val dismissSheet: () -> Unit = {
@@ -102,7 +103,10 @@ fun ServerSelectionSheet(
 
                 SheetActionButton(
                     description = if (isRu) "Обновить серверы" else "Refresh servers",
-                    onClick = onRefresh,
+                    onClick = {
+                        haptics.tap()
+                        onRefresh()
+                    },
                     enabled = !isLoading
                 ) {
                     if (isLoading) {
@@ -132,7 +136,10 @@ fun ServerSelectionSheet(
             )
 
             TextButton(
-                onClick = onRefreshPing,
+                onClick = {
+                    haptics.tap()
+                    onRefreshPing()
+                },
                 enabled = servers.none { it.pingMs == -3 || it.pingMs == -4 },
                 modifier = Modifier.semantics {
                     contentDescription = if (isRu) "Проверить задержку серверов" else "Measure server latency"
@@ -183,6 +190,7 @@ fun ServerSelectionSheet(
                     .background(Color(0xFF182D3B))
                     .border(1.dp, Color(0xFF437D90), RoundedCornerShape(18.dp))
                     .selectable(selected = isAutoSelected, role = Role.RadioButton) {
+                        haptics.selection()
                         onSelectAuto()
                         dismissSheet()
                     }
@@ -308,6 +316,7 @@ fun ServerSelectionSheet(
                                 RoundedCornerShape(18.dp)
                             )
                             .selectable(selected = isSelected, role = Role.RadioButton) {
+                                haptics.selection()
                                 onSelectServer(server)
                                 dismissSheet()
                             }

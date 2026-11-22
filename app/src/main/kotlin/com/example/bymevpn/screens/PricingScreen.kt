@@ -40,6 +40,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bymevpn.components.ByMeHaptics
 import com.example.bymevpn.components.ByMePrimaryButton
 import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.components.CheckmarkIcon
@@ -180,7 +181,10 @@ fun PricingScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .background(AppColors.TopBarBackBg)
                         .border(1.dp, AppColors.TopBarBackBorder, RoundedCornerShape(14.dp))
-                        .clickable(onClick = onBackClick),
+                        .clickable(onClick = {
+                            ByMeHaptics.tap(context)
+                            onBackClick()
+                        }),
                     contentAlignment = Alignment.Center
                 ) {
                     ChevronLeftIcon(color = Color(0xFFC5D8D5), size = 18.dp)
@@ -235,19 +239,28 @@ fun PricingScreen(
                     DeviceCountTab(
                         label = t("2 устройства", "2 devices"),
                         selected = selectedDeviceCount == 2,
-                        onClick = { selectedDeviceCount = 2 },
+                        onClick = {
+                            ByMeHaptics.selection(context)
+                            selectedDeviceCount = 2
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     DeviceCountTab(
                         label = t("5 устройств", "5 devices"),
                         selected = selectedDeviceCount == 5,
-                        onClick = { selectedDeviceCount = 5 },
+                        onClick = {
+                            ByMeHaptics.selection(context)
+                            selectedDeviceCount = 5
+                        },
                         modifier = Modifier.weight(1f)
                     )
                     DeviceCountTab(
                         label = t("10 устройств", "10 devices"),
                         selected = selectedDeviceCount == 10,
-                        onClick = { selectedDeviceCount = 10 },
+                        onClick = {
+                            ByMeHaptics.selection(context)
+                            selectedDeviceCount = 10
+                        },
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -324,7 +337,10 @@ fun PricingScreen(
                                     color = if (isSelected) Color(0xFF69D3BC) else Color(0xFF283C3E),
                                     shape = RoundedCornerShape(18.dp)
                                 )
-                                .clickable { selectedPlan = plan }
+                                .clickable {
+                                    ByMeHaptics.selection(context)
+                                    selectedPlan = plan
+                                }
                                 .padding(horizontal = 18.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
@@ -479,6 +495,7 @@ fun PricingScreen(
                     },
                     enabled = currentPlan?.purchaseEnabled == true && !plansLoading && !isPaying,
                     onClick = {
+                        ByMeHaptics.tap(context)
                         val confirmed = currentPlan ?: return@ByMePrimaryButton
                         isPaying = true
                         scope.launch {

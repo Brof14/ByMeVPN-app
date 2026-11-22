@@ -7,7 +7,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,11 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -42,6 +48,7 @@ fun LiveSpeedWave(
     downloadBps: Long = 0L,
     uploadBps: Long = 0L,
     isConnected: Boolean,
+    isRussian: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "wave_phase")
@@ -56,28 +63,37 @@ fun LiveSpeedWave(
     )
 
     // Formatted bitrate and total volume
-    val downBitrateStr = if (downloadBps > 0) formatBitrate(downloadBps) else formatVolume(bytesIn, isConnected)
-    val upBitrateStr = if (uploadBps > 0) formatBitrate(uploadBps) else formatVolume(bytesOut, isConnected)
-    val totalVolumeStr = "↓ ${formatVolume(bytesIn, isConnected)} • ↑ ${formatVolume(bytesOut, isConnected)}"
+    val downBitrateStr = if (downloadBps > 0) formatBitrate(downloadBps, isRussian) else formatVolume(bytesIn, isConnected, isRussian)
+    val upBitrateStr = if (uploadBps > 0) formatBitrate(uploadBps, isRussian) else formatVolume(bytesOut, isConnected, isRussian)
+    val totalVolumeStr = "↓ ${formatVolume(bytesIn, isConnected, isRussian)} • ↑ ${formatVolume(bytesOut, isConnected, isRussian)}"
+
+    // Reusable path objects to eliminate garbage creation per draw frame
+    val wavePath = remember { Path() }
+    val wavePath2 = remember { Path() }
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(AppColors.BgSurfaceElevated.copy(alpha = 0.5f))
+            .border(1.dp, AppColors.BorderSubtle, RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Canvas(
             modifier = Modifier
-                .fillMaxWidth(0.88f)
-                .height(38.dp)
+                .fillMaxWidth()
+                .height(28.dp)
         ) {
             val w = size.width
             val h = size.height
             val midY = h * 0.5f
 
             if (isConnected) {
-                val wavePath = Path()
-                val wavePath2 = Path()
+                wavePath.rewind()
+                wavePath2.rewind()
 
-                val points = 36
+                val points = 32
                 val ampFactor = if (downloadBps > 100_000L) 1.25f else 1.0f
 
                 for (i in 0..points) {
@@ -85,8 +101,8 @@ fun LiveSpeedWave(
                     val progress = i.toFloat() / points
                     // Envelope tapering off smoothly at ends
                     val envelope = sin(progress * Math.PI.toFloat())
-                    val y = midY + sin(progress * 8f + phase) * (h * 0.38f * ampFactor) * envelope
-                    val y2 = midY + sin(progress * 6f - phase) * (h * 0.28f * ampFactor) * envelope
+                    val y = midY + sin(progress * 8f + phase) * (h * 0.40f * ampFactor) * envelope
+                    val y2 = midY + sin(progress * 6f - phase) * (h * 0.30f * ampFactor) * envelope
 
                     if (i == 0) {
                         wavePath.moveTo(x, y)
@@ -97,92 +113,96 @@ fun LiveSpeedWave(
                     }
                 }
 
-                // Download Wave (Emerald / Neon Green)
+                // Download Wave (Brand Mint)
                 drawPath(
                     path = wavePath,
-                    color = AppColors.BrandGreen,
-                    style = Stroke(width = 2.4.dp.toPx(), cap = StrokeCap.Round)
+                    color = AppColors.BrandMint,
+                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
                 )
 
-                // Upload Wave (Cyan / Electric Blue)
+                // Upload Wave (Sky Blue)
                 drawPath(
                     path = wavePath2,
                     color = AppColors.SkyBlue.copy(alpha = 0.65f),
-                    style = Stroke(width = 1.8.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
                 )
             } else {
                 // Subtle quiet baseline
                 drawLine(
-                    color = AppColors.CardBorder,
+                    color = AppColors.BorderDefault,
                     start = Offset(0f, midY),
                     end = Offset(w, midY),
-                    strokeWidth = 1.5.dp.toPx(),
+                    strokeWidth = 1.dp.toPx(),
                     cap = StrokeCap.Round
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (isConnected) {
             Row(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(20.dp),
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("↓", color = AppColors.BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("↓", color = AppColors.BrandMint, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = downBitrateStr,
-                        color = Color.White,
-                        fontSize = 13.5.sp,
+                        color = AppColors.TextPrimary,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("↑", color = AppColors.SkyBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.width(5.dp))
+                    Text("↑", color = AppColors.SkyBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = upBitrateStr,
-                        color = Color.White,
-                        fontSize = 13.5.sp,
+                        color = AppColors.TextPrimary,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Всего передано: $totalVolumeStr",
+                text = if (isRussian) "Всего передано: $totalVolumeStr" else "Transferred: $totalVolumeStr",
                 color = AppColors.TextMuted,
-                fontSize = 11.sp,
+                fontSize = 10.5.sp,
                 fontWeight = FontWeight.Medium
             )
         }
     }
 }
 
-private fun formatBitrate(bps: Long): String {
-    if (bps <= 0L) return "0.0 Кбит/с"
+internal fun formatBitrate(bps: Long, isRussian: Boolean): String {
+    if (bps <= 0L) return if (isRussian) "0.0 Кбит/с" else "0.0 Kbps"
     val kbit = (bps * 8) / 1024.0
     val mbit = kbit / 1024.0
+    val unitM = if (isRussian) "Мбит/с" else "Mbps"
+    val unitK = if (isRussian) "Кбит/с" else "Kbps"
     return if (mbit >= 1.0) {
-        String.format(java.util.Locale.US, "%.1f Мбит/с", mbit)
+        String.format(java.util.Locale.US, "%.1f %s", mbit, unitM)
     } else {
-        String.format(java.util.Locale.US, "%.0f Кбит/с", kbit)
+        String.format(java.util.Locale.US, "%.0f %s", kbit, unitK)
     }
 }
 
-private fun formatVolume(totalBytes: Long, isConnected: Boolean): String {
-    if (!isConnected || totalBytes <= 0L) return "0 МБ"
+internal fun formatVolume(totalBytes: Long, isConnected: Boolean, isRussian: Boolean): String {
+    val unitMb = if (isRussian) "МБ" else "MB"
+    val unitGb = if (isRussian) "ГБ" else "GB"
+    if (!isConnected || totalBytes <= 0L) return "0 $unitMb"
     val mb = totalBytes.toDouble() / (1024.0 * 1024.0)
     return if (mb < 1000.0) {
-        String.format(java.util.Locale.US, "%.1f МБ", mb)
+        String.format(java.util.Locale.US, "%.1f %s", mb, unitMb)
     } else {
         val gb = mb / 1024.0
-        String.format(java.util.Locale.US, "%.2f ГБ", gb)
+        String.format(java.util.Locale.US, "%.2f %s", gb, unitGb)
     }
 }

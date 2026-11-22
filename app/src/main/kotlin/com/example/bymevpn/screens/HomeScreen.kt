@@ -52,6 +52,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.bymevpn.components.LiveSpeedWave
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMePrimaryButton
@@ -108,6 +110,10 @@ fun HomeScreen(
     val currentServer by vpnManager.currentServer.collectAsState()
     val availableServers by vpnManager.availableServers.collectAsState()
     val connectedSeconds by vpnManager.connectedSeconds.collectAsState()
+    val bytesIn by vpnManager.bytesIn.collectAsState()
+    val bytesOut by vpnManager.bytesOut.collectAsState()
+    val downloadSpeedBps by vpnManager.downloadSpeedBps.collectAsState()
+    val uploadSpeedBps by vpnManager.uploadSpeedBps.collectAsState()
     val serversError by vpnManager.serversError.collectAsState()
     val isLoadingServers by vpnManager.isLoadingServers.collectAsState()
     val isAutoServerSelected by vpnManager.isAutomaticServerSelected.collectAsState()
@@ -459,6 +465,10 @@ fun HomeScreen(
                     // MOCKUP 05_home_on
                     HomeConnectedContent(
                         connectedSeconds = connectedSeconds,
+                        bytesIn = bytesIn,
+                        bytesOut = bytesOut,
+                        downloadSpeedBps = downloadSpeedBps,
+                        uploadSpeedBps = uploadSpeedBps,
                         onPowerClick = { toggleVpn() },
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
@@ -711,148 +721,19 @@ private fun HomeDisconnectedContent(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Home Bottom Dock: Server Summary + Access Strip
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Server summary card
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF111B1E))
-                    .border(1.dp, Color(0xFF263E41), RoundedCornerShape(20.dp))
-                    .clickable(onClick = if (currentServer == null) onRefreshServers else onServerSelectClick)
-                    .padding(horizontal = 19.dp, vertical = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
-                        color = Color(0xFF698589),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CountryFlagView(
-                            countryCode = currentServer?.countryCode.orEmpty(),
-                            fallbackFlag = currentServer?.flag.orEmpty(),
-                            size = 24.dp
-                        )
-                        Text(
-                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: if (isRu) "Сервер не выбран" else "No server selected",
-                            color = AppColors.TextPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(start = 34.dp)
-                    ) {
-                        val proto = currentServer?.protocolLabel.orEmpty()
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(
-                                    if (proto.isBlank()) Color.Transparent
-                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
-                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
-                                    else Color(0x2B4DAFFF)
-                                )
-                                .border(
-                                    1.dp,
-                                    if (proto.isBlank()) Color.Transparent
-                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
-                                    else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
-                                    else Color(0x594DAFFF),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = proto,
-                                color = if (proto.contains("Reality", ignoreCase = true)) AppColors.BrandMint
-                                        else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
-                                        else Color(0xFF78C6FF),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        if (LocalDensity.current.fontScale < 1.3f || currentServer == null) Text(
-                            text = when {
-                                currentServer == null -> serversError ?: if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
-                                isRu -> "Текущий сервер"
-                                else -> "Current server"
-                            },
-                            color = Color(0xFF81999B),
-                            fontSize = 11.sp
-                        )
-                    }
-                }
+        Spacer(modifier = Modifier.height(20.dp))
 
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF1B3030)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
-                }
-            }
-
-            // Subscription access strip
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(17.dp))
-                    .background(Color(0xFF101B1C))
-                    .border(1.dp, Color(0xFF243739), RoundedCornerShape(17.dp))
-                    .clickable(onClick = onSubscriptionClick)
-                    .padding(horizontal = 17.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF162B27)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "⏱", fontSize = 14.sp)
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isRu) "Подписка активна" else "Subscription active",
-                        color = Color(0xFFEDF5F2),
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = remainingDays?.let { if (isRu) "Осталось $it дней" else "$it days remaining" } ?: if (isRu) "Срок подписки не подтверждён" else "Subscription duration not confirmed",
-                        color = Color(0xFF8AA1A1),
-                        fontSize = 11.sp
-                    )
-                }
-
-                ChevronRightIcon(color = Color(0xFF73898A), size = 17.dp)
-            }
-        }
+        HomeBottomDock(
+            isRu = isRu,
+            isConnected = false,
+            currentServer = currentServer,
+            remainingDays = remainingDays,
+            serversError = serversError,
+            isLoadingServers = isLoadingServers,
+            onServerSelectClick = onServerSelectClick,
+            onRefreshServers = onRefreshServers,
+            onSubscriptionClick = onSubscriptionClick
+        )
     }
 }
 
@@ -862,6 +743,10 @@ private fun HomeDisconnectedContent(
 @Composable
 private fun HomeConnectedContent(
     connectedSeconds: Long,
+    bytesIn: Long,
+    bytesOut: Long,
+    downloadSpeedBps: Long,
+    uploadSpeedBps: Long,
     onPowerClick: () -> Unit,
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
@@ -903,9 +788,9 @@ private fun HomeConnectedContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            CheckmarkIcon(color = Color(0xFF3CDCAD), size = 22.dp)
+            CheckmarkIcon(color = AppColors.BrandMint, size = 22.dp)
             Text(
-            text = if (isRu) "VPN запущен" else "VPN started",
+                text = if (isRu) "VPN запущен" else "VPN started",
                 color = AppColors.TextPrimary,
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Bold
@@ -916,86 +801,133 @@ private fun HomeConnectedContent(
 
         Text(
             text = if (isRu) "Соединение с сервером проверено" else "Server connection checked",
-            color = Color(0xFF859B9D),
+            color = AppColors.TextSecondary,
             fontSize = 13.sp
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(10.dp))
 
         Text(
             text = timerText,
-            color = Color(0xFF6FABA1),
+            color = AppColors.BrandMint,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 2.sp
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
-        // Home Bottom Dock
-        Column(
+        // Real-time live speed & volume telemetry wave
+        LiveSpeedWave(
+            bytesIn = bytesIn,
+            bytesOut = bytesOut,
+            downloadBps = downloadSpeedBps,
+            uploadBps = uploadSpeedBps,
+            isConnected = true,
+            isRussian = isRu
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        HomeBottomDock(
+            isRu = isRu,
+            isConnected = true,
+            currentServer = currentServer,
+            remainingDays = remainingDays,
+            serversError = serversError,
+            isLoadingServers = isLoadingServers,
+            onServerSelectClick = onServerSelectClick,
+            onRefreshServers = onRefreshServers,
+            onSubscriptionClick = onSubscriptionClick
+        )
+    }
+}
+
+/**
+ * Common Bottom Dock for Home screen: Location Card + Subscription Status
+ */
+@Composable
+private fun HomeBottomDock(
+    isRu: Boolean,
+    isConnected: Boolean,
+    currentServer: ServerNode?,
+    remainingDays: Long?,
+    serversError: String?,
+    isLoadingServers: Boolean,
+    onServerSelectClick: () -> Unit,
+    onRefreshServers: () -> Unit,
+    onSubscriptionClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // Server summary card
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(AppColors.BgSurfaceElevated)
+                .border(
+                    1.dp,
+                    if (isConnected) AppColors.BorderAccent else AppColors.BorderDefault,
+                    RoundedCornerShape(20.dp)
+                )
+                .clickable(onClick = if (currentServer == null) onRefreshServers else onServerSelectClick)
+                .padding(horizontal = 19.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Server summary card
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF111B1E))
-                    .border(1.dp, Color(0xFF263E41), RoundedCornerShape(20.dp))
-                    .clickable(onClick = onServerSelectClick)
-                    .padding(horizontal = 19.dp, vertical = 18.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
-                        color = Color(0xFF698589),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isRu) "МЕСТОПОЛОЖЕНИЕ" else "LOCATION",
+                    color = AppColors.TextMuted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.2.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CountryFlagView(
+                        countryCode = currentServer?.countryCode.orEmpty(),
+                        fallbackFlag = currentServer?.flag.orEmpty(),
+                        size = 24.dp
                     )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CountryFlagView(
-                            countryCode = currentServer?.countryCode.orEmpty(),
-                            fallbackFlag = currentServer?.flag.orEmpty(),
-                            size = 24.dp
-                        )
-                        Text(
-                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: if (isRu) "Сервер не выбран" else "No server selected",
-                            color = AppColors.TextPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(start = 34.dp)
-                    ) {
-                        val proto = currentServer?.protocolLabel.orEmpty()
+                    Text(
+                        text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name }
+                            ?: if (isRu) "Сервер не выбран" else "No server selected",
+                        color = AppColors.TextPrimary,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(start = 34.dp)
+                ) {
+                    val proto = currentServer?.protocolLabel.orEmpty()
+                    if (proto.isNotBlank()) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(5.dp))
                                 .background(
-                                    if (proto.isBlank()) Color.Transparent
-                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x2B3CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x2B9D7BFF)
                                     else Color(0x2B4DAFFF)
                                 )
                                 .border(
                                     1.dp,
-                                    if (proto.isBlank()) Color.Transparent
-                                    else if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
+                                    if (proto.contains("Reality", ignoreCase = true)) Color(0x593CDFAC)
                                     else if (proto.contains("Hysteria", ignoreCase = true)) Color(0x599D7BFF)
                                     else Color(0x594DAFFF),
                                     RoundedCornerShape(5.dp)
@@ -1005,73 +937,82 @@ private fun HomeConnectedContent(
                             Text(
                                 text = proto,
                                 color = if (proto.contains("Reality", ignoreCase = true)) AppColors.BrandMint
-                                        else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
-                                        else Color(0xFF78C6FF),
+                                else if (proto.contains("Hysteria", ignoreCase = true)) Color(0xFFC4B0FF)
+                                else Color(0xFF78C6FF),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
-                        if (LocalDensity.current.fontScale < 1.3f) Text(
-                            text = if (isRu) "Подключено" else "Connected",
-                            color = AppColors.BrandMint,
+                    }
+                    if (LocalDensity.current.fontScale < 1.3f || currentServer == null) {
+                        Text(
+                            text = when {
+                                currentServer == null -> serversError ?: if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
+                                isConnected -> if (isRu) "Подключено" else "Connected"
+                                isRu -> "Текущий сервер"
+                                else -> "Current server"
+                            },
+                            color = if (isConnected) AppColors.BrandMint else AppColors.TextSecondary,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = if (isConnected) FontWeight.SemiBold else FontWeight.Normal
                         )
                     }
                 }
-
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF1B3030)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
-                }
             }
 
-            // Subscription access strip
-            Row(
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(17.dp))
-                    .background(Color(0xFF101B1C))
-                    .border(1.dp, Color(0xFF243739), RoundedCornerShape(17.dp))
-                    .clickable(onClick = onSubscriptionClick)
-                    .padding(horizontal = 17.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .size(32.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(AppColors.BgSurfaceAccent),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF162B27)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "⏱", fontSize = 14.sp)
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isRu) "Подписка активна" else "Subscription active",
-                        color = Color(0xFFEDF5F2),
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = remainingDays?.let { if (isRu) "Осталось $it дней" else "$it days remaining" } ?: if (isRu) "Срок подписки не подтверждён" else "Subscription duration not confirmed",
-                        color = Color(0xFF8AA1A1),
-                        fontSize = 11.sp
-                    )
-                }
-
-                ChevronRightIcon(color = Color(0xFF73898A), size = 17.dp)
+                ChevronRightIcon(color = AppColors.TextSecondary, size = 18.dp)
             }
         }
+
+        // Subscription access strip
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(AppColors.BgSurfaceElevated)
+                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(18.dp))
+                .clickable(onClick = onSubscriptionClick)
+                .padding(horizontal = 17.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(AppColors.BgSurfaceAccent),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "⏱", fontSize = 14.sp)
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isRu) "Подписка активна" else "Subscription active",
+                    color = AppColors.TextPrimary,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = remainingDays?.let { if (isRu) "Осталось $it дней" else "$it days remaining" }
+                        ?: if (isRu) "Срок подписки не подтверждён" else "Subscription duration not confirmed",
+                    color = AppColors.TextSecondary,
+                    fontSize = 11.sp
+                )
+            }
+
+            ChevronRightIcon(color = AppColors.TextMuted, size = 17.dp)
+        }
     }
+}
 }
 
 /**
@@ -1228,8 +1169,8 @@ private fun HomeConnectionErrorContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .background(Color(0xFF111B1E))
-                    .border(1.dp, Color(0xFF263E41), RoundedCornerShape(20.dp))
+                    .background(AppColors.BgSurfaceElevated)
+                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(20.dp))
                     .clickable(onClick = onServerSelectClick)
                     .padding(horizontal = 19.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1238,7 +1179,7 @@ private fun HomeConnectionErrorContent(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (isRu) "ВЫБРАННЫЙ СЕРВЕР" else "SELECTED SERVER",
-                        color = Color(0xFF698589),
+                        color = AppColors.TextMuted,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.2.sp
@@ -1297,7 +1238,7 @@ private fun HomeConnectionErrorContent(
                         }
                         if (LocalDensity.current.fontScale < 1.3f) Text(
                             text = if (isRu) "Текущий сервер" else "Current server",
-                            color = Color(0xFF81999B),
+                            color = AppColors.TextSecondary,
                             fontSize = 11.sp
                         )
                     }
@@ -1307,10 +1248,10 @@ private fun HomeConnectionErrorContent(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF1B3030)),
+                        .background(AppColors.BgSurfaceAccent),
                     contentAlignment = Alignment.Center
                 ) {
-                    ChevronRightIcon(color = Color(0xFF9DD5CB), size = 18.dp)
+                    ChevronRightIcon(color = AppColors.TextSecondary, size = 18.dp)
                 }
             }
 
@@ -1319,31 +1260,31 @@ private fun HomeConnectionErrorContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(17.dp))
-                    .background(Color(0xFF101B1C))
-                    .border(1.dp, Color(0xFF243739), RoundedCornerShape(17.dp))
+                    .background(AppColors.BgSurfaceElevated)
+                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                     .clickable(onClick = onSupportClick)
                     .padding(horizontal = 17.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                QuestionHelpIcon(color = Color(0xFF7CC9B2), size = 20.dp)
+                QuestionHelpIcon(color = AppColors.BrandMint, size = 20.dp)
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (isRu) "Не получается подключиться?" else "Having trouble connecting?",
-                        color = Color(0xFFEDF5F2),
+                        color = AppColors.TextPrimary,
                         fontSize = 12.5.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = if (isRu) "Напишите нам — поможем разобраться" else "Contact us for help",
-                        color = Color(0xFF8AA1A1),
+                        color = AppColors.TextSecondary,
                         fontSize = 11.sp
                     )
                 }
 
-                ChevronRightIcon(color = Color(0xFF73898A), size = 17.dp)
+                ChevronRightIcon(color = AppColors.TextMuted, size = 17.dp)
             }
         }
     }

@@ -423,7 +423,8 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
                 SettingsScreen(
                     onBackClick = { navController.popBackStack() },
                     onNavigateToHome = { navigateTab(AppRoute.Home) },
-                    onNavigateToAccount = { navigateTab(AppRoute.Account) }
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) },
+                    onNavigateToAdvancedSettings = { navigate(AppRoute.AdvancedSettings) }
                 )
         }
         composable(AppRoute.AdvancedSettings) {
