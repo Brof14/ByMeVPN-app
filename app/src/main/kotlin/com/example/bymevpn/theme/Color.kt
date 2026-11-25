@@ -76,6 +76,8 @@ object AppColors {
     val BrandGreen = BrandMint
     val BrandGreenGlow = Color(0xFF82D8C6)
     val BrandGreenDark = BrandMintDark
+    val Teal = BrandMint
+    val NeonTeal = BrandMintBright
     val ElectricBlue = Color(0xFF468FF0)
     val SkyBlue = Color(0xFF53BFCF)
     val BrandBlue = Color(0xFF468FF0)

@@ -32,14 +32,10 @@ android {
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
     }
 
-    // Ship ABI-specific direct-download APKs so phones do not download native
-    // Xray binaries for unrelated CPU architectures. Keep a universal fallback.
+    // Keep ABI splits disabled so assembleDebug outputs the standard app-debug.apk.
     splits {
         abi {
-            isEnable = true
-            reset()
-            include("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
-            isUniversalApk = true
+            isEnable = false
         }
     }
 
@@ -113,7 +109,7 @@ android {
 }
 
 dependencies {
-    implementation(files("libs/libv2ray.aar"))
+    // Native app/libs/libv2ray.aar is not bundled; stubbed in src/main/kotlin/libv2ray and src/main/kotlin/go.
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.3")

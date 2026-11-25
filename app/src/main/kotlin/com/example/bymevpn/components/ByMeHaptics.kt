@@ -80,15 +80,43 @@ class ByMeHaptics(
         }
     }
 
-    private fun getVibrator(context: Context): Vibrator? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            vibratorManager?.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    companion object {
+        fun tap(context: Context) {
+            performTick(context, durationMs = 10L)
+        }
+
+        fun selection(context: Context) {
+            performTick(context, durationMs = 8L)
+        }
+
+        private fun performTick(context: Context, durationMs: Long) {
+            try {
+                val vibrator = resolveVibrator(context)
+                if (vibrator?.hasVibrator() == true) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK))
+                    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        vibrator.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+                    } else {
+                        @Suppress("DEPRECATION")
+                        vibrator.vibrate(durationMs)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
+
+        private fun resolveVibrator(context: Context): Vibrator? {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
         }
     }
+
+    private fun getVibrator(context: Context): Vibrator? = resolveVibrator(context)
 }
 
 @Composable

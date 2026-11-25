@@ -1013,7 +1013,6 @@ private fun HomeBottomDock(
         }
     }
 }
-}
 
 /**
  * Compact status/retry strip shown while the server list is missing or being refreshed.
