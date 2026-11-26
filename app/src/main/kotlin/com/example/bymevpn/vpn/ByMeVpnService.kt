@@ -1,5 +1,6 @@
 package com.example.bymevpn.vpn
 
+import android.Manifest
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,12 +16,16 @@ import android.net.NetworkRequest
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.example.bymevpn.MainActivity
 import com.example.bymevpn.R
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.data.api.VpnSessionConfig
+import com.example.bymevpn.data.settings.AppSettings
 import com.example.bymevpn.data.settings.SettingsRepository
 import com.example.bymevpn.vpn.ConnectivityProbePolicy
 import com.example.bymevpn.vpn.xray.XrayVpnEngine
@@ -37,6 +42,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.withLock
+import java.util.Locale
 
 /**
  * Standard Android VpnService for ByMeVPN.
@@ -63,6 +69,10 @@ class ByMeVpnService : VpnService() {
 
         @Volatile
         var isServiceRunning = false
+            private set
+
+        @Volatile
+        var tunnelConnectedElapsedRealtimeMs: Long = 0L
             private set
 
         @Volatile
@@ -119,6 +129,7 @@ class ByMeVpnService : VpnService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var tunInterface: ParcelFileDescriptor? = null
     private var healthJob: Job? = null
+    private var notificationStatsJob: Job? = null
     private var networkRecoveryJob: Job? = null
     private var networkCallbackRegistered = false
     @Volatile private var lastPhysicalNetworkAvailable: Boolean? = null
@@ -200,8 +211,12 @@ class ByMeVpnService : VpnService() {
             // Android restarts sticky VpnService instances with a null intent. Use
             // a neutral foreground notification while the manager fetches fresh,
             // account-bound subscription data and configuration.
+            val isRuRestore = LocaleManager.isRussian(applicationContext)
             startForegroundCompat(
-                buildNotification("ByMeVPN", "Restoring VPN connection")
+                buildNotification(
+                    title = "ByMeVPN",
+                    text = if (isRuRestore) "Восстановление VPN-подключения…" else "Restoring VPN connection…"
+                )
             )
             val vpnManager = VpnManager.getInstance(applicationContext)
             vpnManager.prepareForServiceRestore()
@@ -231,10 +246,13 @@ class ByMeVpnService : VpnService() {
                 if (connectEpoch != requestEpoch) return START_NOT_STICKY
                 val serverName = intent.getStringExtra(EXTRA_SERVER_NAME) ?: "Global"
                 val serverCountry = intent.getStringExtra(EXTRA_SERVER_COUNTRY) ?: ""
+                val isRu = LocaleManager.isRussian(applicationContext)
+                val notifTitle = if (serverCountry.isNotEmpty()) "ByMeVPN • $serverCountry" else "ByMeVPN"
+                val notifBaseText = if (isRu) "Подключено: $serverName" else "Connected: $serverName"
 
                 val notif = buildNotification(
-                    title = if (serverCountry.isNotEmpty()) "ByMeVPN • $serverCountry" else "ByMeVPN",
-                    text = "VPN: $serverName"
+                    title = notifTitle,
+                    text = notifBaseText
                 )
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
@@ -296,12 +314,15 @@ class ByMeVpnService : VpnService() {
 
                     if (result.isSuccess) {
                         isServiceRunning = true
+                        tunnelConnectedElapsedRealtimeMs = SystemClock.elapsedRealtime()
                         setRestoreAfterRestart(true)
                         Log.i(TAG, "Xray core started and proxy connectivity check passed")
                         VpnManager.getInstance(applicationContext).onTunnelConnected(activeServer)
                         startHealthMonitor(engine)
+                        startNotificationStatsMonitor(engine, settingsRepo, notifTitle, notifBaseText)
                     } else {
                         setRestoreAfterRestart(false)
+                        tunnelConnectedElapsedRealtimeMs = 0L
                         val error = result.exceptionOrNull()?.message ?: "Xray core failed to start"
                         Log.e(TAG, "Failed to start Xray tunnel: $error")
                         tearDownTunInterface()
@@ -319,6 +340,8 @@ class ByMeVpnService : VpnService() {
                     setRestoreAfterRestart(false)
                     healthJob?.cancel()
                     healthJob = null
+                    notificationStatsJob?.cancel()
+                    notificationStatsJob = null
                     try {
                         XrayVpnEngine.getInstance(applicationContext).disconnect()
                     } catch (e: Exception) {
@@ -328,6 +351,7 @@ class ByMeVpnService : VpnService() {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                     isServiceRunning = false
+                    tunnelConnectedElapsedRealtimeMs = 0L
                     activeServer = null
                     pendingSessionConfig = null
                     VpnManager.getInstance(applicationContext).onTunnelDisconnected()
@@ -379,13 +403,72 @@ class ByMeVpnService : VpnService() {
         }
     }
 
+    private fun startNotificationStatsMonitor(
+        engine: XrayVpnEngine,
+        settingsRepo: SettingsRepository,
+        title: String,
+        baseText: String
+    ) {
+        notificationStatsJob?.cancel()
+        notificationStatsJob = serviceScope.launch {
+            val manager = getSystemService(NotificationManager::class.java) ?: return@launch
+            var lastPublishedText = baseText
+            while (isActive && isServiceRunning) {
+                delay(1_000)
+                if (!isServiceRunning) break
+                val settings = runCatching { settingsRepo.settingsFlow.first() }.getOrNull() ?: continue
+                val isRu = LocaleManager.isRussian(applicationContext)
+                val targetText = if (settings.connectionNotifications && settings.showSpeedInNotification) {
+                    val stats = engine.statistics.value
+                    val down = formatNotificationSpeed(stats.downloadSpeedBps, isRu)
+                    val up = formatNotificationSpeed(stats.uploadSpeedBps, isRu)
+                    "$baseText • ↓ $down  ↑ $up"
+                } else {
+                    baseText
+                }
+                if (targetText != lastPublishedText && canPostNotifications()) {
+                    lastPublishedText = targetText
+                    runCatching {
+                        manager.notify(NOTIFICATION_ID, buildNotification(title, targetText))
+                    }
+                }
+            }
+        }
+    }
+
+    private fun canPostNotifications(): Boolean {
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun formatNotificationSpeed(bytesPerSec: Long, isRu: Boolean): String {
+        val bps = bytesPerSec.coerceAtLeast(0L)
+        return when {
+            bps < 1024L -> if (isRu) "$bps Б/с" else "$bps B/s"
+            bps < 1024L * 1024L -> String.format(
+                Locale.US,
+                if (isRu) "%.0f КБ/с" else "%.0f KB/s",
+                bps / 1024.0
+            )
+            else -> String.format(
+                Locale.US,
+                if (isRu) "%.1f МБ/с" else "%.1f MB/s",
+                bps / (1024.0 * 1024.0)
+            )
+        }
+    }
+
     private suspend fun stopFailedTunnel(engine: XrayVpnEngine) {
         lifecycleMutex.withLock {
             if (!isServiceRunning) return@withLock
             setRestoreAfterRestart(false)
+            notificationStatsJob?.cancel()
+            notificationStatsJob = null
             engine.disconnect()
             tearDownTunInterface()
             isServiceRunning = false
+            tunnelConnectedElapsedRealtimeMs = 0L
             stopForeground(STOP_FOREGROUND_REMOVE)
             VpnManager.getInstance(applicationContext).onTunnelConnectivityLost(activeServer)
             stopSelf()
@@ -431,6 +514,7 @@ class ByMeVpnService : VpnService() {
             if (settings.splitTunnelingEnabled && settings.excludedApps.isNotEmpty()) {
                 val pm = packageManager
                 for (pkg in settings.excludedApps) {
+                    if (pkg == packageName) continue
                     try {
                         pm.getPackageInfo(pkg, 0)
                         builder.addDisallowedApplication(pkg)
@@ -486,11 +570,13 @@ class ByMeVpnService : VpnService() {
         val disconnectText = if (isRu) "Отключить" else "Disconnect"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_quick_settings)
             .setContentTitle(title)
             .setContentText(text)
             .setOngoing(true)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setContentIntent(pendingIntent)
             .addAction(
@@ -503,12 +589,17 @@ class ByMeVpnService : VpnService() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val isRu = LocaleManager.isRussian(this)
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                "ByMeVPN Tunnel Status",
+                if (isRu) "Статус ByMeVPN" else "ByMeVPN Tunnel Status",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Active VLESS + Reality VPN tunnel notification"
+                description = if (isRu) {
+                    "Уведомление об активном VPN-подключении и скорости"
+                } else {
+                    "Active VPN tunnel and speed notification"
+                }
                 setShowBadge(false)
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -523,6 +614,8 @@ class ByMeVpnService : VpnService() {
           lifecycleMutex.withLock {
             healthJob?.cancel()
             healthJob = null
+            notificationStatsJob?.cancel()
+            notificationStatsJob = null
             try {
                 XrayVpnEngine.getInstance(applicationContext).disconnect()
             } catch (_: Exception) {}
@@ -530,6 +623,7 @@ class ByMeVpnService : VpnService() {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             isServiceRunning = false
+            tunnelConnectedElapsedRealtimeMs = 0L
             activeServer = null
             pendingSessionConfig = null
             VpnManager.getInstance(applicationContext).onTunnelPermissionRevoked()
@@ -540,7 +634,9 @@ class ByMeVpnService : VpnService() {
 
     override fun onDestroy() {
         isServiceRunning = false
+        tunnelConnectedElapsedRealtimeMs = 0L
         healthJob?.cancel()
+        notificationStatsJob?.cancel()
         networkRecoveryJob?.cancel()
         if (networkCallbackRegistered) {
             val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager

@@ -570,6 +570,12 @@ class SecureTokenStorage private constructor(context: Context) {
         prefs.edit().putBoolean("vpn_prominent_disclosure_accepted", accepted).apply()
     }
 
+    fun isNotificationPermissionPrompted(): Boolean = prefs.getBoolean("notification_permission_prompted", false)
+
+    fun setNotificationPermissionPrompted(prompted: Boolean) {
+        prefs.edit().putBoolean("notification_permission_prompted", prompted).apply()
+    }
+
     @Synchronized
     fun clearAllUserData() {
         prefs.edit().clear().putString(KEY_ACCOUNT_SESSION_ID, UUID.randomUUID().toString()).apply()

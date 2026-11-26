@@ -207,7 +207,7 @@ fun CloseXIcon(
 
 @Composable
 fun CheckmarkIcon(
-    color: Color = Color(0xFF38EFB6),
+    color: Color = Color(0xFF2EE9B8),
     modifier: Modifier = Modifier,
     size: Dp = 18.dp
 ) {
@@ -417,5 +417,53 @@ fun BellNewsIcon(
         drawPath(bellPath, color = color, style = Stroke(strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawLine(color = color, start = Offset(w * 0.18f, h * 0.72f), end = Offset(w * 0.82f, h * 0.72f), strokeWidth = strokeW, cap = StrokeCap.Round)
         drawCircle(color = color, radius = 1.8.dp.toPx(), center = Offset(w * 0.50f, h * 0.84f))
+    }
+}
+
+@Composable
+fun ClockVectorIcon(
+    color: Color = Color.White,
+    modifier: Modifier = Modifier,
+    size: Dp = 18.dp
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val strokeW = 1.7.dp.toPx()
+        val center = Offset(w / 2f, h / 2f)
+        drawCircle(color = color, radius = w * 0.42f, center = center, style = Stroke(strokeW))
+        val handPath = Path().apply {
+            moveTo(w * 0.50f, h * 0.26f)
+            lineTo(w * 0.50f, h * 0.52f)
+            lineTo(w * 0.68f, h * 0.62f)
+        }
+        drawPath(handPath, color = color, style = Stroke(strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round))
+    }
+}
+
+@Composable
+fun SplitTunnelIcon(
+    color: Color = Color.White,
+    modifier: Modifier = Modifier,
+    size: Dp = 20.dp
+) {
+    Canvas(modifier = modifier.size(size)) {
+        val w = this.size.width
+        val h = this.size.height
+        val strokeW = 1.8.dp.toPx()
+        // Stem entering from bottom and splitting into two clean paths
+        val leftBranch = Path().apply {
+            moveTo(w * 0.50f, h * 0.84f)
+            lineTo(w * 0.50f, h * 0.52f)
+            lineTo(w * 0.26f, h * 0.24f)
+        }
+        val rightBranch = Path().apply {
+            moveTo(w * 0.50f, h * 0.52f)
+            lineTo(w * 0.74f, h * 0.24f)
+        }
+        drawPath(leftBranch, color = color, style = Stroke(strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(rightBranch, color = color, style = Stroke(strokeW, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawCircle(color = color, radius = 2.dp.toPx(), center = Offset(w * 0.24f, h * 0.22f))
+        drawCircle(color = color, radius = 2.dp.toPx(), center = Offset(w * 0.76f, h * 0.22f))
     }
 }

@@ -32,10 +32,19 @@ android {
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
     }
 
-    // Keep ABI splits disabled so assembleDebug outputs the standard app-debug.apk.
+    // Enable per-ABI splits (+ universal APK) for release builds so CI and
+    // direct-APK update flows receive compact ABI packages, while keeping
+    // assembleDebug outputting the standard single app-debug.apk.
+    val enableAbiSplits = gradle.startParameter.taskNames.any {
+        it.contains("Release", ignoreCase = true)
+    } || providers.gradleProperty("enableAbiSplits").orNull == "true"
+
     splits {
         abi {
-            isEnable = false
+            isEnable = enableAbiSplits
+            reset()
+            include("armeabi-v7a", "arm64-v8a", "x86", "x86_64")
+            isUniversalApk = true
         }
     }
 
@@ -81,12 +90,16 @@ android {
         }
         create("play") {
             initWith(getByName("release"))
-            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "false")
+            buildConfigField("boolean", "EXTERNAL_CHECKOUT_ENABLED", "true")
             matchingFallbacks += listOf("release")
         }
     }
+    val hasLibv2rayAar = file("libs/libv2ray.aar").exists()
     sourceSets.getByName("debug").java.srcDir("src/direct/kotlin")
     sourceSets.getByName("release").java.srcDir("src/direct/kotlin")
+    if (!hasLibv2rayAar) {
+        sourceSets.getByName("main").java.srcDir("src/stub/kotlin")
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -109,7 +122,9 @@ android {
 }
 
 dependencies {
-    // Native app/libs/libv2ray.aar is not bundled; stubbed in src/main/kotlin/libv2ray and src/main/kotlin/go.
+    if (file("libs/libv2ray.aar").exists()) {
+        implementation(files("libs/libv2ray.aar"))
+    }
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.3")

@@ -6,6 +6,8 @@ import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.NoCredentialException
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.api.ApiConfig
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
@@ -69,6 +71,16 @@ class GoogleAuthHelper(private val context: Context) {
         } catch (e: GetCredentialCancellationException) {
             Log.d(TAG, "Google sign-in cancelled by user")
             GoogleAuthResult.Cancelled
+        } catch (e: NoCredentialException) {
+            Log.w(TAG, "No Google credentials available on device")
+            val isRu = LocaleManager.isRussian()
+            GoogleAuthResult.Error(
+                if (isRu) {
+                    "На устройстве не найден аккаунт Google. Добавьте аккаунт в настройках или войдите по почте."
+                } else {
+                    "No Google account found on this device. Add one in Settings or sign in with email."
+                }
+            )
         } catch (e: GetCredentialException) {
             Log.e(TAG, "Google Credential Manager error: ${e.javaClass.simpleName}")
             GoogleAuthResult.Error(e.localizedMessage ?: "Google sign-in failed")

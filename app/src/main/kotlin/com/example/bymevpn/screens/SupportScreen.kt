@@ -104,10 +104,10 @@ fun SupportScreen(
                         modifier = Modifier
                             .size(64.dp)
                             .clip(RoundedCornerShape(21.dp))
-                            .background(AppColors.Teal.copy(alpha = 0.15f)),
+                            .background(AppColors.BgSurfaceAccent),
                         contentAlignment = Alignment.Center
                     ) {
-                        ChatHeartIcon(color = AppColors.NeonTeal, size = 30.dp)
+                        ChatHeartIcon(color = AppColors.SkyBlue, size = 30.dp)
                     }
 
                     Spacer(modifier = Modifier.height(18.dp))
@@ -163,8 +163,12 @@ fun SupportScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = t("Ответы на вопросы", "FAQ"),
-                        subtitle = t("Оплата, подключение и устройства", "Payments, connection and devices"),
-                        icon = { QuestionHelpIcon(color = AppColors.Teal, size = 20.dp) },
+                        subtitle = if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                            t("Оплата, подключение и устройства", "Payments, connection and devices")
+                        } else {
+                            t("Подключение, устройства и настройки", "Connection, devices and settings")
+                        },
+                        icon = { QuestionHelpIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
                             ByMeHaptics.tap(context)
@@ -174,7 +178,7 @@ fun SupportScreen(
                     ByMeSettingRow(
                         title = t("Написать по email", "Contact by email"),
                         subtitle = "support@bymevpn.com",
-                        icon = { MailIcon(color = AppColors.Teal, size = 20.dp) },
+                        icon = { MailIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
                             ByMeHaptics.tap(context)
@@ -208,7 +212,7 @@ fun SupportScreen(
                     ByMeSettingRow(
                         title = t("О приложении", "About the app"),
                         subtitle = t("Версия ${BuildConfig.VERSION_NAME}", "Version ${BuildConfig.VERSION_NAME}"),
-                        icon = { InfoCircleIcon(color = AppColors.Teal, size = 20.dp) },
+                        icon = { InfoCircleIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
                             ByMeHaptics.tap(context)
@@ -218,7 +222,7 @@ fun SupportScreen(
                     ByMeSettingRow(
                         title = t("Документы и приватность", "Privacy and documents"),
                         subtitle = null,
-                        icon = { ShieldSecurityIcon(color = AppColors.Teal, size = 20.dp) },
+                        icon = { ShieldSecurityIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
                             ByMeHaptics.tap(context)
@@ -260,11 +264,14 @@ fun SupportScreen(
         if (showAboutDialog) {
             AlertDialog(
                 onDismissRequest = { showAboutDialog = false },
+                containerColor = AppColors.BgSurfaceElevated,
+                titleContentColor = AppColors.TextPrimary,
+                textContentColor = AppColors.TextSecondary,
                 title = { Text("ByMeVPN") },
                 text = { Text(t("Версия ${BuildConfig.VERSION_NAME}. Для связи: support@bymevpn.com", "Version ${BuildConfig.VERSION_NAME}. Contact: support@bymevpn.com")) },
                 confirmButton = {
                     TextButton(onClick = { showAboutDialog = false }) {
-                        Text(t("Закрыть", "Close"))
+                        Text(t("Закрыть", "Close"), color = AppColors.SkyBlue)
                     }
                 }
             )

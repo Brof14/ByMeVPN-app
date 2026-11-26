@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeCardGroup
@@ -54,7 +55,6 @@ import com.example.bymevpn.components.DevicesMultiIcon
 import com.example.bymevpn.components.PersonProfileIcon
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
-import com.example.bymevpn.components.SettingsGearIcon
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.LocaleManager
@@ -62,6 +62,7 @@ import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.subscription.SubscriptionPresentationPolicy
 import com.example.bymevpn.data.subscription.TrialActivationPolicy
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.coroutineScope
 
@@ -92,13 +93,14 @@ fun AccountScreen(
     val devices by AccountRepository.userDevices.collectAsState()
     val deviceListUnavailable by AccountRepository.deviceListUnavailable.collectAsState()
 
-    val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(System.currentTimeMillis()) } == true
+    val nowMs = remember(subscription) { System.currentTimeMillis() }
+    val isActive = subscription?.let { it.isActive && !it.knownExpiryReached(nowMs) } == true
     val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
     val accessConfirmationRequired = SubscriptionPresentationPolicy.requiresAccessConfirmation(
         subscription,
         subManager.canConnect()
     )
-    val remainingDays = subscription?.daysRemainingAt(System.currentTimeMillis())
+    val remainingDays = subscription?.daysRemainingAt(nowMs)
     val maxDevices = subscription?.maxDevices?.takeIf { it > 0 }
     val activeDevicesCount = devices.size
     val effectiveDevicesText = maxDevices?.let {
@@ -180,11 +182,11 @@ fun AccountScreen(
                         modifier = Modifier
                             .size(51.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF192C3D))
-                            .border(1.dp, Color(0xFF294A41), RoundedCornerShape(16.dp)),
+                            .background(AppColors.BgSurfaceAccent)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(16.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        PersonProfileIcon(color = Color(0xFF79C7C6), size = 25.dp)
+                        PersonProfileIcon(color = AppColors.SkyBlue, size = 25.dp)
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
@@ -197,7 +199,7 @@ fun AccountScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: t("Аккаунт ByMeVPN", "ByMeVPN account"),
-                            color = Color(0xFF8CA5A2),
+                            color = AppColors.TextSecondary,
                             fontSize = 11.5.sp
                         )
                     }
@@ -205,7 +207,7 @@ fun AccountScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isActive) Color(0xFF193743) else Color(0xFF2B2424))
+                            .background(if (isActive) AppColors.BadgeGreenBg else AppColors.BadgeRedBg)
                             .padding(horizontal = 9.dp, vertical = 7.dp)
                     ) {
                         Text(
@@ -215,45 +217,43 @@ fun AccountScreen(
                                 subscriptionUnknown -> t("Проверяем", "Checking")
                                 else -> t("Без подписки", "No subscription")
                             },
-                            color = if (isActive && !accessConfirmationRequired) Color(0xFF8CDECA) else Color(0xFFE3A29A),
+                            color = if (isActive && !accessConfirmationRequired) AppColors.BadgeGreenText else AppColors.BadgeRedText,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
 
-                // Plan Card: Active (10_account_active) vs Inactive (09_account_no_plan)
+                // Plan Card: Active vs Checking vs Inactive
                 if (isActive && !accessConfirmationRequired) {
-                    // Active Plan Card
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color(0xFF1A2D40))
-                            .border(1.dp, Color(0xFF34566A), RoundedCornerShape(21.dp))
+                            .background(AppGradients.ActivePlanCard)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
                             .padding(21.dp)
                     ) {
                         Text(
-                            text = t("ПОДПИСКА BYMEVPN", "BYMEVPN SUBSCRIPTION"),
-                            color = Color(0xFF8FBBCA),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp
+                            text = t("Подписка ByMeVPN", "ByMeVPN subscription"),
+                            color = AppColors.SkyBlue,
+                            fontSize = 11.5.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Row(verticalAlignment = Alignment.Bottom) {
                             Text(
                                 text = remainingDays?.toString() ?: "—",
                                 color = AppColors.TextPrimary,
-                                fontSize = 64.sp,
+                                fontSize = 60.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = (-3).sp
                             )
                             Text(
                                 text = if (remainingDays == null) "" else t(" дн.", " days"),
-                                color = Color(0xFF80D3C6),
+                                color = AppColors.BrandMint,
                                 fontSize = 20.sp,
                                 fontWeight = FontWeight.Bold,
                                 modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
@@ -262,13 +262,13 @@ fun AccountScreen(
 
                         Text(
                             text = if (remainingDays == null) t("Срок доступа не подтверждён", "Access expiry not confirmed") else t("до окончания доступа", "until access expires"),
-                            color = Color(0xFF9AB1A7),
+                            color = AppColors.TextSecondary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
 
                         Spacer(modifier = Modifier.height(16.dp))
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF305248)))
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(AppColors.BorderDefault))
                         Spacer(modifier = Modifier.height(14.dp))
 
                         Row(
@@ -278,12 +278,12 @@ fun AccountScreen(
                         ) {
                             Text(
                                 text = t("Ваш тариф", "Your plan"),
-                                color = Color(0xFF99B3A8),
+                                color = AppColors.TextSecondary,
                                 fontSize = 12.sp
                             )
                             Text(
                                 text = subscription?.planName?.takeIf { it.isNotBlank() } ?: t("Не указан", "Not specified"),
-                                color = Color(0xFFE5F3EC),
+                                color = AppColors.TextPrimary,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -291,28 +291,28 @@ fun AccountScreen(
 
                         Spacer(modifier = Modifier.height(18.dp))
 
-                        ByMeSecondaryButton(
-                            text = t("Продлить подписку", "Renew subscription"),
-                            onClick = onNavigateToPricing
-                        )
+                        if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                            ByMeSecondaryButton(
+                                text = t("Продлить подписку", "Renew subscription"),
+                                onClick = onNavigateToPricing
+                            )
+                        } else {
+                            ByMeSecondaryButton(
+                                text = if (refreshingAccount) t("Обновляем…", "Refreshing…") else t("Обновить статус", "Refresh status"),
+                                onClick = { refreshAccountData() },
+                                enabled = !refreshingAccount
+                            )
+                        }
                     }
                 } else if (subscriptionUnknown || accessConfirmationRequired) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color(0xFF1A2D40))
-                            .border(1.dp, Color(0xFF34566A), RoundedCornerShape(21.dp))
+                            .background(AppGradients.AccentCard)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
                             .padding(21.dp)
                     ) {
-                        Text(
-                            text = t("СТАТУС ДОСТУПА", "ACCESS STATUS"),
-                            color = Color(0xFF8FBBCA),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
                         Text(
                             text = if (isCheckingSubscription || refreshingAccount) {
                                 t("Проверяем подписку", "Checking subscription")
@@ -334,7 +334,7 @@ fun AccountScreen(
                                 "Доступ пока не подтверждён. Обновите данные аккаунта; пробный период и подписка не менялись.",
                                 "Access is not confirmed yet. Refresh your account; your trial and subscription have not been changed."
                             ),
-                            color = Color(0xFF96B0A6),
+                            color = AppColors.TextSecondary,
                             fontSize = 12.5.sp,
                             lineHeight = 18.sp
                         )
@@ -352,31 +352,21 @@ fun AccountScreen(
                         )
                     }
                 } else {
-                    // Inactive Plan Card
+                    val offerTrial = TrialActivationPolicy.shouldOfferTrial(subscription)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(21.dp))
-                            .background(Color(0xFF1A2D40))
-                            .border(1.dp, Color(0xFF34566A), RoundedCornerShape(21.dp))
+                            .background(AppGradients.AccentCard)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
                             .padding(21.dp)
                     ) {
-                        Text(
-                            text = t("ВАШ ДОСТУП", "YOUR ACCESS"),
-                            color = Color(0xFF8FBBCA),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.2.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
                         Text(
                             text = if (subscription?.trialUnavailableReason == "trial_already_used")
                                 t("Пробный период использован", "Free trial already used")
                             else t("Подписка не активна", "Subscription inactive"),
                             color = AppColors.TextPrimary,
-                            fontSize = 24.sp,
+                            fontSize = 23.sp,
                             fontWeight = FontWeight.Bold
                         )
 
@@ -386,24 +376,42 @@ fun AccountScreen(
                             text = when (subscription?.trialUnavailableReason) {
                                 "trial_activation_pending" -> t("Активация проверяется. Обновите данные позже.", "Activation is being checked. Refresh your account later.")
                                 "eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable" -> t("Не удалось проверить доступность пробного периода.", "Could not check trial availability.")
-                                else -> t("Оформите подписку, чтобы подключаться к серверам ByMeVPN.", "Choose a plan to connect to ByMeVPN servers.")
+                                else -> if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                                    t("Оформите подписку, чтобы подключаться к серверам ByMeVPN.", "Choose a plan to connect to ByMeVPN servers.")
+                                } else {
+                                    t("Активной подписки пока нет. Вы можете активировать пробный период на главной или обновить статус аккаунта.", "No active subscription yet. You can activate your trial on Home or refresh your account status.")
+                                }
                             },
-                            color = Color(0xFF96B0A6),
+                            color = AppColors.TextSecondary,
                             fontSize = 12.5.sp,
                             lineHeight = 18.sp
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        ByMePrimaryButton(
-                            text = if (TrialActivationPolicy.shouldOfferTrial(subscription)) t("Активировать на главной", "Activate on Home") else t("Посмотреть тарифы", "View plans"),
-                            onClick = if (TrialActivationPolicy.shouldOfferTrial(subscription)) onNavigateToHome else onNavigateToPricing,
-                            height = 50.dp
-                        )
+                        when {
+                            offerTrial -> ByMePrimaryButton(
+                                text = t("Активировать на главной", "Activate on Home"),
+                                onClick = onNavigateToHome,
+                                height = 50.dp
+                            )
+                            BuildConfig.EXTERNAL_CHECKOUT_ENABLED -> ByMePrimaryButton(
+                                text = t("Посмотреть тарифы", "View plans"),
+                                onClick = onNavigateToPricing,
+                                height = 50.dp
+                            )
+                            else -> ByMePrimaryButton(
+                                text = if (refreshingAccount) t("Обновляем…", "Refreshing…") else t("Обновить статус", "Refresh status"),
+                                onClick = { refreshAccountData() },
+                                enabled = !refreshingAccount,
+                                height = 50.dp,
+                                showArrow = false
+                            )
+                        }
 
-                        if (TrialActivationPolicy.shouldOfferTrial(subscription)) Text(
+                        if (offerTrial && BuildConfig.EXTERNAL_CHECKOUT_ENABLED) Text(
                             text = t("Посмотреть тарифы", "View plans"),
-                            color = Color(0xFF90CFCE),
+                            color = AppColors.SkyBlue,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center,
@@ -418,7 +426,7 @@ fun AccountScreen(
                 // Section: Управление
                 Text(
                     text = t("Управление", "Management"),
-                    color = Color(0xFF8BA3A4),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
@@ -432,31 +440,34 @@ fun AccountScreen(
                         } else if (devices.isNotEmpty()) {
                             effectiveDevicesText
                         } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Сервер не передал лимит тарифа", "Server did not provide the plan limit"),
-                        icon = { DevicesMultiIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToDevices
+                        icon = { DevicesMultiIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                        onClick = onNavigateToDevices,
+                        showBottomDivider = BuildConfig.EXTERNAL_CHECKOUT_ENABLED
                     )
-                    ByMeSettingRow(
-                        title = t("Тарифы и оплата", "Plans and payment"),
-                        subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
-                        icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToPricing
-                    )
-                    ByMeSettingRow(
-                        title = t("Автопродление", "Auto-renewal"),
-                        subtitle = t("Посмотреть статус и управлять", "View and manage renewal"),
-                        icon = { RefreshIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
-                        onClick = onNavigateToRenewal,
-                        showBottomDivider = false
-                    )
+                    if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                        ByMeSettingRow(
+                            title = t("Тарифы и оплата", "Plans and payment"),
+                            subtitle = t("Выбрать или продлить тариф", "Choose or renew a plan"),
+                            icon = { RefreshIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                            onClick = onNavigateToPricing
+                        )
+                        ByMeSettingRow(
+                            title = t("Автопродление", "Auto-renewal"),
+                            subtitle = t("Посмотреть статус и управлять", "View and manage renewal"),
+                            icon = { RefreshIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                            onClick = onNavigateToRenewal,
+                            showBottomDivider = false
+                        )
+                    }
                 }
 
                 // Section: Аккаунт
                 Text(
                     text = t("Аккаунт", "Account"),
-                    color = Color(0xFF8BA3A4),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
@@ -466,8 +477,8 @@ fun AccountScreen(
                     ByMeSettingRow(
                         title = t("Аккаунт и безопасность", "Account and security"),
                         subtitle = t("Данные профиля, выход и удаление", "Profile details, sign out and deletion"),
-                        icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        icon = { PersonProfileIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = { showAccountDialog = true },
                         showBottomDivider = false
                     )
@@ -521,7 +532,7 @@ fun AccountScreen(
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(t("ПРОФИЛЬ", "PROFILE"), color = AppColors.BrandMint, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                        Text(t("Профиль", "Profile"), color = AppColors.SkyBlue, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
                         AccountInfoLine(t("Имя", "Name"), currentUser?.displayName.orEmpty().ifBlank { t("Не указано", "Not set") })
                         AccountInfoLine(
                             "Email",
@@ -535,8 +546,8 @@ fun AccountScreen(
                             ByMeSettingRow(
                                 title = t("Сменить пароль", "Change password"),
                                 subtitle = t("Получить ссылку на почту", "Receive a reset link by email"),
-                                icon = { PersonProfileIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                                trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                                icon = { PersonProfileIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                                trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                                 onClick = {
                                     if (!resettingPassword) {
                                         val email = currentUser?.email.orEmpty()
@@ -560,8 +571,8 @@ fun AccountScreen(
                         ByMeSettingRow(
                             title = t("Помощь и поддержка", "Help and support"),
                             subtitle = t("Связаться с нами", "Contact our team"),
-                            icon = { QuestionHelpIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                            trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                            icon = { QuestionHelpIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                            trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                             onClick = { dismissAccountSheet(onNavigateToSupport) },
                             showBottomDivider = false
                         )
@@ -574,10 +585,10 @@ fun AccountScreen(
                     )
 
                     TextButton(onClick = { dismissAccountSheet(onLogOut) }) {
-                        Text(t("Выйти", "Sign out"), color = Color(0xFFE98B8B))
+                        Text(t("Выйти", "Sign out"), color = AppColors.StatusError)
                     }
                     TextButton(onClick = { showDeleteAccountDialog = true }) {
-                        Text(t("Удалить аккаунт", "Delete account"), color = Color(0xFFE98B8B))
+                        Text(t("Удалить аккаунт", "Delete account"), color = AppColors.StatusError)
                     }
                     Spacer(Modifier.height(16.dp))
                 }
@@ -586,6 +597,9 @@ fun AccountScreen(
         if (showDeleteAccountDialog) {
             AlertDialog(
                 onDismissRequest = { if (!deletingAccount) showDeleteAccountDialog = false },
+                containerColor = AppColors.BgSurfaceElevated,
+                titleContentColor = AppColors.TextPrimary,
+                textContentColor = AppColors.TextSecondary,
                 title = { Text(t("Удалить аккаунт?", "Delete account?")) },
                 text = { Text(t(
                     "Аккаунт и доступ к VPN будут удалены. Оставшийся оплаченный срок не сохраняется. Это действие нельзя отменить.",
@@ -613,11 +627,11 @@ fun AccountScreen(
                                 Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                             }
                         }
-                    }) { Text(t("Удалить", "Delete"), color = Color(0xFFFF7373)) }
+                    }) { Text(t("Удалить", "Delete"), color = AppColors.StatusError) }
                 },
                 dismissButton = {
                     TextButton(enabled = !deletingAccount, onClick = { showDeleteAccountDialog = false }) {
-                        Text(t("Отмена", "Cancel"))
+                        Text(t("Отмена", "Cancel"), color = AppColors.TextSecondary)
                     }
                 }
             )
@@ -632,10 +646,10 @@ private fun AccountInfoLine(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top
     ) {
-        Text(label, color = Color(0xFF8CA5A2), fontSize = 12.5.sp)
+        Text(label, color = AppColors.TextSecondary, fontSize = 12.5.sp)
         Text(
             text = value,
-            color = Color(0xFFEAF1EF),
+            color = AppColors.TextPrimary,
             fontSize = 12.5.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,

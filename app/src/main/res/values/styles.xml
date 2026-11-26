@@ -1,12 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ByMeVPN Luxury Dark Theme for Activity Window and Launch -->
+    <!-- ByMeVPN Sapphire Obsidian Theme for Activity Window and Launch -->
     <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">#0B0F12</item>
-        <item name="android:statusBarColor">#0B0F12</item>
-        <item name="android:navigationBarColor">#0B0F12</item>
+        <item name="android:windowBackground">#030A1C</item>
+        <item name="android:statusBarColor">#030A1C</item>
+        <item name="android:navigationBarColor">#030A1C</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
     </style>
 
     <style name="LaunchTheme" parent="AppTheme">

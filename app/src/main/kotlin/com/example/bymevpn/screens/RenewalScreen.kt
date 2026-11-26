@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMePrimaryButton
@@ -77,6 +78,9 @@ fun RenewalScreen(
     if (showEnableConfirmation) {
         AlertDialog(
             onDismissRequest = { if (!enabling) showEnableConfirmation = false },
+            containerColor = AppColors.BgSurfaceElevated,
+            titleContentColor = AppColors.TextPrimary,
+            textContentColor = AppColors.TextSecondary,
             title = { Text(if (isRu) "Включить автопродление?" else "Enable auto-renewal?") },
             text = {
                 Text(
@@ -103,11 +107,11 @@ fun RenewalScreen(
                             enabling = false
                         }
                     }
-                }) { Text(if (enabling) "…" else if (isRu) "Включить" else "Enable") }
+                }) { Text(if (enabling) "…" else if (isRu) "Включить" else "Enable", color = AppColors.BrandMint) }
             },
             dismissButton = {
                 TextButton(enabled = !enabling, onClick = { showEnableConfirmation = false }) {
-                    Text(if (isRu) "Отмена" else "Cancel")
+                    Text(if (isRu) "Отмена" else "Cancel", color = AppColors.TextSecondary)
                 }
             }
         )
@@ -122,6 +126,9 @@ fun RenewalScreen(
     if (showConfirmation) {
         AlertDialog(
             onDismissRequest = { if (!cancelling) showConfirmation = false },
+            containerColor = AppColors.BgSurfaceElevated,
+            titleContentColor = AppColors.TextPrimary,
+            textContentColor = AppColors.TextSecondary,
             title = { Text(if (isRu) "Отключить автопродление?" else "Turn off auto-renewal?") },
             text = { Text(if (isRu) "Следующего автоматического списания не будет. Оплаченный доступ сохранится до конца срока." else "There will be no next automatic charge. Your paid access remains until expiry.") },
             confirmButton = {
@@ -142,9 +149,13 @@ fun RenewalScreen(
                             cancelling = false
                         }
                     }
-                }) { Text(if (isRu) "Отключить" else "Turn off") }
+                }) { Text(if (isRu) "Отключить" else "Turn off", color = AppColors.StatusError) }
             },
-            dismissButton = { TextButton(enabled = !cancelling, onClick = { showConfirmation = false }) { Text(if (isRu) "Отмена" else "Cancel") } }
+            dismissButton = {
+                TextButton(enabled = !cancelling, onClick = { showConfirmation = false }) {
+                    Text(if (isRu) "Отмена" else "Cancel", color = AppColors.TextSecondary)
+                }
+            }
         )
     }
 
@@ -158,10 +169,18 @@ fun RenewalScreen(
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                if (isRu) {
-                    "Отключение автопродления не отменяет уже оплаченную подписку. Подключить его можно через Telegram-бота."
+                if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                    if (isRu) {
+                        "Отключение автопродления не отменяет уже оплаченную подписку. Подключить его можно через Telegram-бота."
+                    } else {
+                        "Turning off auto-renewal does not cancel paid access. To enable it, use the Telegram bot."
+                    }
                 } else {
-                    "Turning off auto-renewal does not cancel paid access. To enable it, use the Telegram bot."
+                    if (isRu) {
+                        "Отключение автопродления не отменяет уже оплаченную подписку."
+                    } else {
+                        "Turning off auto-renewal does not cancel already active access."
+                    }
                 },
                 color = AppColors.TextSecondary,
                 fontSize = 14.sp,
@@ -191,7 +210,7 @@ fun RenewalScreen(
                 )
                 Spacer(Modifier.height(10.dp))
             }
-            if (enabled == false && !canEnable) {
+            if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED && enabled == false && !canEnable) {
                 ByMeSecondaryButton(
                     text = if (isRu) "Настроить способ оплаты в Telegram" else "Set up a payment method in Telegram",
                     onClick = {

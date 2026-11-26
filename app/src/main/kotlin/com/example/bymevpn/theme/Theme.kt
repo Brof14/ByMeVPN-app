@@ -9,14 +9,19 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = AppColors.BrandGreen,
-    secondary = AppColors.BrandBlue,
-    background = AppColors.BgTop,
-    surface = AppColors.BgMiddle,
-    onPrimary = AppColors.DarkText,
-    onSecondary = AppColors.White,
-    onBackground = AppColors.White,
-    onSurface = AppColors.White
+    primary = AppColors.BrandMint,
+    secondary = AppColors.SkyBlue,
+    tertiary = AppColors.BrandBlue,
+    background = AppColors.BgCanvas,
+    surface = AppColors.BgSurface,
+    surfaceVariant = AppColors.BgSurfaceElevated,
+    surfaceContainerHigh = AppColors.BgSurfaceElevated,
+    outline = AppColors.BorderDefault,
+    onPrimary = AppColors.BrandMintDark,
+    onSecondary = AppColors.BrandMintDark,
+    onBackground = AppColors.TextPrimary,
+    onSurface = AppColors.TextPrimary,
+    onSurfaceVariant = AppColors.TextSecondary
 )
 
 @Composable

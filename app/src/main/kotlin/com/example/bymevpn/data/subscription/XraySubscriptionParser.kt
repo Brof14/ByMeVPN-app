@@ -109,28 +109,57 @@ object XraySubscriptionParser {
         }
         val clean = trimmed.replace("\\s".toRegex(), "")
         return try {
-            val bytes: ByteArray? = try {
-                java.util.Base64.getDecoder().decode(clean)
-            } catch (_: Throwable) {
-                try {
-                    java.util.Base64.getUrlDecoder().decode(clean)
-                } catch (_: Throwable) {
-                    try {
-                        Base64.decode(clean, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
-                    } catch (_: Throwable) {
-                        null
-                    }
-                }
-            }
+            val bytes = decodeBase64Compat(clean)
             if (bytes != null) {
                 val decoded = String(bytes, Charsets.UTF_8)
-                if (decoded.contains("vless://", ignoreCase = true) || decoded.contains("hysteria2://", ignoreCase = true) || decoded.contains("hy2://", ignoreCase = true)) decoded else trimmed
+                if (decoded.contains("vless://", ignoreCase = true) ||
+                    decoded.contains("hysteria2://", ignoreCase = true) ||
+                    decoded.contains("hy2://", ignoreCase = true)
+                ) decoded else trimmed
             } else {
                 trimmed
             }
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             trimmed
         }
+    }
+
+    private fun decodeBase64Compat(input: String): ByteArray? {
+        if (input.isEmpty()) return null
+        val androidDecoded = runCatching {
+            Base64.decode(input, Base64.DEFAULT or Base64.NO_WRAP or Base64.URL_SAFE)
+        }.getOrNull()
+        if (androidDecoded != null && androidDecoded.isNotEmpty()) {
+            return androidDecoded
+        }
+        // Fallback for local JVM unit tests (isReturnDefaultValues = true stubs android.util.Base64)
+        // and pure API 24+ compatibility without calling java.util.Base64 directly.
+        return decodeBase64PureKotlin(input)
+    }
+
+    private fun decodeBase64PureKotlin(input: String): ByteArray? {
+        val normalized = input.replace('-', '+').replace('_', '/').trimEnd('=')
+        if (normalized.isEmpty()) return null
+        var buffer = 0
+        var bitsLeft = 0
+        val out = java.io.ByteArrayOutputStream((normalized.length * 3) / 4 + 1)
+        for (ch in normalized) {
+            val value = when (ch) {
+                in 'A'..'Z' -> ch.code - 'A'.code
+                in 'a'..'z' -> ch.code - 'a'.code + 26
+                in '0'..'9' -> ch.code - '0'.code + 52
+                '+' -> 62
+                '/' -> 63
+                else -> return null
+            }
+            buffer = (buffer shl 6) or value
+            bitsLeft += 6
+            if (bitsLeft >= 8) {
+                bitsLeft -= 8
+                out.write((buffer shr bitsLeft) and 0xFF)
+            }
+        }
+        return out.toByteArray()
     }
 
     private fun parseHysteria2Uri(uriString: String, index: Int): Pair<ServerNode, VpnSessionConfig> {

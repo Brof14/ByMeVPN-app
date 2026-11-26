@@ -63,6 +63,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bymevpn.components.ChevronRightIcon
+import com.example.bymevpn.components.CosmicGlobeBackground
 import com.example.bymevpn.components.EyeIcon
 import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.LockIcon
@@ -71,6 +73,7 @@ import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
@@ -142,9 +145,10 @@ fun SignUpScreen(
         }
     }
 
+    CosmicGlobeBackground(modifier = modifier) {
     Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = AppColors.BgCanvas,
+        modifier = Modifier.fillMaxSize(),
+        containerColor = Color.Transparent,
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState, modifier = Modifier.padding(bottom = 24.dp))
         }
@@ -159,7 +163,7 @@ fun SignUpScreen(
         ) {
             val screenWidth = maxWidth
             val screenHeight = maxHeight
-            val logoSize = (screenWidth * 0.35f).coerceIn(100.dp, 130.dp)
+            val logoSize = (screenWidth * 0.34f).coerceIn(96.dp, 128.dp)
             val horizontalPadding = (screenWidth * 0.065f).coerceIn(20.dp, 26.dp)
 
             Column(
@@ -172,15 +176,15 @@ fun SignUpScreen(
             ) {
                 Spacer(modifier = Modifier.height(screenHeight * 0.02f))
 
-                ShieldLogo(size = logoSize)
+                ShieldLogo(size = logoSize, isActive = true)
 
                 Spacer(modifier = Modifier.height(14.dp))
 
                 val brandText = buildAnnotatedString {
-                    withStyle(SpanStyle(color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)) {
+                    withStyle(SpanStyle(color = AppColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold)) {
                         append("ByMe")
                     }
-                    withStyle(SpanStyle(color = AppColors.BrandGreen, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)) {
+                    withStyle(SpanStyle(color = AppColors.SkyBlue, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)) {
                         append("VPN")
                     }
                 }
@@ -189,7 +193,7 @@ fun SignUpScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (isRu) "Создайте защищенный аккаунт" else "Create your secure account",
+                    text = if (isRu) "Создайте защищённый аккаунт" else "Create your secure account",
                     color = AppColors.TextSecondary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
@@ -268,7 +272,7 @@ fun SignUpScreen(
                         authError = null
                     },
                     hintText = if (isRu) "Адрес эл. почты" else "Email address",
-                    leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.BrandGreen) },
+                    leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.SkyBlue) },
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next,
                     isError = emailError != null
@@ -294,7 +298,7 @@ fun SignUpScreen(
                         authError = null
                     },
                     hintText = if (isRu) "Пароль (от 6 символов)" else "Password (6+ characters)",
-                    leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.BrandGreen) },
+                    leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.SkyBlue) },
                     trailingIcon = {
                         IconButton(
                             onClick = { passwordVisible = !passwordVisible },
@@ -335,7 +339,7 @@ fun SignUpScreen(
                         authError = null
                     },
                     hintText = if (isRu) "Повторите пароль" else "Confirm password",
-                    leadingIcon = { LockIcon(color = if (confirmError != null) AppColors.StatusError else AppColors.BrandGreen) },
+                    leadingIcon = { LockIcon(color = if (confirmError != null) AppColors.StatusError else AppColors.SkyBlue) },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -369,59 +373,52 @@ fun SignUpScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
-                            )
-                        )
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(AppGradients.PrimaryButton)
                         .clickable(enabled = !isLoading) { submitSignUp() },
                     contentAlignment = Alignment.Center
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
+                        CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(22.dp))
                     } else {
                         Text(
                             text = if (isRu) "Создать аккаунт" else "Create Account",
-                            color = AppColors.DarkText,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.ExtraBold
+                            color = AppColors.BrandMintDarkText,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                Text(
-                    text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
-                    color = AppColors.BrandGreen,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.clickable(onClick = onSignInClick).padding(vertical = 8.dp)
-                )
-
                 // Switch to Sign In
-                val footerText = buildAnnotatedString {
-                    withStyle(SpanStyle(color = AppColors.TextSecondary, fontSize = 14.sp)) {
-                        append(if (isRu) "Уже есть аккаунт? " else "Already have an account? ")
-                    }
-                    withStyle(SpanStyle(color = AppColors.BrandGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)) {
-                        append(if (isRu) "Войти" else "Sign In")
-                    }
-                }
-
-                Box(
+                Row(
                     modifier = Modifier
                         .clickable(onClick = onSignInClick)
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = footerText)
+                    Text(
+                        text = if (isRu) "Уже есть аккаунт? " else "Already have an account? ",
+                        color = AppColors.TextSecondary,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = if (isRu) "Войти" else "Sign In",
+                        color = AppColors.SkyBlue,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    ChevronRightIcon(color = AppColors.SkyBlue, size = 14.dp)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
     }
 }
 
@@ -443,8 +440,8 @@ private fun SignUpInputField(
 
     val borderColor = when {
         isError -> AppColors.StatusError
-        isFocused -> AppColors.BrandGreen
-        else -> AppColors.CardBorder
+        isFocused -> AppColors.SkyBlue
+        else -> AppColors.BorderInput
     }
 
     Box(
@@ -452,7 +449,7 @@ private fun SignUpInputField(
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(AppColors.InputBg)
+            .background(AppColors.BgInput)
             .border(1.2.dp, borderColor, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.CenterStart
@@ -478,7 +475,7 @@ private fun SignUpInputField(
                     onValueChange = onValueChange,
                     singleLine = true,
                     textStyle = TextStyle(
-                        color = Color.White,
+                        color = AppColors.TextPrimary,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Medium
                     ),
@@ -491,7 +488,7 @@ private fun SignUpInputField(
                         onDone = { onImeAction() },
                         onNext = { onImeAction() }
                     ),
-                    cursorBrush = SolidColor(AppColors.BrandGreen),
+                    cursorBrush = SolidColor(AppColors.SkyBlue),
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics { contentDescription = hintText }

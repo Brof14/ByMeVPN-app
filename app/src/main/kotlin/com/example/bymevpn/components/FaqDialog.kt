@@ -13,14 +13,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -35,8 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -46,54 +44,60 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 
 data class FaqItem(
     val questionRu: String,
     val questionEn: String,
     val answerRu: String,
-    val answerEn: String,
-    val icon: String = "💡"
+    val answerEn: String
 )
 
-val FAQ_ITEMS = listOf(
-    FaqItem(
-        "Не удаётся подключиться",
-        "I can't connect",
-        "Выберите другой сервер и попробуйте ещё раз. Если ошибка повторяется, переключитесь между Wi‑Fi и мобильной сетью и отправьте код ошибки в поддержку.",
-        "Choose another server and try again. If it still fails, switch between Wi‑Fi and mobile data, then send the error code to support.",
-        ""
-    ),
-    FaqItem(
-        "VPN отключается при блокировке экрана",
-        "VPN disconnects when the screen locks",
-        "Разрешите ByMeVPN работу без ограничений батареи в настройках телефона. На Xiaomi также включите автозапуск и закрепите приложение в недавних.",
-        "Allow ByMeVPN to run without battery restrictions. On Xiaomi, also enable autostart and lock the app in Recents.",
-        ""
-    ),
-    FaqItem(
-        "Достигнут лимит устройств",
-        "I've reached the device limit",
-        "Удалите старое устройство в разделе «Устройства» или выберите тариф на 5 либо 10 устройств прямо там.",
-        "Remove an old device in Devices, or choose a plan for 5 or 10 devices there.",
-        ""
-    ),
-    FaqItem(
-        "Как включить пробный период?",
-        "How do I start the free trial?",
-        "Нажмите «Активировать 3 дня бесплатно» на главном экране. Пробный период доступен один раз на аккаунт. Если появится ошибка, повторите попытку позже и сообщите поддержке код ошибки.",
-        "Tap “Activate 3 days free” on Home. The trial is available once per account. If an error appears, try again later and send the error code to support.",
-        ""
-    ),
-    FaqItem(
-        "Не получается войти",
-        "I can't sign in",
-        "Войдите тем же способом, которым регистрировались. Для старого аккаунта из Telegram-бота выберите на экране входа вариант для прежних аккаунтов.",
-        "Use the same sign-in method you registered with. For an older Telegram-bot account, choose the legacy account option on the sign-in screen.",
-        ""
+private val FAQ_ITEMS: List<FaqItem> by lazy {
+    listOf(
+        FaqItem(
+            "Не удаётся подключиться",
+            "I can't connect",
+            "Выберите другой сервер и попробуйте ещё раз. Если ошибка повторяется, переключитесь между Wi-Fi и мобильной сетью и отправьте код ошибки в поддержку.",
+            "Choose another server and try again. If it still fails, switch between Wi-Fi and mobile data, then send the error code to support."
+        ),
+        FaqItem(
+            "VPN отключается при блокировке экрана",
+            "VPN disconnects when the screen locks",
+            "Разрешите ByMeVPN работу без ограничений батареи в настройках телефона. На Xiaomi также включите автозапуск и закрепите приложение в недавних.",
+            "Allow ByMeVPN to run without battery restrictions. On Xiaomi, also enable autostart and lock the app in Recents."
+        ),
+        FaqItem(
+            "Достигнут лимит устройств",
+            "I've reached the device limit",
+            if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                "Удалите старое устройство в разделе «Устройства» или выберите тариф на 5 либо 10 устройств прямо там."
+            } else {
+                "Удалите неиспользуемое устройство в разделе «Устройства» — место для нового подключения освободится сразу."
+            },
+            if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                "Remove an old device in Devices, or choose a plan for 5 or 10 devices there."
+            } else {
+                "Remove an unused device in Devices to immediately free up a slot."
+            }
+        ),
+        FaqItem(
+            "Как включить пробный период?",
+            "How do I start the free trial?",
+            "Нажмите «Активировать 3 дня бесплатно» на главном экране. Пробный период доступен один раз на аккаунт.",
+            "Tap \"Activate 3 days free\" on Home. The trial is available once per account."
+        ),
+        FaqItem(
+            "Не получается войти",
+            "I can't sign in",
+            "Войдите тем же способом, которым регистрировались. Для прежнего аккаунта выберите вход через Telegram на экране авторизации.",
+            "Use the same sign-in method you registered with. For an earlier Telegram account, choose Telegram sign-in on the auth screen."
+        )
     )
-)
+}
 
 @Composable
 fun FaqDialog(onDismiss: () -> Unit) {
@@ -116,53 +120,50 @@ fun FaqDialog(onDismiss: () -> Unit) {
                 .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(AppColors.BadgeGreenBg),
+                                .background(AppColors.BgSurfaceElevated)
+                                .border(1.dp, AppColors.BorderAccent, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("?", color = AppColors.BrandMint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            QuestionHelpIcon(color = AppColors.SkyBlue, size = 18.dp)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
-                        Column {
-                            Text(
-                                text = if (isRu) "Частые вопросы" else "FAQ",
-                                color = AppColors.TextPrimary,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = if (isRu) "Короткие ответы по делу" else "Quick answers",
-                                color = AppColors.TextSecondary,
-                                fontSize = 12.sp
-                            )
-                        }
+                        Text(
+                            text = if (isRu) "Частые вопросы" else "FAQ",
+                            color = AppColors.TextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
 
                     Box(
                         modifier = Modifier
-                            .size(48.dp)
+                            .size(44.dp)
                             .semantics { contentDescription = if (isRu) "Закрыть частые вопросы" else "Close FAQ" }
                             .clickable(role = Role.Button) { onDismiss() },
                         contentAlignment = Alignment.Center
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(34.dp)
                                 .clip(CircleShape)
-                                .background(AppColors.BgSurfaceAccent),
+                                .background(AppColors.TopBarIconBg)
+                                .border(1.dp, AppColors.TopBarIconBorder, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("✕", color = AppColors.TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            CloseXIcon(color = AppColors.TextSecondary, size = 16.dp)
                         }
                     }
                 }
@@ -180,12 +181,17 @@ fun FaqDialog(onDismiss: () -> Unit) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (isExpanded) AppColors.BgSurfaceElevated else AppColors.BgSurfaceAccent)
+                                .clip(RoundedCornerShape(15.dp))
+                                .background(
+                                    if (isExpanded) AppGradients.ActivePlanCard
+                                    else androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                        listOf(AppColors.BgSurfaceAccentAlt, AppColors.BgSurfaceAccentAlt)
+                                    )
+                                )
                                 .border(
                                     1.dp,
                                     if (isExpanded) AppColors.BrandMint else AppColors.BorderDefault,
-                                    RoundedCornerShape(14.dp)
+                                    RoundedCornerShape(15.dp)
                                 )
                                 .semantics {
                                     stateDescription = if (isExpanded) {
@@ -212,13 +218,13 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                         modifier = Modifier
                                             .size(28.dp)
                                             .clip(CircleShape)
-                                            .background(if (isExpanded) AppColors.BadgeGreenBg else AppColors.BgSurfaceAccent),
+                                            .background(if (isExpanded) AppColors.BadgeGreenBg else AppColors.BgSurfaceElevated),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Text(
                                             text = (index + 1).toString().padStart(2, '0'),
-                                            color = AppColors.BrandMint,
-                                            fontSize = 9.sp,
+                                            color = if (isExpanded) AppColors.BrandMintBright else AppColors.SkyBlue,
+                                            fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
@@ -226,7 +232,7 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     Text(
                                         text = if (isRu) item.questionRu else item.questionEn,
                                         color = AppColors.TextPrimary,
-                                        fontSize = 15.sp,
+                                        fontSize = 14.5.sp,
                                         fontWeight = FontWeight.SemiBold
                                     )
                                 }
@@ -234,13 +240,13 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                     modifier = Modifier
                                         .size(26.dp)
                                         .clip(CircleShape)
-                                        .background(AppColors.BgSurfaceAccent),
+                                        .background(AppColors.BgSurfaceElevated),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = if (isExpanded) "−" else "+",
-                                        color = AppColors.BrandMint,
-                                        fontSize = 17.sp,
+                                        color = AppColors.SkyBlue,
+                                        fontSize = 16.sp,
                                         fontWeight = FontWeight.Medium
                                     )
                                 }
@@ -257,13 +263,13 @@ fun FaqDialog(onDismiss: () -> Unit) {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .height(1.dp)
-                                            .background(AppColors.BorderDefault)
+                                            .background(AppColors.BorderSubtle)
                                     )
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Text(
                                         text = if (isRu) item.answerRu else item.answerEn,
                                         color = AppColors.TextSecondary,
-                                        fontSize = 14.sp,
+                                        fontSize = 13.5.sp,
                                         lineHeight = 20.sp
                                     )
                                 }
@@ -274,22 +280,12 @@ fun FaqDialog(onDismiss: () -> Unit) {
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(AppColors.BgSurfaceAccent)
-                        .clickable(role = Role.Button) { onDismiss() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = if (isRu) "Понятно" else "Close",
-                        color = AppColors.BrandMint,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                ByMePrimaryButton(
+                    text = if (isRu) "Понятно" else "Close",
+                    onClick = onDismiss,
+                    showArrow = false,
+                    height = 48.dp
+                )
             }
         }
     }

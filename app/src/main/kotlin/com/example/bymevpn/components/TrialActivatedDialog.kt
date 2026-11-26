@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,15 +22,17 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 
 @Composable
 fun TrialActivatedDialog(
@@ -44,16 +47,18 @@ fun TrialActivatedDialog(
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(28.dp)),
             shape = RoundedCornerShape(28.dp),
-            color = Color(0xFF111D26),
+            color = AppColors.BgSurfaceElevated,
             shadowElevation = 24.dp
         ) {
             Column(
                 modifier = Modifier
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color(0xFF18302F), Color(0xFF111D26))
+                            listOf(AppColors.BgSurfaceAccent, AppColors.BgSurface)
                         )
                     )
                     .padding(horizontal = 24.dp, vertical = 26.dp),
@@ -65,7 +70,7 @@ fun TrialActivatedDialog(
                         val p = progress.value
                         val radius = size.minDimension * (0.24f + 0.22f * p)
                         drawCircle(
-                            color = Color(0xFF56D9B4).copy(alpha = (1f - p) * 0.62f),
+                            color = AppColors.SkyBlue.copy(alpha = (1f - p) * 0.62f),
                             radius = radius,
                             style = Stroke(width = 3.dp.toPx())
                         )
@@ -75,30 +80,27 @@ fun TrialActivatedDialog(
                             val cx = size.width / 2f + kotlin.math.cos(angle).toFloat() * rayRadius
                             val cy = size.height / 2f + kotlin.math.sin(angle).toFloat() * rayRadius
                             drawCircle(
-                                color = if (index % 2 == 0) Color(0xFF6EE7C2) else Color(0xFF65C9E5),
+                                color = if (index % 2 == 0) AppColors.BrandMintBright else AppColors.SkyBlue,
                                 radius = (2.5f + (1f - p) * 2f).dp.toPx(),
                                 center = androidx.compose.ui.geometry.Offset(cx, cy),
                                 alpha = (1f - p * 0.55f).coerceIn(0f, 1f)
                             )
                         }
                     }
-                    Text(
-                        text = "✓",
+                    Box(
                         modifier = Modifier
-                            .size(78.dp)
+                            .size(76.dp)
                             .scale(0.72f + 0.28f * progress.value)
-                            .background(Color(0xFF48D3AD), CircleShape)
-                            .padding(top = 5.dp),
-                        color = Color(0xFF071713),
-                        fontSize = 48.sp,
-                        lineHeight = 66.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
+                            .clip(CircleShape)
+                            .background(AppGradients.PrimaryButton),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CheckmarkIcon(color = AppColors.BrandMintDarkText, size = 36.dp)
+                    }
                 }
                 Text(
                     text = if (isRussian) "Пробный период активирован!" else "Your free trial is active!",
-                    color = Color(0xFFF2FAF8),
+                    color = AppColors.TextPrimary,
                     fontSize = 21.sp,
                     lineHeight = 27.sp,
                     fontWeight = FontWeight.Bold,
@@ -106,7 +108,7 @@ fun TrialActivatedDialog(
                 )
                 Text(
                     text = if (isRussian) "Вам доступны 3 дня ByMeVPN. Приятного пользования!" else "You have 3 days of ByMeVPN. Enjoy!",
-                    color = Color(0xFFAFC5C0),
+                    color = AppColors.TextSecondary,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
                     textAlign = TextAlign.Center
@@ -114,7 +116,7 @@ fun TrialActivatedDialog(
                 if (!serversReady) {
                     Text(
                         text = if (isRussian) "Список серверов обновляется — он появится на главном экране." else "Your server list is refreshing and will appear on Home.",
-                        color = Color(0xFF8FA9A5),
+                        color = AppColors.TextMuted,
                         fontSize = 12.sp,
                         lineHeight = 17.sp,
                         textAlign = TextAlign.Center

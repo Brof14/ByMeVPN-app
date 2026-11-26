@@ -4,41 +4,39 @@ import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
-import com.example.bymevpn.data.AppLanguage
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeCardGroup
@@ -46,15 +44,17 @@ import com.example.bymevpn.components.ByMeInfoBox
 import com.example.bymevpn.components.ByMeSettingRow
 import com.example.bymevpn.components.ByMeToggle
 import com.example.bymevpn.components.ByMeTopBar
+import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronRightIcon
 import com.example.bymevpn.components.GlobeIcon
 import com.example.bymevpn.components.PowerIcon
 import com.example.bymevpn.components.SettingsGearIcon
-import com.example.bymevpn.components.SparkleStarIcon
+import com.example.bymevpn.data.AppLanguage
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.settings.AppSettings
 import com.example.bymevpn.data.settings.SettingsRepository
 import com.example.bymevpn.theme.AppColors
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(
@@ -85,8 +85,8 @@ fun SettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(AppColors.CardBg)
-                    .border(1.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
+                    .background(AppColors.BgSurface)
+                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(24.dp))
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -113,10 +113,10 @@ fun SettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(15.dp))
-                            .background(if (selected) AppColors.BgSurfaceElevated else AppColors.InputBg)
+                            .background(if (selected) AppColors.BgSurfaceElevated else AppColors.BgInput)
                             .border(
                                 1.dp,
-                                if (selected) AppColors.BrandMint else AppColors.CardBorder,
+                                if (selected) AppColors.BrandMint else AppColors.BorderDefault,
                                 RoundedCornerShape(15.dp)
                             )
                             .clickable {
@@ -135,7 +135,9 @@ fun SettingsScreen(
                                 .border(1.5.dp, if (selected) AppColors.BrandMint else AppColors.TextMuted, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (selected) Text("✓", color = AppColors.DarkText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            if (selected) {
+                                CheckmarkIcon(color = AppColors.BrandMintDark, size = 14.dp)
+                            }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -176,42 +178,23 @@ fun SettingsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 26.dp)
+                    .padding(horizontal = 24.dp)
             ) {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
-                Text(
-                    text = if (isRu) "Приложение работает за вас." else "The app works for you.",
-                    color = AppColors.TextPrimary,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.5).sp
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Text(
-                    text = if (isRu) "Основные настройки уже подобраны. При желании их можно изменить." else "The defaults are ready to use. You can change them here.",
-                    color = Color(0xFF8EA4A2),
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-
-                // Section: Подключение
                 Text(
                     text = if (isRu) "Подключение" else "Connection",
-                    color = Color(0xFF8BA3A4),
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 10.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
                 )
 
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Переподключаться после обрыва" else "Reconnect after a drop",
                         subtitle = if (isRu) "Повторно подключать VPN после потери сети" else "Retry the VPN after network loss",
-                        icon = { PowerIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        icon = { PowerIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = settings.autoReconnect,
@@ -224,13 +207,17 @@ fun SettingsScreen(
                     ByMeSettingRow(
                         title = if (isRu) "Российские сайты напрямую" else "Russian sites directly",
                         subtitle = if (isRu) "Часть трафика идёт напрямую, минуя VPN" else "Some traffic bypasses the VPN and connects directly",
-                        icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        icon = { GlobeIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = bypassRuSites,
                                 onCheckedChange = { checked ->
                                     settingsRepo.setBypassRussianSites(checked)
-                                    Toast.makeText(context, if (isRu) "Изменение применится при следующем подключении" else "Applied next time you connect", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(
+                                        context,
+                                        if (isRu) "Изменение применится при следующем подключении" else "Applied next time you connect",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
                             )
                         },
@@ -240,15 +227,17 @@ fun SettingsScreen(
 
                 Text(
                     text = if (isRu) "Язык приложения" else "App language",
-                    color = Color(0xFF8BA3A4), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    color = AppColors.TextKicker,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
                 )
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Язык" else "Language",
                         subtitle = if (isRu) language.titleRu else language.titleEn,
-                        icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        icon = { GlobeIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = { showLanguage = true },
                         showBottomDivider = false
                     )
@@ -256,15 +245,17 @@ fun SettingsScreen(
 
                 Text(
                     text = if (isRu) "Дополнительно" else "Advanced",
-                    color = Color(0xFF8BA3A4), fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                    color = AppColors.TextKicker,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
                 )
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Расширенные настройки" else "Advanced settings",
-                        subtitle = if (isRu) "DNS, защита от утечек, уведомления о скорости" else "DNS, leak protection, speed in notifications",
-                        icon = { SettingsGearIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = { ChevronRightIcon(color = Color(0xFF71898A), size = 18.dp) },
+                        subtitle = if (isRu) "DNS, раздельное туннелирование, скорость в уведомлении" else "DNS, split tunneling, speed in notifications",
+                        icon = { SettingsGearIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = onNavigateToAdvancedSettings,
                         showBottomDivider = false
                     )

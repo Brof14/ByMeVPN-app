@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
@@ -40,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.example.bymevpn.R
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
 
 private val CustomEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
@@ -70,10 +72,54 @@ fun VpnPowerButton(
     )
 
     val ringColor by animateColorAsState(
-        targetValue = if (connected) AppColors.BrandMint else Color(0xFF4A5C6F),
+        targetValue = when {
+            connected -> AppColors.BrandMintBright
+            connecting -> AppColors.SkyBlue
+            else -> AppColors.BorderAccent
+        },
         animationSpec = tween(280),
         label = "vpn_power_ring"
     )
+
+    val ringBrush = remember(connected, connecting) {
+        if (connected || connecting) {
+            AppGradients.Shield
+        } else {
+            Brush.linearGradient(
+                listOf(
+                    Color(0xFF1F4278),
+                    Color(0xFF193563)
+                )
+            )
+        }
+    }
+
+    val haloBrush = remember(connected, connecting) {
+        if (connected) {
+            Brush.radialGradient(
+                colors = listOf(
+                    Color(0x3600D8FF),
+                    Color(0x2042F59B),
+                    Color.Transparent
+                )
+            )
+        } else if (connecting) {
+            Brush.radialGradient(
+                colors = listOf(
+                    Color(0x2E0077FF),
+                    Color(0x1600D8FF),
+                    Color.Transparent
+                )
+            )
+        } else {
+            Brush.radialGradient(
+                colors = listOf(
+                    Color(0x200077FF),
+                    Color.Transparent
+                )
+            )
+        }
+    }
 
     val connectingScale = if (connecting) {
         val transition = rememberInfiniteTransition(label = "vpn_connecting")
@@ -116,12 +162,16 @@ fun VpnPowerButton(
 
     Box(
         modifier = modifier
-            .sizeIn(maxWidth = 290.dp, maxHeight = 290.dp)
+            .sizeIn(maxWidth = 286.dp, maxHeight = 286.dp)
             .aspectRatio(1f)
             .fillMaxWidth()
             .clip(CircleShape)
-            .background(Color.Transparent)
-            .border(1.5.dp, ringColor.copy(alpha = 0.25f + 0.55f * progress), CircleShape)
+            .background(haloBrush)
+            .border(
+                width = if (connected || connecting) 2.dp else 1.5.dp,
+                brush = ringBrush,
+                shape = CircleShape
+            )
             .graphicsLayer {
                 scaleX = totalScale
                 scaleY = totalScale
@@ -151,7 +201,7 @@ fun VpnPowerButton(
                         scaleY = successRipple.value
                         alpha = successRippleAlpha.value
                     }
-                    .border(2.5.dp, AppColors.BrandMint, CircleShape)
+                    .border(2.5.dp, ringColor, CircleShape)
             )
         }
         Image(
@@ -160,16 +210,16 @@ fun VpnPowerButton(
             modifier = Modifier
                 .fillMaxSize(0.93f)
                 .graphicsLayer {
-                    alpha = 0.62f + 0.38f * progress
+                    alpha = 0.68f + 0.32f * progress
                     scaleX = 0.96f + 0.04f * progress
                     scaleY = 0.96f + 0.04f * progress
                 }
         )
         if (connecting) {
             CircularProgressIndicator(
-                modifier = Modifier.fillMaxSize(0.96f),
-                color = AppColors.BrandMint,
-                strokeWidth = 2.dp
+                modifier = Modifier.fillMaxSize(0.97f),
+                color = AppColors.SkyBlue,
+                strokeWidth = 2.5.dp
             )
         }
     }

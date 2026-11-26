@@ -19,9 +19,19 @@ class VpnConnectionErrorMapperTest {
         val paid = VpnConnectionErrorMapper.subscriptionRequiredMessage(
             ApiError("SUBSCRIPTION_REQUIRED", "subscription_required"),
             isRussian = false,
-            trialAvailable = false
+            trialAvailable = false,
+            externalCheckoutEnabled = true
         )
         assertTrue(paid?.contains("Choose a plan") == true)
+
+        val playNoCheckout = VpnConnectionErrorMapper.subscriptionRequiredMessage(
+            ApiError("SUBSCRIPTION_REQUIRED", "subscription_required"),
+            isRussian = false,
+            trialAvailable = false,
+            externalCheckoutEnabled = false
+        )
+        assertTrue(playNoCheckout?.contains("Account") == true)
+        assertTrue(playNoCheckout?.contains("plan", ignoreCase = true) == false)
 
         val refresh = VpnConnectionErrorMapper.subscriptionRequiredMessage(
             isRussian = true,

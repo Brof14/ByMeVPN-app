@@ -45,12 +45,13 @@ import com.example.bymevpn.components.ByMeCardGroup
 import com.example.bymevpn.components.ByMeSettingRow
 import com.example.bymevpn.components.ByMeToggle
 import com.example.bymevpn.components.ByMeTopBar
+import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronRightIcon
 import com.example.bymevpn.components.GlobeIcon
 import com.example.bymevpn.components.LockIcon
-import com.example.bymevpn.components.PowerIcon
 import com.example.bymevpn.components.ShieldSecurityIcon
 import com.example.bymevpn.components.SmartphoneIcon
+import com.example.bymevpn.components.SplitTunnelIcon
 import com.example.bymevpn.components.rememberByMeHaptics
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.settings.AppSettings
@@ -96,6 +97,7 @@ fun AdvancedSettingsScreen(
     onNavigateToHome: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToAccount: () -> Unit,
+    onNavigateToSplitTunneling: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -118,7 +120,7 @@ fun AdvancedSettingsScreen(
                 modifier = Modifier
                     .fillMaxWidth(0.92f)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(AppColors.BgSurfaceElevated)
+                    .background(AppColors.BgSurface)
                     .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(24.dp))
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -142,7 +144,7 @@ fun AdvancedSettingsScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(15.dp))
-                            .background(if (selected) AppColors.BgSurfaceAccent else AppColors.BgInput)
+                            .background(if (selected) AppColors.BgSurfaceElevated else AppColors.BgInput)
                             .border(
                                 1.dp,
                                 if (selected) AppColors.BrandMint else AppColors.BorderDefault,
@@ -172,7 +174,7 @@ fun AdvancedSettingsScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             if (selected) {
-                                Text("✓", color = AppColors.BrandMintDarkText, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                CheckmarkIcon(color = AppColors.BrandMintDark, size = 14.dp)
                             }
                         }
                         Spacer(modifier = Modifier.width(12.dp))
@@ -211,21 +213,13 @@ fun AdvancedSettingsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 26.dp)
+                    .padding(horizontal = 24.dp)
             ) {
-                Text(
-                    text = if (isRu) "Тонкая настройка сетевого туннеля, протоколов и безопасности."
-                    else "Fine-tune network tunneling, protocols, and security.",
-                    color = AppColors.TextSecondary,
-                    fontSize = 12.5.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 20.dp)
-                )
+                Spacer(modifier = Modifier.height(6.dp))
 
-                // Section: Сеть и DNS
                 Text(
-                    text = if (isRu) "Сеть и DNS" else "Network & DNS",
-                    color = AppColors.TextMuted,
+                    text = if (isRu) "Сеть и маршрутизация" else "Network & Routing",
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
@@ -236,7 +230,7 @@ fun AdvancedSettingsScreen(
                     ByMeSettingRow(
                         title = if (isRu) "DNS-сервер" else "DNS Provider",
                         subtitle = if (isRu) currentDns?.nameRu ?: settings.dnsMode else currentDns?.nameEn ?: settings.dnsMode,
-                        icon = { GlobeIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        icon = { GlobeIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
                             haptics.tap()
@@ -244,19 +238,23 @@ fun AdvancedSettingsScreen(
                         },
                         showBottomDivider = true
                     )
+                    val excludedCount = settings.excludedApps.size
+                    val splitSubtitle = when {
+                        settings.splitTunnelingEnabled && excludedCount > 0 ->
+                            if (isRu) "Включено · исключено $excludedCount" else "Enabled · $excludedCount excluded"
+                        settings.splitTunnelingEnabled ->
+                            if (isRu) "Включено · выберите приложения" else "Enabled · choose apps"
+                        else ->
+                            if (isRu) "Исключить выбранные приложения из VPN" else "Bypass VPN for selected apps"
+                    }
                     ByMeSettingRow(
-                        title = if (isRu) "Автопереподключение" else "Auto-reconnect",
-                        subtitle = if (isRu) "Восстанавливать туннель при смене Wi-Fi или сотовой сети"
-                        else "Restore tunnel when switching Wi-Fi or cellular",
-                        icon = { PowerIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
-                        trailing = {
-                            ByMeToggle(
-                                checked = settings.autoReconnect,
-                                onCheckedChange = { checked ->
-                                    haptics.selection()
-                                    scope.launch { settingsRepo.updateAutoReconnect(checked) }
-                                }
-                            )
+                        title = if (isRu) "Раздельное туннелирование" else "Split tunneling",
+                        subtitle = splitSubtitle,
+                        icon = { SplitTunnelIcon(color = AppColors.SkyBlue, size = 20.dp) },
+                        trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
+                        onClick = {
+                            haptics.tap()
+                            onNavigateToSplitTunneling()
                         },
                         showBottomDivider = false
                     )
@@ -264,10 +262,9 @@ fun AdvancedSettingsScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Section: Уведомления и интерфейс
                 Text(
                     text = if (isRu) "Уведомления и скорость" else "Notifications & Speed",
-                    color = AppColors.TextMuted,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
@@ -275,10 +272,10 @@ fun AdvancedSettingsScreen(
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = if (isRu) "Скорость в строке состояния" else "Speed in notification",
-                        subtitle = if (isRu) "Отображать текущую скорость в шторке уведомлений"
-                        else "Show live upload/download speed in notification shade",
-                        icon = { SmartphoneIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        title = if (isRu) "Скорость в шторке" else "Speed in notification",
+                        subtitle = if (isRu) "Показывать скорость загрузки и отдачи в уведомлении"
+                        else "Show live download and upload speed in notification",
+                        icon = { SmartphoneIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = settings.showSpeedInNotification,
@@ -292,9 +289,9 @@ fun AdvancedSettingsScreen(
                     )
                     ByMeSettingRow(
                         title = if (isRu) "Уведомления о статусе" else "Status notifications",
-                        subtitle = if (isRu) "Оповещать при успешном подключении и обрывах"
-                        else "Notify on connection success or network loss",
-                        icon = { ShieldSecurityIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        subtitle = if (isRu) "Обновлять статус и скорость в системном уведомлении"
+                        else "Show live status updates in the system notification",
+                        icon = { ShieldSecurityIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
                                 checked = settings.connectionNotifications,
@@ -310,10 +307,9 @@ fun AdvancedSettingsScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                // Section: Системная защита
                 Text(
                     text = if (isRu) "Защита системы" else "System protection",
-                    color = AppColors.TextMuted,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
@@ -322,9 +318,9 @@ fun AdvancedSettingsScreen(
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Постоянный VPN и Kill Switch" else "Always-on VPN & Kill Switch",
-                        subtitle = if (isRu) "Настраивается в параметрах Android: «Постоянный VPN» и «Блокировать соединения без VPN»"
-                        else "Configured in Android settings: Always-on VPN and Block connections without VPN",
-                        icon = { LockIcon(color = Color(0xFF7AC9CB), size = 20.dp) },
+                        subtitle = if (isRu) "Открыть системные параметры Android для блокировки трафика без VPN"
+                        else "Open Android VPN settings for Always-on VPN and leak protection",
+                        icon = { LockIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
                             haptics.tap()

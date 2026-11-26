@@ -46,6 +46,7 @@ import com.example.bymevpn.components.SmartphoneIcon
 import com.example.bymevpn.data.AccountRepository
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
@@ -112,7 +113,7 @@ fun DevicesScreen(
                     )
                     Text(
                         text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
-                        color = Color(0xFF80D3C6),
+                        color = AppColors.BrandMint,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
@@ -129,7 +130,7 @@ fun DevicesScreen(
                             if (isRu) "Сейчас отображается $effectiveConnected устройств." else "$effectiveConnected devices are shown now."
                         }
                     } else if (isRu) "Подключено устройств · максимум $effectiveMax" else "Devices connected · up to $effectiveMax",
-                    color = Color(0xFF92A9A5),
+                    color = AppColors.TextSecondary,
                     fontSize = 13.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
                 )
@@ -138,8 +139,8 @@ fun DevicesScreen(
                     androidx.compose.material3.LinearProgressIndicator(
                         progress = { (effectiveConnected.toFloat() / effectiveMax).coerceIn(0f, 1f) },
                         modifier = Modifier.fillMaxWidth().height(4.dp),
-                        color = AppColors.BrandMint,
-                        trackColor = AppColors.CardBorder
+                        color = AppColors.SkyBlue,
+                        trackColor = AppColors.BorderDefault
                     )
                     Spacer(Modifier.height(20.dp))
                 }
@@ -149,8 +150,8 @@ fun DevicesScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(17.dp))
-                            .background(Color(0xFF142638))
-                            .border(1.dp, Color(0xFF294453), RoundedCornerShape(17.dp))
+                            .background(AppColors.BgSurface)
+                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                             .padding(16.dp)
                     ) {
                         Text(
@@ -162,7 +163,7 @@ fun DevicesScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = if (isRu) "Мы не меняли лимит и не удаляли устройства. Повторите загрузку." else "Your device limit and registered devices were not changed. Try loading again.",
-                            color = Color(0xFF92A9A5),
+                            color = AppColors.TextSecondary,
                             fontSize = 12.sp
                         )
                         Spacer(Modifier.height(14.dp))
@@ -200,8 +201,8 @@ fun DevicesScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(17.dp))
-                        .background(Color(0xFF142638))
-                        .border(1.dp, Color(0xFF294453), RoundedCornerShape(17.dp))
+                        .background(AppColors.BgSurface)
+                        .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(17.dp))
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -210,22 +211,22 @@ fun DevicesScreen(
                         modifier = Modifier
                             .size(37.dp)
                             .clip(RoundedCornerShape(11.dp))
-                            .background(Color(0xFF182A3B)),
+                            .background(AppColors.BgSurfaceAccent),
                         contentAlignment = Alignment.Center
                     ) {
-                        SmartphoneIcon(color = Color(0xFF7AC9CB), size = 21.dp)
+                        SmartphoneIcon(color = AppColors.SkyBlue, size = 21.dp)
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = localModel,
-                            color = Color(0xFFEAF1EF),
+                            color = AppColors.TextPrimary,
                             fontSize = 14.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "$localOs · " + (if (isRu) "это устройство" else "this device"),
-                            color = Color(0xFF88A09F),
+                            color = AppColors.TextSecondary,
                             fontSize = 11.5.sp
                         )
                         Spacer(modifier = Modifier.height(6.dp))
@@ -237,7 +238,7 @@ fun DevicesScreen(
                                 modifier = Modifier
                                     .size(6.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(Color(0xFF69D3BC))
+                                    .background(AppColors.BrandMintBright)
                             )
                             Text(
                                 text = if (devicesList.any { it.isCurrent }) {
@@ -245,7 +246,7 @@ fun DevicesScreen(
                                 } else {
                                     if (isRu) "Ещё не подтверждено сервером" else "Not yet confirmed by the server"
                                 },
-                                color = Color(0xFF8CDECA),
+                                color = AppColors.BrandMint,
                                 fontSize = 10.5.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -257,11 +258,10 @@ fun DevicesScreen(
 
                 if (otherDevices.isNotEmpty()) {
                     Text(
-                        text = if (isRu) "ДРУГИЕ УСТРОЙСТВА" else "OTHER DEVICES",
-                        color = Color(0xFF8BA3A4),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp,
+                        text = if (isRu) "Другие устройства" else "Other devices",
+                        color = AppColors.TextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
                     )
                 }
@@ -273,8 +273,8 @@ fun DevicesScreen(
                                 .fillMaxWidth()
                                 .height(89.dp)
                                 .clip(RoundedCornerShape(17.dp))
-                                .background(Color(0xFF142638))
-                                .border(1.dp, Color(0xFF294453), RoundedCornerShape(17.dp))
+                                .background(AppColors.BgSurface)
+                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                                 .padding(horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -283,42 +283,48 @@ fun DevicesScreen(
                                 modifier = Modifier
                                     .size(37.dp)
                                     .clip(RoundedCornerShape(11.dp))
-                                    .background(Color(0xFF182A3B)),
+                                    .background(AppColors.BgSurfaceAccent),
                                 contentAlignment = Alignment.Center
                             ) {
-                                SmartphoneIcon(color = Color(0xFF7AC9CB), size = 21.dp)
+                                SmartphoneIcon(color = AppColors.SkyBlue, size = 21.dp)
                             }
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = dev.deviceModel,
-                                    color = Color(0xFFEAF1EF),
+                                    color = AppColors.TextPrimary,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
                                     text = "${dev.platform} · ${dev.lastActive}",
-                                    color = Color(0xFF88A09F),
+                                    color = AppColors.TextSecondary,
                                     fontSize = 11.5.sp
                                 )
                             }
-                            Text(
-                                text = if (isRu) "Удалить" else "Remove",
-                                color = Color(0xFFFF8A8A),
-                                fontSize = 11.sp,
+                            Box(
                                 modifier = Modifier
                                     .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .clickable { pendingRemoveId = dev.id }
-                                    .padding(horizontal = 8.dp)
-                            )
+                                    .padding(horizontal = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (isRu) "Удалить" else "Remove",
+                                    color = AppColors.StatusError,
+                                    fontSize = 11.5.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                 } else {
                     Text(
                         text = if (isRu) "Пока отображается только это устройство." else "Only this device is shown for now.",
-                        color = Color(0xFF8AA1A1),
+                        color = AppColors.TextSecondary,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(bottom = 6.dp)
                     )
@@ -326,24 +332,24 @@ fun DevicesScreen(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
-                if (effectiveMax != null && effectiveMax in setOf(2, 5) && subscription?.isUsable == true) {
+                if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED && effectiveMax != null && effectiveMax in setOf(2, 5) && subscription?.isUsable == true) {
                     val isFull = effectiveConnected >= effectiveMax
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(17.dp))
-                            .background(Color(0xFF142538))
-                            .border(1.dp, Color(0xFF294455), RoundedCornerShape(17.dp))
+                            .background(AppColors.BgSurface)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(17.dp))
                             .padding(18.dp)
                     ) {
                         Text(
                             text = if (isFull) {
-                                if (isRu) "ЛИМИТ УСТРОЙСТВ ДОСТИГНУТ" else "DEVICE LIMIT REACHED"
+                                if (isRu) "Лимит устройств достигнут" else "Device limit reached"
                             } else {
-                                if (isRu) "НУЖНО БОЛЬШЕ УСТРОЙСТВ?" else "NEED MORE DEVICES?"
+                                if (isRu) "Нужно больше устройств?" else "Need more devices?"
                             },
                             color = AppColors.BrandMint,
-                            fontSize = 12.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(Modifier.height(8.dp))
@@ -353,7 +359,7 @@ fun DevicesScreen(
                             } else {
                                 "Upgrades to 5 or 10 devices are prorated over your remaining subscription period. Choose a limit and review the final price in the Telegram bot."
                             },
-                            color = Color(0xFF9DB6AC),
+                            color = AppColors.TextSecondary,
                             fontSize = 13.sp,
                             lineHeight = 19.sp
                         )
@@ -383,27 +389,26 @@ fun DevicesScreen(
                     Spacer(Modifier.height(14.dp))
                 }
 
-                // Info Box "ДОБАВИТЬ УСТРОЙСТВО"
+                // Info Box
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(17.dp))
-                        .background(Color(0xFF142538))
-                        .border(1.dp, Color(0xFF294455), RoundedCornerShape(17.dp))
+                        .background(AppColors.BgSurface)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                         .padding(18.dp)
                 ) {
                     Text(
-                        text = if (isRu) "ДОБАВИТЬ УСТРОЙСТВО" else "ADD A DEVICE",
-                        color = Color(0xFF8FBBCA),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.2.sp
+                        text = if (isRu) "Добавить устройство" else "Add a device",
+                        color = AppColors.SkyBlue,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = if (isRu) "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь после регистрации на сервере."
                             else "Sign in to ByMeVPN on another device with the same account. It will appear here once registered with the server.",
-                        color = Color(0xFF9DB6AC),
+                        color = AppColors.TextSecondary,
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp
                     )
@@ -425,6 +430,9 @@ fun DevicesScreen(
         if (targetId != null) {
             AlertDialog(
                 onDismissRequest = { if (!isRemoving) pendingRemoveId = null },
+                containerColor = AppColors.BgSurfaceElevated,
+                titleContentColor = AppColors.TextPrimary,
+                textContentColor = AppColors.TextSecondary,
                 title = { Text(if (isRu) "Удалить устройство?" else "Remove device?") },
                 text = { Text(if (isRu) "Устройство потеряет доступ к VPN. Продолжить?" else "This device will lose VPN access. Continue?") },
                 confirmButton = {
@@ -442,10 +450,12 @@ fun DevicesScreen(
                                 Toast.LENGTH_LONG
                             ).show()
                         }
-                    }) { Text(if (isRu) "Удалить" else "Remove", color = Color(0xFFFF7373)) }
+                    }) { Text(if (isRu) "Удалить" else "Remove", color = AppColors.StatusError) }
                 },
                 dismissButton = {
-                    TextButton(enabled = !isRemoving, onClick = { pendingRemoveId = null }) { Text(if (isRu) "Отмена" else "Cancel") }
+                    TextButton(enabled = !isRemoving, onClick = { pendingRemoveId = null }) {
+                        Text(if (isRu) "Отмена" else "Cancel", color = AppColors.TextSecondary)
+                    }
                 }
             )
         }

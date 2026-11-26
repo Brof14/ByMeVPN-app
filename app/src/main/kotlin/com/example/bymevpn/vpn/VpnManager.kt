@@ -1064,11 +1064,14 @@ class VpnManager private constructor(private val context: Context) {
 
     private fun startTimer() {
         timerJob?.cancel()
-        _connectedSeconds.value = 0L
+        val startedAtMs = ByMeVpnService.tunnelConnectedElapsedRealtimeMs
+            .takeIf { it > 0L }
+            ?: android.os.SystemClock.elapsedRealtime()
+        _connectedSeconds.value = ((android.os.SystemClock.elapsedRealtime() - startedAtMs) / 1000L).coerceAtLeast(0L)
         timerJob = scope.launch {
             while (isActive && _state.value == VpnConnectionState.CONNECTED) {
                 delay(1000)
-                _connectedSeconds.value += 1
+                _connectedSeconds.value = ((android.os.SystemClock.elapsedRealtime() - startedAtMs) / 1000L).coerceAtLeast(0L)
             }
         }
     }

@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.PaywallSheet
 import com.example.bymevpn.components.ShieldLogo
@@ -60,6 +61,7 @@ import com.example.bymevpn.data.ClipboardKeyDetector
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
@@ -108,10 +110,12 @@ fun WelcomeScreen(
     if (isTelegramLoading) {
         AlertDialog(
             onDismissRequest = {},
-            containerColor = AppColors.BgCanvas,
+            containerColor = AppColors.BgSurfaceElevated,
+            titleContentColor = AppColors.TextPrimary,
+            textContentColor = AppColors.TextSecondary,
             title = { Text(if (isRu) "Вход через Telegram" else "Telegram sign-in", color = AppColors.TextPrimary) },
-            text = { Column { CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(24.dp)); Spacer(modifier = Modifier.height(12.dp)); Text(if (isRu) "Подтвердите вход в Telegram. После возвращения в приложение мы проверим подтверждение." else "Confirm sign-in in Telegram. We will check it when you return to the app.", color = AppColors.TextPrimary) } },
-            confirmButton = { TextButton(onClick = { telegramLoginJob?.cancel(); isTelegramLoading = false; telegramStatusText = null }) { Text(if (isRu) "Отмена" else "Cancel", color = AppColors.BrandGreen) } }
+            text = { Column { CircularProgressIndicator(color = AppColors.SkyBlue, modifier = Modifier.size(24.dp)); Spacer(modifier = Modifier.height(12.dp)); Text(if (isRu) "Подтвердите вход в Telegram. После возвращения в приложение мы проверим подтверждение." else "Confirm sign-in in Telegram. We will check it when you return to the app.", color = AppColors.TextSecondary) } },
+            confirmButton = { TextButton(onClick = { telegramLoginJob?.cancel(); isTelegramLoading = false; telegramStatusText = null }) { Text(if (isRu) "Отмена" else "Cancel", color = AppColors.SkyBlue) } }
         )
     }
 
@@ -145,10 +149,10 @@ fun WelcomeScreen(
 
                 Text(
                     text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = Color.White)) {
+                        withStyle(SpanStyle(color = AppColors.TextPrimary)) {
                             append("ByMe")
                         }
-                        withStyle(SpanStyle(color = AppColors.BrandGreen)) {
+                        withStyle(SpanStyle(color = AppColors.SkyBlue)) {
                             append("VPN")
                         }
                     },
@@ -267,14 +271,14 @@ fun WelcomeScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                            .background(Color(0xFF0C161C))
-                            .border(1.2.dp, AppColors.ElectricBlue.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                            .background(AppColors.BgSurfaceElevated)
+                            .border(1.2.dp, AppColors.BorderTelegram, RoundedCornerShape(16.dp))
                             .padding(14.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                     Text(
                         text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
-                        color = Color.White,
+                        color = AppColors.TextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
@@ -297,11 +301,7 @@ fun WelcomeScreen(
                             .fillMaxWidth()
                             .height(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
-                                )
-                            )
+                            .background(AppGradients.PrimaryButton)
                             .clickable(enabled = !isTelegramLoading) {
                                 isTelegramLoading = true
                                 authError = null
@@ -414,14 +414,14 @@ fun WelcomeScreen(
                                     subInputUrl = it
                                     subError = null
                                 },
-                                textStyle = TextStyle(color = Color.White, fontSize = 12.5.sp),
-                                cursorBrush = SolidColor(AppColors.BrandGreen),
+                                textStyle = TextStyle(color = AppColors.TextPrimary, fontSize = 12.5.sp),
+                                cursorBrush = SolidColor(AppColors.SkyBlue),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(60.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFF070B0E))
-                                    .border(1.dp, if (subError != null) AppColors.StatusError else AppColors.InputBorder, RoundedCornerShape(10.dp))
+                                    .background(AppColors.BgInput)
+                                    .border(1.dp, if (subError != null) AppColors.StatusError else AppColors.BorderInput, RoundedCornerShape(10.dp))
                                     .padding(8.dp),
                                 decorationBox = { innerTextField ->
                                     if (subInputUrl.isEmpty()) {
@@ -452,7 +452,7 @@ fun WelcomeScreen(
                                     .fillMaxWidth()
                                     .height(42.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(AppColors.BrandGreen)
+                                    .background(AppGradients.PrimaryButton)
                                     .clickable(enabled = !isSubLoading && subInputUrl.isNotBlank()) {
                                         isSubLoading = true
                                         subError = null
@@ -471,11 +471,11 @@ fun WelcomeScreen(
                                 contentAlignment = Alignment.Center
                             ) {
                                 if (isSubLoading) {
-                                    CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                 } else {
                                     Text(
                                         text = if (isRu) "Активировать подписку" else "Activate Key",
-                                        color = AppColors.DarkText,
+                                        color = AppColors.BrandMintDarkText,
                                         fontSize = 13.5.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -504,7 +504,7 @@ fun WelcomeScreen(
                     )
                     Text(
                         text = if (isRu) "Зарегистрироваться" else "Sign Up",
-                        color = AppColors.BrandGreen,
+                        color = AppColors.SkyBlue,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -561,7 +561,7 @@ fun WelcomeScreen(
         }
     }
 
-    if (showPaywall) {
+    if (showPaywall && BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
         PaywallSheet(
             onDismissRequest = {
                 showPaywall = false

@@ -168,14 +168,23 @@ object AppUpdateManager {
 
         val installed = getPackageInfo(packageManager, context.packageName, archive = false)
             ?: error("Could not verify the installed app")
-        val archiveSigners = (archive.signingInfo?.apkContentsSigners ?: archive.signatures.orEmpty()).toSet()
-        val installedSigners = (installed.signingInfo?.apkContentsSigners ?: installed.signatures.orEmpty()).toSet()
+        val archiveSigners = extractSigners(archive)
+        val installedSigners = extractSigners(installed)
         require(archiveSigners.isNotEmpty() && archiveSigners == installedSigners) {
             "Update signature does not match this installation"
         }
         val archiveVersionCode = if (Build.VERSION.SDK_INT >= 28) archive.longVersionCode else archive.versionCode.toLong()
         val installedVersionCode = if (Build.VERSION.SDK_INT >= 28) installed.longVersionCode else installed.versionCode.toLong()
         require(archiveVersionCode > installedVersionCode) { "Update version is not newer" }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun extractSigners(info: PackageInfo): Set<android.content.pm.Signature> {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            info.signingInfo?.apkContentsSigners.orEmpty().toSet()
+        } else {
+            info.signatures.orEmpty().toSet()
+        }
     }
 
     @Suppress("DEPRECATION")

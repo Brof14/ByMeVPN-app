@@ -113,19 +113,12 @@ class SettingsRepository(private val context: Context) {
     }
 
     val bypassRussianSites: Flow<Boolean> = settingsFlow.map { it.bypassRussianTraffic }
-    val batteryOptimizationDismissed: Flow<Boolean> = settingsFlow.map { it.autoReconnect }
     val killSwitchEnabled: Flow<Boolean> = settingsFlow.map { it.killSwitch }
     val dnsMode: Flow<String> = settingsFlow.map { it.dnsMode }
 
     fun setBypassRussianSites(enabled: Boolean) {
         repositoryScope.launch {
             updateBypassRussianTraffic(enabled)
-        }
-    }
-
-    fun setBatteryOptimizationDismissed(enabled: Boolean) {
-        repositoryScope.launch {
-            updateAutoReconnect(enabled)
         }
     }
 

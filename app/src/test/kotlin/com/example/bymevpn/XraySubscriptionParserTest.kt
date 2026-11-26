@@ -112,4 +112,19 @@ class XraySubscriptionParserTest {
         assertEquals(5242880L, result.downloadBytes)
         assertEquals(1735689600L, result.expireTimestampSec)
     }
+
+    @Test
+    fun decodesUnpaddedAndUrlSafeBase64Subscriptions() {
+        val link = "vless://11111111-2222-3333-4444-555555555555@example.org:443?security=tls&pbk=a_b-c#DE%20Frankfurt"
+        val unpaddedStd = Base64.getEncoder().withoutPadding().encodeToString(link.toByteArray())
+        val unpaddedUrlSafe = Base64.getUrlEncoder().withoutPadding().encodeToString(link.toByteArray())
+
+        val parsedStd = XraySubscriptionParser.parse(unpaddedStd)
+        val parsedUrl = XraySubscriptionParser.parse(unpaddedUrlSafe)
+
+        assertEquals(1, parsedStd.servers.size)
+        assertEquals(1, parsedUrl.servers.size)
+        assertEquals("example.org", parsedStd.configs.values.single().server)
+        assertEquals("example.org", parsedUrl.configs.values.single().server)
+    }
 }

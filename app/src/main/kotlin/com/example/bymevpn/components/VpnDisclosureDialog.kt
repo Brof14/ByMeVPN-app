@@ -36,8 +36,8 @@ fun VpnDisclosureDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(AppColors.CardBg, RoundedCornerShape(18.dp))
-                .border(1.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
+                .background(AppColors.BgSurfaceElevated, RoundedCornerShape(20.dp))
+                .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
                 .padding(22.dp)
         ) {
             Text(
@@ -59,7 +59,8 @@ fun VpnDisclosureDialog(
             Spacer(Modifier.height(12.dp))
             Text(
                 if (isRussian) "Политика конфиденциальности" else "Privacy policy",
-                color = AppColors.BrandMint,
+                color = AppColors.SkyBlue,
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.clickable(onClick = onOpenPrivacyPolicy),
                 fontSize = 13.sp
             )

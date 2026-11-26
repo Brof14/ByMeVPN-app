@@ -38,8 +38,10 @@ import com.example.bymevpn.screens.RenewalScreen
 import com.example.bymevpn.screens.SettingsScreen
 import com.example.bymevpn.screens.SignInScreen
 import com.example.bymevpn.screens.SignUpScreen
+import com.example.bymevpn.screens.SplitTunnelingScreen
 import com.example.bymevpn.screens.SupportScreen
 import com.example.bymevpn.screens.TrialScreen
+import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.ByMeVPNTheme
 import com.example.bymevpn.vpn.VpnManager
 import kotlinx.coroutines.Dispatchers
@@ -64,6 +66,7 @@ private object AppRoute {
     const val Home = "home"
     const val Settings = "settings"
     const val AdvancedSettings = "advanced-settings"
+    const val SplitTunneling = "split-tunneling"
     const val Account = "account"
     const val Devices = "devices"
     const val Renewal = "renewal"
@@ -116,12 +119,17 @@ class MainActivity : ComponentActivity() {
             startTelegramLoginFromConnection()
             return
         }
-        if (data.scheme == "bymevpn" && data.host == "payment") {
+        if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED && data.scheme == "bymevpn" && data.host == "payment") {
             val planCode = data.getQueryParameter("plan") ?: "1m"
             val days = data.getQueryParameter("days")?.toIntOrNull() ?: 30
             lifecycleScope.launch {
                 val result = com.example.bymevpn.data.payment.YooKassaPaymentHandler.confirmPayment(applicationContext, planCode, days)
-                val message = if (result.isSuccess) "Оплата подтверждена, подписка активирована" else "Оплата ещё не подтверждена сервером"
+                val isRu = com.example.bymevpn.data.LocaleManager.isRussian()
+                val message = if (result.isSuccess) {
+                    if (isRu) "Оплата подтверждена, подписка активирована" else "Payment confirmed, subscription activated"
+                } else {
+                    if (isRu) "Оплата ещё не подтверждена сервером" else "Payment is not confirmed by the server yet"
+                }
                 Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
             }
             return
@@ -269,8 +277,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             AppUpdateManager.checkForUpdates(applicationContext)
         }
-        lifecycleScope.launch(Dispatchers.IO) {
-            com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(applicationContext)
+        if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                com.example.bymevpn.data.payment.YooKassaPaymentHandler.checkAndCompletePendingPayment(applicationContext)
+            }
         }
         lifecycleScope.launch(Dispatchers.IO) {
             val appContext = applicationContext
@@ -306,6 +316,9 @@ private fun ExternalSubscriptionImportDialog(
     val isRu = com.example.bymevpn.data.LocaleManager.isRussian()
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = AppColors.BgSurfaceElevated,
+        titleContentColor = AppColors.TextPrimary,
+        textContentColor = AppColors.TextSecondary,
         title = {
             Text(if (isRu) "Импортировать конфигурацию?" else "Import this configuration?")
         },
@@ -322,12 +335,12 @@ private fun ExternalSubscriptionImportDialog(
         },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(if (isRu) "Импортировать" else "Import")
+                Text(if (isRu) "Импортировать" else "Import", color = AppColors.BrandMint)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text(if (isRu) "Отмена" else "Cancel")
+                Text(if (isRu) "Отмена" else "Cancel", color = AppColors.TextSecondary)
             }
         }
     )
@@ -429,6 +442,15 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
         }
         composable(AppRoute.AdvancedSettings) {
                 AdvancedSettingsScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onNavigateToHome = { navigateTab(AppRoute.Home) },
+                    onNavigateToSettings = { navigateTab(AppRoute.Settings) },
+                    onNavigateToAccount = { navigateTab(AppRoute.Account) },
+                    onNavigateToSplitTunneling = { navigate(AppRoute.SplitTunneling) }
+                )
+        }
+        composable(AppRoute.SplitTunneling) {
+                SplitTunnelingScreen(
                     onBackClick = { navController.popBackStack() },
                     onNavigateToHome = { navigateTab(AppRoute.Home) },
                     onNavigateToSettings = { navigateTab(AppRoute.Settings) },

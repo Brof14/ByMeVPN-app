@@ -35,16 +35,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.width
 import com.example.bymevpn.components.ByMeHaptics
 import com.example.bymevpn.components.ByMePrimaryButton
 import com.example.bymevpn.BuildConfig
 import com.example.bymevpn.components.CheckmarkIcon
 import com.example.bymevpn.components.ChevronLeftIcon
+import com.example.bymevpn.components.CreditCardIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
 import com.example.bymevpn.data.payment.roundedMonthlyPrice
@@ -65,9 +68,9 @@ enum class PlanDuration(
     val totalDays: Int
 ) {
     Month1("1 месяц", "за месяц", 1, 30),
-    Month4("3 + 1 месяц", "· 🎁 1 мес. в подарок", 4, 120),
-    Month8("6 + 2 месяца", "· 🎁 2 мес. в подарок", 8, 240),
-    Month15("12 + 3 месяца", "· 🎁 3 мес. в подарок", 15, 450)
+    Month4("3 + 1 месяц", "· +1 мес. в подарок", 4, 120),
+    Month8("6 + 2 месяца", "· +2 мес. в подарок", 8, 240),
+    Month15("12 + 3 месяца", "· +3 мес. в подарок", 15, 450)
 }
 
 private fun PlanDuration.apiCode(): String = when (this) {
@@ -120,6 +123,12 @@ fun PricingScreen(
     var isPaying by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDeviceCount, refreshSequence) {
+        if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+            serverPlans = emptyList()
+            displayPlans = emptyList()
+            plansLoading = false
+            return@LaunchedEffect
+        }
         val api = ByMeApiClient(context)
         serverPlans = emptyList()
         displayPlans = api.getCachedPlans(selectedDeviceCount)
@@ -177,17 +186,23 @@ fun PricingScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(37.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.TopBarBackBg)
-                        .border(1.dp, AppColors.TopBarBackBorder, RoundedCornerShape(14.dp))
+                        .size(48.dp)
                         .clickable(onClick = {
                             ByMeHaptics.tap(context)
                             onBackClick()
                         }),
                     contentAlignment = Alignment.Center
                 ) {
-                    ChevronLeftIcon(color = Color(0xFFC5D8D5), size = 18.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(13.dp))
+                            .background(AppColors.TopBarBackBg)
+                            .border(1.dp, AppColors.TopBarBackBorder, RoundedCornerShape(13.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ChevronLeftIcon(color = AppColors.TextSoft, size = 18.dp)
+                    }
                 }
 
                 Column {
@@ -201,7 +216,7 @@ fun PricingScreen(
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
                         text = t("Одна подписка для всех ваших устройств", "One plan for all your devices"),
-                        color = Color(0xFF8FA3A4),
+                        color = AppColors.TextSecondary,
                         fontSize = 12.sp
                     )
                 }
@@ -209,6 +224,18 @@ fun PricingScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                Text(
+                    text = t(
+                        "Управление тарифами недоступно в этой версии приложения.",
+                        "Plan selection is not available in this version of the app."
+                    ),
+                    color = AppColors.TextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                    modifier = Modifier.padding(horizontal = 26.dp, vertical = 12.dp)
+                )
+            } else {
             // Main Content
             Column(
                 modifier = Modifier
@@ -216,11 +243,10 @@ fun PricingScreen(
                     .padding(horizontal = 26.dp)
             ) {
                 Text(
-                    text = t("СКОЛЬКО УСТРОЙСТВ?", "HOW MANY DEVICES?"),
-                    color = AppColors.TextKicker,
+                    text = t("Количество устройств", "Number of devices"),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.2.sp
+                    fontWeight = FontWeight.SemiBold
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -231,8 +257,8 @@ fun PricingScreen(
                         .fillMaxWidth()
                         .heightIn(min = 51.dp)
                         .clip(RoundedCornerShape(15.dp))
-                        .background(Color(0xFF142022))
-                        .border(1.dp, Color(0xFF29403F), RoundedCornerShape(15.dp))
+                        .background(AppColors.BgSurface)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(15.dp))
                         .padding(5.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -296,11 +322,10 @@ fun PricingScreen(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 Text(
-                    text = t("СРОК ПОДПИСКИ", "SUBSCRIPTION LENGTH"),
-                    color = AppColors.TextKicker,
+                    text = t("Срок подписки", "Subscription length"),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.2.sp
+                    fontWeight = FontWeight.SemiBold
                 )
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -325,16 +350,16 @@ fun PricingScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 95.dp)
+                                .heightIn(min = 92.dp)
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(
-                                    if (isSelected && isPopular) Color(0xFF152A26)
-                                    else if (isSelected) Color(0xFF132221)
-                                    else Color(0xFF111C1D)
+                                    if (isSelected && isPopular) AppColors.BgSurfaceElevated
+                                    else if (isSelected) AppColors.BgSurfaceAccent
+                                    else AppColors.BgSurface
                                 )
                                 .border(
                                     width = 1.dp,
-                                    color = if (isSelected) Color(0xFF69D3BC) else Color(0xFF283C3E),
+                                    color = if (isSelected) AppColors.BorderActiveGreen else AppColors.BorderDefault,
                                     shape = RoundedCornerShape(18.dp)
                                 )
                                 .clickable {
@@ -354,8 +379,8 @@ fun PricingScreen(
                                 )
                                 Spacer(modifier = Modifier.height(6.dp))
                                 Text(
-                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month · 🎁 ${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus month(s)"),
-                                    color = Color(0xFF8FA3A4),
+                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month · +${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus month(s)"),
+                                    color = AppColors.TextSecondary,
                                     fontSize = 12.5.sp
                                 )
                             }
@@ -376,16 +401,16 @@ fun PricingScreen(
                                     modifier = Modifier
                                         .size(20.dp)
                                         .clip(CircleShape)
-                                        .background(if (isSelected) Color(0xFF78D3C9) else Color.Transparent)
+                                        .background(if (isSelected) AppColors.BrandMint else Color.Transparent)
                                         .border(
                                             1.dp,
-                                            if (isSelected) Color(0xFF78D3C9) else Color(0xFF607A77),
+                                            if (isSelected) AppColors.BrandMint else AppColors.TextMuted,
                                             CircleShape
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     if (isSelected) {
-                                        CheckmarkIcon(color = Color(0xFF0A281E), size = 13.dp)
+                                        CheckmarkIcon(color = AppColors.BrandMintDarkText, size = 13.dp)
                                     }
                                 }
                             }
@@ -397,15 +422,14 @@ fun PricingScreen(
                                     .align(Alignment.TopEnd)
                                     .offset(x = (-16).dp, y = (-8).dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF69D3BC))
-                                    .padding(horizontal = 9.dp, vertical = 5.dp)
+                                    .background(AppGradients.PrimaryButton)
+                                    .padding(horizontal = 9.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    text = t("ЛУЧШАЯ ЦЕНА", "BEST VALUE"),
-                                    color = Color(0xFF06231A),
+                                    text = t("Лучшая цена", "Best value"),
+                                    color = AppColors.BrandMintDarkText,
                                     fontSize = 10.5.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    letterSpacing = 0.4.sp
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -415,27 +439,28 @@ fun PricingScreen(
                 Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = t("СПОСОБ ОПЛАТЫ", "PAYMENT METHOD"),
-                    color = AppColors.TextKicker,
+                    text = t("Способ оплаты", "Payment method"),
+                    color = AppColors.TextSecondary,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.2.sp,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
                 )
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF132023))
-                        .border(1.dp, Color(0xFF263A3C), RoundedCornerShape(14.dp))
+                        .background(AppColors.BgSurface)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(14.dp))
                         .padding(horizontal = 16.dp, vertical = 13.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    CreditCardIcon(color = AppColors.SkyBlue, size = 18.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = t("💳  Карта или СБП через ЮKassa", "💳  Card or SBP via YooKassa"),
-                        color = Color(0xFFB9CECA),
+                        text = t("Карта или СБП через ЮKassa", "Card or SBP via YooKassa"),
+                        color = AppColors.TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -447,14 +472,13 @@ fun PricingScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(width = 0.dp, color = Color.Transparent)
                         .padding(top = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = currentPriceTitle,
-                        color = Color(0xFFA1B5B3),
+                        color = AppColors.TextSecondary,
                         fontSize = 13.sp
                     )
                     Text(
@@ -465,10 +489,21 @@ fun PricingScreen(
                     )
                 }
 
+                val monthUnitRu = when (selectedPlan.totalMonths) {
+                    1 -> "месяц"
+                    4 -> "месяца"
+                    else -> "месяцев"
+                }
+                val monthUnitEn = if (selectedPlan.totalMonths == 1) "month" else "months"
+                val deviceUnitRu = if (selectedDeviceCount == 2) "устройства" else "устройств"
                 Text(
-                    text = if (isRu) "Доступ на ${selectedPlan.totalMonths} ${if (selectedPlan.totalMonths == 1) "месяц" else "месяцев"} · до $selectedDeviceCount устройств" else "Access for ${selectedPlan.totalMonths} months · up to $selectedDeviceCount devices",
-                    color = Color(0xFF8B9F9E),
-                    fontSize = 11.sp,
+                    text = if (isRu) {
+                        "Доступ на ${selectedPlan.totalMonths} $monthUnitRu · до $selectedDeviceCount $deviceUnitRu"
+                    } else {
+                        "Access for ${selectedPlan.totalMonths} $monthUnitEn · up to $selectedDeviceCount devices"
+                    },
+                    color = AppColors.TextMuted,
+                    fontSize = 11.5.sp,
                     modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
                 )
 
@@ -503,7 +538,11 @@ fun PricingScreen(
                                 val success = YooKassaPaymentHandler.startPayment(
                                     context = context,
                                     planCode = confirmed.code,
-                                    planTitle = if (isRu) "${selectedPlan.title} ($selectedDeviceCount устройств)" else "$selectedDeviceCount devices",
+                                    planTitle = if (isRu) {
+                                        "${selectedPlan.title} ($selectedDeviceCount $deviceUnitRu)"
+                                    } else {
+                                        "$selectedDeviceCount devices"
+                                    },
                                     amountRub = confirmed.priceRub,
                                     days = confirmed.days,
                                     devices = selectedDeviceCount,
@@ -526,26 +565,16 @@ fun PricingScreen(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    LockIcon(color = Color(0xFF729D90), size = 15.dp)
+                    LockIcon(color = AppColors.SkyBlue, size = 15.dp)
                     Spacer(modifier = Modifier.padding(horizontal = 4.dp))
                     Text(
                         text = t("Безопасная оплата через ЮKassa", "Secure checkout via YooKassa"),
-                        color = Color(0xFF729D90),
+                        color = AppColors.TextSecondary,
                         fontSize = 11.sp
                     )
                 }
-                } else {
-                    Text(
-                        text = t(
-                            "Покупки в этой версии приложения пока недоступны.",
-                            "Purchases are not available in this version of the app yet."
-                        ),
-                        color = AppColors.TextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        modifier = Modifier.padding(top = 14.dp)
-                    )
                 }
+            }
             }
         }
     }
@@ -558,17 +587,18 @@ private fun DeviceCountTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val bgBrush = if (selected) AppGradients.PrimaryButton else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(11.dp))
-            .background(if (selected) Color(0xFF69D3BC) else Color.Transparent)
+            .background(bgBrush)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            color = if (selected) Color(0xFF10241E) else Color(0xFF829C9A),
+            color = if (selected) AppColors.BrandMintDarkText else AppColors.TextSecondary,
             fontSize = 11.5.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
         )

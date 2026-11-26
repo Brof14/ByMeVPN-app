@@ -66,23 +66,32 @@ class ByMeVpnTileService : TileService() {
                         )
                         startActivityAndCollapse(pendingIntent)
                     } else {
-                        @Suppress("DEPRECATION")
-                        startActivityAndCollapse(intent)
+                        startActivityAndCollapseLegacy(intent)
                     }
                 }
             }
         }
     }
 
+    @android.annotation.SuppressLint("StartActivityAndCollapseDeprecated")
+    @Suppress("DEPRECATION")
+    private fun startActivityAndCollapseLegacy(intent: Intent) {
+        startActivityAndCollapse(intent)
+    }
+
     private fun updateTileState(forcedState: Int? = null) {
         val tile = qsTile ?: return
         val isRunning = VpnManager.getInstance(applicationContext).state.value == VpnConnectionState.CONNECTED
         val targetState = forcedState ?: if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        val isRu = com.example.bymevpn.data.LocaleManager.isRussian(applicationContext)
 
         tile.state = targetState
         tile.label = "ByMeVPN"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tile.subtitle = if (targetState == Tile.STATE_ACTIVE) "Защищено" else "Отключено"
+            tile.subtitle = when {
+                targetState == Tile.STATE_ACTIVE -> if (isRu) "Защищено" else "Protected"
+                else -> if (isRu) "Отключено" else "Disconnected"
+            }
         }
         tile.updateTile()
     }

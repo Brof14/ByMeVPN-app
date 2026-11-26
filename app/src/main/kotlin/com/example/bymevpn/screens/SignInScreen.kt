@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +78,7 @@ import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import androidx.compose.material3.AlertDialog
@@ -127,7 +129,7 @@ fun SignInScreen(
     var telegramLoginJob by remember { mutableStateOf<Job?>(null) }
     var telegramStatusText by remember { mutableStateOf<String?>(null) }
     var telegramBotUrl by remember { mutableStateOf<String?>(null) }
-    var telegramWaitSeconds by remember { mutableStateOf(0) }
+    var telegramWaitSeconds by remember { mutableIntStateOf(0) }
 
     androidx.compose.runtime.LaunchedEffect(isTelegramLoading) {
         if (isTelegramLoading) {
@@ -177,6 +179,9 @@ fun SignInScreen(
     if (showPasswordReset) {
         AlertDialog(
             onDismissRequest = { if (!resetPending) showPasswordReset = false },
+            containerColor = AppColors.BgSurfaceElevated,
+            titleContentColor = AppColors.TextPrimary,
+            textContentColor = AppColors.TextSecondary,
             title = { Text(if (isRu) "Восстановление пароля" else "Reset password") },
             text = {
                 Column {
@@ -194,7 +199,7 @@ fun SignInScreen(
                             enabled = !resetPending,
                             isError = resetError != null
                         )
-                        resetError?.let { Text(it, color = Color(0xFFFF8080), fontSize = 13.sp) }
+                        resetError?.let { Text(it, color = AppColors.StatusError, fontSize = 13.sp) }
                     }
                 }
             },
@@ -217,11 +222,16 @@ fun SignInScreen(
                             }
                         }
                     }
-                }) { Text(if (resetSent) "OK" else if (resetPending) "…" else if (isRu) "Отправить" else "Send") }
+                }) {
+                    Text(
+                        text = if (resetSent) "OK" else if (resetPending) "…" else if (isRu) "Отправить" else "Send",
+                        color = AppColors.SkyBlue
+                    )
+                }
             },
             dismissButton = {
                 if (!resetSent) TextButton(enabled = !resetPending, onClick = { showPasswordReset = false }) {
-                    Text(if (isRu) "Отмена" else "Cancel")
+                    Text(if (isRu) "Отмена" else "Cancel", color = AppColors.TextSecondary)
                 }
             }
         )
@@ -233,8 +243,8 @@ fun SignInScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF0B1A20))
-                    .border(1.2.dp, Color(0xFF1E3B45), RoundedCornerShape(24.dp))
+                    .background(AppColors.BgSurfaceElevated)
+                    .border(1.2.dp, AppColors.BorderAccent, RoundedCornerShape(24.dp))
                     .padding(22.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -242,7 +252,7 @@ fun SignInScreen(
                         modifier = Modifier
                             .size(44.dp)
                             .clip(CircleShape)
-                            .background(Brush.verticalGradient(listOf(Color(0xFF1E88E5), Color(0xFF1565C0)))),
+                            .background(Brush.verticalGradient(listOf(AppColors.BrandBlue, Color(0xFF0055CC)))),
                         contentAlignment = Alignment.Center
                     ) {
                         PaperPlaneIcon(color = Color.White, size = 21.dp)
@@ -251,13 +261,13 @@ fun SignInScreen(
                     Column {
                         Text(
                             text = if (isRu) "Вход через Telegram" else "Telegram sign-in",
-                            color = Color.White,
+                            color = AppColors.TextPrimary,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = if (isRu) "Осталось подтвердить в боте" else "One confirmation in the bot",
-                            color = Color(0xFF8FB0BF),
+                            color = AppColors.TextSecondary,
                             fontSize = 11.5.sp
                         )
                     }
@@ -275,27 +285,27 @@ fun SignInScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(Color(0xFF102A2C))
-                        .border(1.dp, Color(0xFF21474A), RoundedCornerShape(14.dp))
+                        .background(AppColors.BgSurfaceAccent)
+                        .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(14.dp))
                         .padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     CircularProgressIndicator(
-                        color = Color(0xFF69D3BC),
+                        color = AppColors.SkyBlue,
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp
                     )
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = telegramStatusText ?: (if (isRu) "Ожидаем подтверждение…" else "Waiting for confirmation…"),
-                            color = Color(0xFFDFF6EF),
+                            color = AppColors.TextPrimary,
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = if (isRu) "Проверяем автоматически · ${telegramWaitSeconds} с" else "Checking automatically · ${telegramWaitSeconds}s",
-                            color = Color(0xFF85A6A2),
+                            color = AppColors.TextSecondary,
                             fontSize = 10.5.sp
                         )
                     }
@@ -308,7 +318,7 @@ fun SignInScreen(
                         .fillMaxWidth()
                         .height(46.dp)
                         .clip(RoundedCornerShape(13.dp))
-                        .background(Color(0xFF79D9BC))
+                        .background(AppGradients.PrimaryButton)
                         .clickable {
                             telegramBotUrl?.let {
                                 com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, it)
@@ -318,7 +328,7 @@ fun SignInScreen(
                 ) {
                     Text(
                         text = if (isRu) "Открыть Telegram снова" else "Open Telegram again",
-                        color = Color(0xFF0B2230),
+                        color = AppColors.BrandMintDarkText,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -341,7 +351,7 @@ fun SignInScreen(
                 ) {
                     Text(
                         text = if (isRu) "Отмена" else "Cancel",
-                        color = Color(0xFF9DB6B2),
+                        color = AppColors.TextSecondary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -381,11 +391,11 @@ fun SignInScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // 2. Title: ByMe (White) + VPN (Green)
+                    // 2. Title: ByMe (White) + VPN (Cyan)
                     val brandText = buildAnnotatedString {
                         withStyle(
                             SpanStyle(
-                                color = Color.White,
+                                color = AppColors.TextPrimary,
                                 fontSize = 30.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
@@ -395,7 +405,7 @@ fun SignInScreen(
                         }
                         withStyle(
                             SpanStyle(
-                                color = Color(0xFF79D9BC),
+                                color = AppColors.SkyBlue,
                                 fontSize = 30.sp,
                                 fontWeight = FontWeight.ExtraBold,
                                 letterSpacing = 0.5.sp
@@ -414,7 +424,7 @@ fun SignInScreen(
                     // 3. Slogan: Скорость. Свобода. Простота.
                     Text(
                         text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",
-                        color = Color(0xFF7A8B9E),
+                        color = AppColors.TextSecondary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Normal,
                         textAlign = TextAlign.Center
@@ -429,10 +439,9 @@ fun SignInScreen(
                             .fillMaxWidth()
                             .height(54.dp)
                             .drawBehind {
-                                // Subtle soft white/cyan bottom glow shadow
                                 drawCircle(
                                     brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x2500E5FF), Color.Transparent),
+                                        colors = listOf(Color(0x2800D8FF), Color.Transparent),
                                         center = Offset(size.width / 2f, size.height + 4f),
                                         radius = size.width * 0.45f
                                     ),
@@ -498,11 +507,11 @@ fun SignInScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(1.dp)
-                                .background(Color(0xFF1A2634))
+                                .background(AppColors.BorderDefault)
                         )
                         Text(
                             text = if (isRu) "или по почте" else "or via email",
-                            color = Color(0xFF5A6E82),
+                            color = AppColors.TextMuted,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal,
                             modifier = Modifier.padding(horizontal = 14.dp)
@@ -511,7 +520,7 @@ fun SignInScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(1.dp)
-                                .background(Color(0xFF1A2634))
+                                .background(AppColors.BorderDefault)
                         )
                     }
 
@@ -527,7 +536,7 @@ fun SignInScreen(
                             authError = null
                         },
                         hintText = if (isRu) "Адрес эл. почты" else "Email address",
-                        leadingIcon = { MailIcon(color = Color(0xFF758A9E), size = 20.dp) },
+                        leadingIcon = { MailIcon(color = AppColors.TextMuted, size = 20.dp) },
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next,
                         isError = emailError != null,
@@ -537,7 +546,7 @@ fun SignInScreen(
                     if (emailError != null) {
                         Text(
                             text = emailError ?: "",
-                            color = Color(0xFFFF5252),
+                            color = AppColors.StatusError,
                             fontSize = 12.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -556,7 +565,7 @@ fun SignInScreen(
                             authError = null
                         },
                         hintText = if (isRu) "Пароль" else "Password",
-                        leadingIcon = { LockIcon(color = Color(0xFF758A9E), size = 20.dp) },
+                        leadingIcon = { LockIcon(color = AppColors.TextMuted, size = 20.dp) },
                         trailingIcon = {
                             IconButton(
                                 onClick = { passwordVisible = !passwordVisible },
@@ -568,7 +577,7 @@ fun SignInScreen(
                                     }
                                 }
                             ) {
-                                EyeIcon(visible = passwordVisible, color = Color(0xFF758A9E), size = 20.dp)
+                                EyeIcon(visible = passwordVisible, color = AppColors.TextMuted, size = 20.dp)
                             }
                         },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -582,7 +591,7 @@ fun SignInScreen(
                     if (passwordError != null) {
                         Text(
                             text = passwordError ?: "",
-                            color = Color(0xFFFF5252),
+                            color = AppColors.StatusError,
                             fontSize = 12.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -599,14 +608,17 @@ fun SignInScreen(
                         },
                         modifier = Modifier.align(Alignment.End)
                     ) {
-                        Text(if (isRu) "Забыли пароль?" else "Forgot password?")
+                        Text(
+                            text = if (isRu) "Забыли пароль?" else "Forgot password?",
+                            color = AppColors.SkyBlue
+                        )
                     }
 
                     if (authError != null) {
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = authError ?: "",
-                            color = Color(0xFFFF5252),
+                            color = AppColors.StatusError,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center
@@ -615,16 +627,15 @@ fun SignInScreen(
 
                     Spacer(modifier = Modifier.height(18.dp))
 
-                    // 8. Main "Войти" Button (Green Gradient with Chevron)
+                    // 8. Main "Войти" Button (Logo Cyan-Mint Gradient with Chevron)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(54.dp)
                             .drawBehind {
-                                // Vibrant neon green glow shadow underneath
                                 drawCircle(
                                     brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x6000E676), Color.Transparent),
+                                        colors = listOf(Color(0x4500D8FF), Color.Transparent),
                                         center = Offset(size.width / 2f, size.height + 4f),
                                         radius = size.width * 0.45f
                                     ),
@@ -633,22 +644,14 @@ fun SignInScreen(
                                 )
                             }
                             .clip(RoundedCornerShape(18.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(
-                                        Color(0xFF79D9BC),
-                                        Color(0xFF79D9BC),
-                                        Color(0xFF69D3BC)
-                                    )
-                                )
-                            )
+                            .background(AppGradients.PrimaryButton)
                             .clickable(enabled = !isEmailLoading && !isGoogleLoading) { submitLogin() }
                             .testTag("login_button"),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isEmailLoading) {
                             CircularProgressIndicator(
-                                color = Color(0xFF0B2230),
+                                color = AppColors.BrandMintDarkText,
                                 modifier = Modifier.size(22.dp),
                                 strokeWidth = 2.5.dp
                             )
@@ -662,12 +665,12 @@ fun SignInScreen(
                                 Spacer(modifier = Modifier.weight(1f))
                                 Text(
                                     text = if (isRu) "Войти" else "Sign In",
-                                    color = Color(0xFF0B2230),
+                                    color = AppColors.BrandMintDarkText,
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
-                                ChevronRightIcon(color = Color(0xFF0B2230), size = 18.dp)
+                                ChevronRightIcon(color = AppColors.BrandMintDarkText, size = 18.dp)
                             }
                         }
                     }
@@ -679,10 +682,9 @@ fun SignInScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .drawBehind {
-                                // Subtle radiant blue glow around card
                                 drawCircle(
                                     brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x220088FF), Color.Transparent),
+                                        colors = listOf(Color(0x280077FF), Color.Transparent),
                                         center = Offset(size.width / 2f, size.height / 2f),
                                         radius = size.width * 0.52f
                                     ),
@@ -691,8 +693,8 @@ fun SignInScreen(
                                 )
                             }
                             .clip(RoundedCornerShape(22.dp))
-                            .background(Color(0xFF07121C))
-                            .border(1.2.dp, Color(0xFF16324B), RoundedCornerShape(22.dp))
+                            .background(AppColors.BgSurface)
+                            .border(1.2.dp, AppColors.BorderTelegram, RoundedCornerShape(22.dp))
                             .padding(16.dp)
                     ) {
                         Column {
@@ -707,7 +709,7 @@ fun SignInScreen(
                                         .clip(CircleShape)
                                         .background(
                                             Brush.verticalGradient(
-                                                listOf(Color(0xFF1E88E5), Color(0xFF1565C0))
+                                                listOf(AppColors.BrandBlue, Color(0xFF0055CC))
                                             )
                                         ),
                                     contentAlignment = Alignment.Center
@@ -720,7 +722,7 @@ fun SignInScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = if (isRu) "Войти через Telegram" else "Continue with Telegram",
-                                        color = Color.White,
+                                        color = AppColors.TextPrimary,
                                         fontSize = 14.5.sp,
                                         fontWeight = FontWeight.Bold,
                                         lineHeight = 19.sp
@@ -728,7 +730,7 @@ fun SignInScreen(
                                     Spacer(modifier = Modifier.height(3.dp))
                                     Text(
                                         text = if (isRu) "Подтвердите вход в боте. Для восстановления подписки используйте прежний Telegram-аккаунт." else "Confirm in the bot. Use your original Telegram account to restore an existing subscription.",
-                                        color = Color(0xFF758A9E),
+                                        color = AppColors.TextSecondary,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Normal
                                     )
@@ -743,14 +745,7 @@ fun SignInScreen(
                                     .fillMaxWidth()
                                     .height(46.dp)
                                     .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            listOf(
-                                                Color(0xFF79D9BC),
-                                                Color(0xFF79D9BC)
-                                            )
-                                        )
-                                    )
+                                    .background(AppGradients.PrimaryButton)
                                     .clickable(enabled = !isTelegramLoading) {
                                         isTelegramLoading = true
                                         authError = null
@@ -816,11 +811,11 @@ fun SignInScreen(
                             ) {
                                 if (isTelegramLoading) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        CircularProgressIndicator(color = Color(0xFF0B2230), modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                        CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = telegramStatusText ?: (if (isRu) "Вход..." else "Logging in..."),
-                                            color = Color(0xFF0B2230),
+                                            color = AppColors.BrandMintDarkText,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Bold
                                         )
@@ -832,16 +827,16 @@ fun SignInScreen(
                                             .padding(horizontal = 16.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        PaperPlaneIcon(color = Color(0xFF0B2230), size = 18.dp)
+                                        PaperPlaneIcon(color = AppColors.BrandMintDarkText, size = 18.dp)
                                         Spacer(modifier = Modifier.width(8.dp))
                                         Text(
                                             text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
-                                            color = Color(0xFF0B2230),
+                                            color = AppColors.BrandMintDarkText,
                                             fontSize = 14.sp,
                                             fontWeight = FontWeight.Bold
                                         )
                                         Spacer(modifier = Modifier.weight(1f))
-                                        ChevronRightIcon(color = Color(0xFF0B2230), size = 18.dp)
+                                        ChevronRightIcon(color = AppColors.BrandMintDarkText, size = 18.dp)
                                     }
                                 }
                             }
@@ -860,18 +855,18 @@ fun SignInScreen(
                     ) {
                         Text(
                             text = if (isRu) "Нет аккаунта? " else "Don't have an account? ",
-                            color = Color(0xFF758A9E),
+                            color = AppColors.TextSecondary,
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Normal
                         )
                         Text(
                             text = if (isRu) "Зарегистрироваться" else "Sign Up",
-                            color = Color(0xFF79D9BC),
+                            color = AppColors.SkyBlue,
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        ChevronRightIcon(color = Color(0xFF79D9BC), size = 14.dp)
+                        ChevronRightIcon(color = AppColors.SkyBlue, size = 14.dp)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -893,12 +888,12 @@ private fun TelegramStep(number: Int, text: String) {
             modifier = Modifier
                 .size(20.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF173A3F)),
+                .background(AppColors.BgSurfaceAccent),
             contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "$number",
-                color = Color(0xFF90DDCE),
+                color = AppColors.SkyBlue,
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -906,7 +901,7 @@ private fun TelegramStep(number: Int, text: String) {
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             text = text,
-            color = Color(0xFFC7DCD8),
+            color = AppColors.TextSecondary,
             fontSize = 12.5.sp,
             lineHeight = 17.sp
         )
@@ -931,9 +926,9 @@ private fun ExactInputField(
     var isFocused by remember { mutableStateOf(false) }
 
     val borderColor = when {
-        isError -> Color(0xFFFF5252)
-        isFocused -> Color(0xFF79D9BC)
-        else -> Color(0xFF182836)
+        isError -> AppColors.StatusError
+        isFocused -> AppColors.SkyBlue
+        else -> AppColors.BorderInput
     }
 
     Box(
@@ -941,7 +936,7 @@ private fun ExactInputField(
             .fillMaxWidth()
             .height(52.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color(0xFF0C1620))
+            .background(AppColors.BgInput)
             .border(1.2.dp, borderColor, RoundedCornerShape(14.dp))
             .padding(horizontal = 16.dp)
             .testTag(testTag),
@@ -958,7 +953,7 @@ private fun ExactInputField(
                 if (value.isEmpty()) {
                     Text(
                         text = hintText,
-                        color = Color(0xFF5A6E82),
+                        color = AppColors.TextMuted,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Normal
                     )
@@ -969,7 +964,7 @@ private fun ExactInputField(
                     onValueChange = onValueChange,
                     singleLine = true,
                     textStyle = TextStyle(
-                        color = Color.White,
+                        color = AppColors.TextPrimary,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Medium
                     ),
@@ -982,7 +977,7 @@ private fun ExactInputField(
                         onDone = { onImeAction() },
                         onNext = { onImeAction() }
                     ),
-                    cursorBrush = SolidColor(Color(0xFF79D9BC)),
+                    cursorBrush = SolidColor(AppColors.SkyBlue),
                     modifier = Modifier
                         .fillMaxWidth()
                         .semantics { contentDescription = hintText }

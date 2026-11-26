@@ -14,37 +14,86 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.bymevpn.BuildConfig
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 
 @Composable
 fun PrivacyPolicyDialog(
-    isRussian: Boolean = true,
+    isRussian: Boolean = LocaleManager.isRussian(),
+    onDismiss: () -> Unit
+) {
+    LegalDocumentDialog(
+        initialTab = 0,
+        isRussian = isRussian,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+fun TermsOfServiceDialog(
+    isRussian: Boolean = LocaleManager.isRussian(),
+    onDismiss: () -> Unit
+) {
+    LegalDocumentDialog(
+        initialTab = 1,
+        isRussian = isRussian,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+fun LegalTermsDialog(onDismiss: () -> Unit) {
+    val language by LocaleManager.currentLanguage.collectAsState()
+    val isRu = remember(language) { LocaleManager.isRussian(language = language) }
+    LegalDocumentDialog(
+        initialTab = 0,
+        isRussian = isRu,
+        onDismiss = onDismiss
+    )
+}
+
+@Composable
+private fun LegalDocumentDialog(
+    initialTab: Int,
+    isRussian: Boolean,
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
+    var selectedTab by remember(initialTab) { mutableIntStateOf(initialTab) }
+    val showingPrivacy = selectedTab == 0
+
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(AppColors.CardBg)
-                .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
-                .padding(22.dp)
+                .background(AppColors.BgSurface)
+                .border(1.2.dp, AppColors.BorderDefault, RoundedCornerShape(24.dp))
+                .padding(20.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
@@ -53,16 +102,51 @@ fun PrivacyPolicyDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = if (isRussian) "Политика конфиденциальности" else "Privacy Policy",
-                        color = Color.White,
+                        text = if (showingPrivacy) {
+                            if (isRussian) "Политика конфиденциальности" else "Privacy Policy"
+                        } else {
+                            if (isRussian) "Условия использования" else "Terms of Service"
+                        },
+                        color = AppColors.TextPrimary,
                         fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
-                    Text(
-                        text = "✕",
-                        color = AppColors.TextSecondary,
-                        fontSize = 18.sp,
-                        modifier = Modifier.clickable { onDismiss() }
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(AppColors.TopBarIconBg)
+                            .border(1.dp, AppColors.TopBarIconBorder, CircleShape)
+                            .clickable(role = Role.Button, onClick = onDismiss),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CloseXIcon(color = AppColors.TextSecondary, size = 16.dp)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppColors.BgInput)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(12.dp))
+                        .padding(3.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    LegalTabButton(
+                        text = if (isRussian) "Конфиденциальность" else "Privacy",
+                        selected = showingPrivacy,
+                        onClick = { selectedTab = 0 },
+                        modifier = Modifier.weight(1f)
+                    )
+                    LegalTabButton(
+                        text = if (isRussian) "Условия" else "Terms",
+                        selected = !showingPrivacy,
+                        onClick = { selectedTab = 1 },
+                        modifier = Modifier.weight(1f)
                     )
                 }
 
@@ -71,40 +155,77 @@ fun PrivacyPolicyDialog(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(380.dp)
+                        .height(350.dp)
                         .verticalScroll(rememberScrollState())
                 ) {
-                    LegalSection(
-                        title = if (isRussian) "1. Работа VPN" else "1. VPN operation",
-                        body = if (isRussian)
-                            "Приложение направляет сетевой трафик через выбранный VPN-сервер. Для управления доступом и диагностики могут обрабатываться сведения об устройстве и подключении."
-                        else
-                            "The app routes network traffic through the selected VPN server. Device and connection information may be processed to manage access and diagnose problems."
-                    )
+                    if (showingPrivacy) {
+                        LegalSection(
+                            title = if (isRussian) "1. Работа VPN" else "1. VPN operation",
+                            body = if (isRussian)
+                                "Приложение направляет сетевой трафик через выбранный VPN-сервер. Для управления доступом и диагностики могут обрабатываться сведения об устройстве и подключении."
+                            else
+                                "The app routes network traffic through the selected VPN server. Device and connection information may be processed to manage access and diagnose problems."
+                        )
 
-                    LegalSection(
-                        title = if (isRussian) "2. Какие данные мы обрабатываем" else "2. Data Processed",
-                        body = if (isRussian)
-                            "• Учетная запись: адрес электронной почты (или Google ID) для входа и восстановления доступа.\n• Подписка: срок действия и количество активных устройств по условиям выбранного тарифа.\n• Платежи: обрабатываются ЮKassa. Приложение не хранит реквизиты банковских карт."
-                        else
-                            "• Account: email address (or Google ID) for login and account recovery.\n• Subscription: validity period and registered device limits according to the selected plan.\n• Payments: processed by YooKassa. The app does not store card numbers."
-                    )
+                        val dataBodyRu = buildString {
+                            append("• Учётная запись: адрес электронной почты (или Google / Telegram ID) для входа и синхронизации доступа.\n")
+                            append("• Подписка: срок действия и количество активных устройств по условиям вашего аккаунта.")
+                            if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                                append("\n• Платежи: обрабатываются ЮKassa. Приложение не хранит реквизиты банковских карт.")
+                            }
+                        }
+                        val dataBodyEn = buildString {
+                            append("• Account: email address (or Google / Telegram ID) for sign-in and access sync.\n")
+                            append("• Subscription: validity period and active device limits for your account.")
+                            if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                                append("\n• Payments: processed by YooKassa. The app does not store card numbers.")
+                            }
+                        }
+                        LegalSection(
+                            title = if (isRussian) "2. Какие данные мы обрабатываем" else "2. Data Processed",
+                            body = if (isRussian) dataBodyRu else dataBodyEn
+                        )
 
-                    LegalSection(
-                        title = if (isRussian) "3. Безопасность и шифрование" else "3. Encryption & Security",
-                        body = if (isRussian)
-                            "VPN-туннель использует шифрованные соединения для защиты трафика. Отдельные сайты могут открываться напрямую при включении обхода VPN в настройках. Абсолютная анонимность не гарантируется."
-                        else
-                            "VPN tunnels use encrypted connections to help protect traffic. Sites may be routed directly when VPN bypass is enabled. Absolute anonymity is not guaranteed."
-                    )
+                        LegalSection(
+                            title = if (isRussian) "3. Безопасность и шифрование" else "3. Encryption & Security",
+                            body = if (isRussian)
+                                "VPN-туннель использует шифрованные соединения для защиты трафика. Отдельные сайты и выбранные приложения могут открываться напрямую при настройке маршрутизации и раздельного туннелирования."
+                            else
+                                "VPN tunnels use encrypted connections to protect traffic. Selected websites or apps may bypass the tunnel when routing exclusions are enabled."
+                        )
 
-                    LegalSection(
-                        title = if (isRussian) "4. Право на удаление данных" else "4. Right to Deletion",
-                        body = if (isRussian)
-                            "Чтобы удалить аккаунт, откройте настройки аккаунта и выберите «Удалить аккаунт». Доступ к VPN и оставшийся оплаченный срок будут утрачены. Финансовые записи могут сохраняться в соответствии с требованиями законодательства."
-                        else
-                            "To delete your account, open account settings and choose Delete account. VPN access and any remaining paid time will be lost. Financial records may be retained as required by law."
-                    )
+                        LegalSection(
+                            title = if (isRussian) "4. Право на удаление данных" else "4. Right to Deletion",
+                            body = if (isRussian)
+                                "Чтобы удалить аккаунт, откройте раздел «Аккаунт» и выберите «Удалить аккаунт». Доступ к VPN и активный срок будут удалены."
+                            else
+                                "To delete your account, open Account and choose Delete account. VPN access and remaining subscription time will be removed."
+                        )
+                    } else {
+                        LegalSection(
+                            title = if (isRussian) "1. Правила использования сервиса" else "1. Acceptable Use",
+                            body = if (isRussian)
+                                "ByMeVPN предназначен для защиты личной конфиденциальности и безопасности в открытых сетях. Запрещается использование сервиса для распространения вредоносного ПО, сетевых атак (DDoS) или иной незаконной деятельности."
+                            else
+                                "ByMeVPN is intended for personal privacy protection and network security. Use of the service for malware distribution, DDoS attacks, or unlawful activities is strictly prohibited."
+                        )
+
+                        LegalSection(
+                            title = if (isRussian) "2. Подписки и лимиты устройств" else "2. Subscriptions & Limits",
+                            body = if (isRussian)
+                                "Активная подписка позволяет одновременно подключать 2, 5 или 10 личных устройств в зависимости от уровня доступа аккаунта. Неиспользуемые устройства можно отключить в разделе «Устройства»."
+                            else
+                                "An active subscription allows connecting 2, 5, or 10 personal devices simultaneously depending on your account tier. Unused devices can be removed in the Devices screen."
+                        )
+
+                        LegalSection(
+                            title = if (isRussian) "3. Пробный доступ и поддержка" else "3. Trial Access & Support",
+                            body = if (isRussian)
+                                "Мы предоставляем бесплатный 3-дневный пробный период без привязки карты. По вопросам работы сервиса обращайтесь на support@bymevpn.com."
+                            else
+                                "A free 3-day trial is provided with no card required. For assistance, contact support@bymevpn.com."
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
@@ -118,15 +239,16 @@ fun PrivacyPolicyDialog(
                             .weight(1f)
                             .height(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(AppColors.InputBg)
-                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
+                            .background(AppColors.BgInput)
+                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(12.dp))
                             .clickable {
-                                openBrowserUrl(context, "https://bymevpn.com/privacy")
+                                val targetUrl = if (showingPrivacy) "https://bymevpn.com/privacy" else "https://bymevpn.com/terms"
+                                openBrowserUrl(context, targetUrl)
                             },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isRussian) "Открыть на сайте ↗" else "Open in Browser ↗",
+                            text = if (isRussian) "На сайте ↗" else "On web ↗",
                             color = AppColors.SkyBlue,
                             fontSize = 12.5.sp,
                             fontWeight = FontWeight.SemiBold
@@ -138,13 +260,13 @@ fun PrivacyPolicyDialog(
                             .weight(1f)
                             .height(44.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(AppColors.BrandGreen)
-                            .clickable { onDismiss() },
+                            .background(AppGradients.PrimaryButton)
+                            .clickable(onClick = onDismiss),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = if (isRussian) "Понятно" else "Close",
-                            color = AppColors.DarkText,
+                            color = AppColors.BrandMintDark,
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -156,118 +278,30 @@ fun PrivacyPolicyDialog(
 }
 
 @Composable
-fun TermsOfServiceDialog(
-    isRussian: Boolean = true,
-    onDismiss: () -> Unit
+private fun LegalTabButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    Dialog(onDismissRequest = onDismiss) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(24.dp))
-                .background(AppColors.CardBg)
-                .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(24.dp))
-                .padding(22.dp)
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isRussian) "Условия использования" else "Terms of Service",
-                        color = Color.White,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "✕",
-                        color = AppColors.TextSecondary,
-                        fontSize = 18.sp,
-                        modifier = Modifier.clickable { onDismiss() }
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp)
-                        .verticalScroll(rememberScrollState())
-                ) {
-                    LegalSection(
-                        title = if (isRussian) "1. Правила использования сервиса" else "1. Acceptable Use",
-                        body = if (isRussian)
-                            "ByMeVPN предназначен для защиты личной конфиденциальности, безопасности в открытых сетях и доступа к свободной информации. Запрещается использование сервиса для распространения вредоносного ПО, сетевых атак (DDoS) или незаконной деятельности."
-                        else
-                            "ByMeVPN is intended for personal privacy protection and network security. Use of the service for malware distribution, DDoS attacks, or unlawful activities is strictly prohibited."
-                    )
-
-                    LegalSection(
-                        title = if (isRussian) "2. Подписки и лимиты устройств" else "2. Subscriptions & Limits",
-                        body = if (isRussian)
-                            "Одна активная подписка позволяет одновременно подключать до 5 личных устройств (смартфоны, планшеты, ТВ, компьютеры). Превышение лимита требует отключения неиспользуемых устройств в настройках аккаунта."
-                        else
-                            "Each active subscription allows connecting up to 5 personal devices simultaneously (smartphones, tablets, TVs, PCs). Exceeding this limit requires disconnecting unused devices."
-                    )
-
-                    LegalSection(
-                        title = if (isRussian) "3. Возврат средств и отмена" else "3. Refunds & Cancellation",
-                        body = if (isRussian)
-                            "Мы предоставляем бесплатный 3-дневный пробный период без привязки карты. Если приобретённая подписка не работает, обратитесь на support@bymevpn.com в течение 14 дней."
-                        else
-                            "A free 3-day trial is provided with no card required. If a purchased plan does not work, contact support@bymevpn.com within 14 days."
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(AppColors.InputBg)
-                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(12.dp))
-                            .clickable {
-                                openBrowserUrl(context, "https://bymevpn.com/terms")
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isRussian) "Открыть на сайте ↗" else "Open in Browser ↗",
-                            color = AppColors.SkyBlue,
-                            fontSize = 12.5.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(AppColors.BrandGreen)
-                            .clickable { onDismiss() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = if (isRussian) "Понятно" else "Close",
-                            color = AppColors.DarkText,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
-        }
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(9.dp))
+            .background(if (selected) AppColors.BgSurfaceElevated else Color.Transparent)
+            .then(
+                if (selected) Modifier.border(1.dp, AppColors.BorderAccent, RoundedCornerShape(9.dp))
+                else Modifier
+            )
+            .clickable(role = Role.Tab, onClick = onClick)
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = if (selected) AppColors.BrandMintBright else AppColors.TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+        )
     }
 }
 
@@ -276,7 +310,7 @@ private fun LegalSection(title: String, body: String) {
     Column(modifier = Modifier.padding(bottom = 14.dp)) {
         Text(
             text = title,
-            color = AppColors.BrandGreen,
+            color = AppColors.SkyBlue,
             fontSize = 13.5.sp,
             fontWeight = FontWeight.Bold
         )
@@ -284,8 +318,8 @@ private fun LegalSection(title: String, body: String) {
         Text(
             text = body,
             color = AppColors.TextSecondary,
-            fontSize = 12.sp,
-            lineHeight = 16.sp
+            fontSize = 12.5.sp,
+            lineHeight = 17.5.sp
         )
     }
 }
@@ -297,9 +331,4 @@ private fun openBrowserUrl(context: Context, url: String) {
         }
         context.startActivity(intent)
     } catch (_: Exception) {}
-}
-
-@Composable
-fun LegalTermsDialog(onDismiss: () -> Unit) {
-    PrivacyPolicyDialog(isRussian = true, onDismiss = onDismiss)
 }

@@ -1,7 +1,5 @@
 package com.example.bymevpn.components
 
-import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -12,7 +10,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,33 +31,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.BuildConfig
-import com.example.bymevpn.data.payment.roundedMonthlyPrice
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.payment.PlanTariff
 import com.example.bymevpn.data.payment.YooKassaPaymentHandler
+import com.example.bymevpn.data.payment.roundedMonthlyPrice
 import com.example.bymevpn.theme.AppColors
+import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-/**
- * Premium Paywall Sheet (Happ & Top VPN style).
- * Offers:
- * 2) YooKassa subscription plans (SBP, SberPay, T-Pay, Mir cards)
- * 3) Payments are created and confirmed through the app backend.
- */
 @Composable
 fun PaywallSheet(
     onDismissRequest: () -> Unit,
@@ -73,16 +65,24 @@ fun PaywallSheet(
     val scope = rememberCoroutineScope()
 
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
-    var displayPlans by remember { mutableStateOf(ByMeApiClient(context).getCachedPlans(2)) }
+    var displayPlans by remember {
+        mutableStateOf(
+            if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) ByMeApiClient(context).getCachedPlans(2) else emptyList()
+        )
+    }
     var selectedPlan by remember { mutableStateOf<PlanTariff?>(null) }
     var selectedDeviceCount by remember { mutableIntStateOf(2) }
-    var plansLoading by remember { mutableStateOf(true) }
+    var plansLoading by remember { mutableStateOf(BuildConfig.EXTERNAL_CHECKOUT_ENABLED) }
     var plansUnavailable by remember { mutableStateOf(false) }
     var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
     var refreshSequence by remember { mutableIntStateOf(0) }
     var isProcessingPayment by remember { mutableStateOf(false) }
 
     LaunchedEffect(selectedDeviceCount, refreshSequence) {
+        if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+            plansLoading = false
+            return@LaunchedEffect
+        }
         val api = ByMeApiClient(context)
         serverPlans = emptyList()
         displayPlans = api.getCachedPlans(selectedDeviceCount)
@@ -143,10 +143,10 @@ fun PaywallSheet(
         Box(
             modifier = modifier
                 .fillMaxWidth(0.95f)
-                .clip(RoundedCornerShape(26.dp))
-                .background(AppColors.CardBg)
-                .border(1.2.dp, AppColors.CardBorder, RoundedCornerShape(26.dp))
-                .padding(22.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(AppColors.BgSurface)
+                .border(1.2.dp, AppColors.BorderDefault, RoundedCornerShape(24.dp))
+                .padding(20.dp)
         ) {
             Column(
                 modifier = Modifier
@@ -154,36 +154,39 @@ fun PaywallSheet(
                     .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Close Button & Crown
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
+                    Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(10.dp))
-                            .background(AppColors.CardBgElevated)
-                            .border(1.dp, AppColors.BrandGreen.copy(alpha = 0.35f), RoundedCornerShape(10.dp))
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .background(AppColors.BgSurfaceElevated)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        SparkleStarIcon(color = AppColors.BrandMintBright, size = 14.dp)
                         Text(
-                            text = if (isRu) "👑 ПРЕМИУМ" else "👑 PREMIUM",
-                            color = AppColors.BrandGreen,
-                            fontSize = 12.5.sp,
+                            text = if (isRu) "Доступ ByMeVPN" else "ByMeVPN Access",
+                            color = AppColors.SkyBlue,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
 
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
+                            .size(34.dp)
                             .clip(CircleShape)
-                            .background(AppColors.InputBg)
-                            .clickable { onDismissRequest() },
+                            .background(AppColors.TopBarIconBg)
+                            .border(1.dp, AppColors.TopBarIconBorder, CircleShape)
+                            .clickable(role = Role.Button, onClick = onDismissRequest),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("✕", color = AppColors.TextSecondary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        CloseXIcon(color = AppColors.TextSecondary, size = 16.dp)
                     }
                 }
 
@@ -194,61 +197,69 @@ fun PaywallSheet(
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = if (isRu) "Активируйте ByMeVPN" else "Activate ByMeVPN",
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    text = if (isRu) "Подключите ByMeVPN" else "Activate ByMeVPN",
+                    color = AppColors.TextPrimary,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                Text(
-                    text = if (isRu) "Выберите подходящий тариф" else "Choose a plan that suits you",
-                    color = AppColors.TextSecondary,
-                    fontSize = 13.sp,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Feature Bullet points
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(AppColors.InputBg)
-                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(16.dp))
+                        .background(AppColors.BgInput)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
                         .padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     PaywallFeatureRow(
-                        icon = "⚡",
-                        title = if (isRu) "Скорость до 1 Гбит/с" else "Speed up to 1 Gbps",
-                        desc = if (isRu) "YouTube 4K, Reels, игры и скачивание без задержек" else "YouTube 4K, streaming & gaming without lag"
+                        icon = { ShieldSecurityIcon(color = AppColors.SkyBlue, size = 18.dp) },
+                        title = "VLESS Reality & Hysteria 2",
+                        desc = if (isRu) "Стабильное шифрование в разных сетях" else "Stable encrypted tunnels across networks"
                     )
                     PaywallFeatureRow(
-                        icon = "🛡️",
-                        title = if (isRu) "VLESS Reality & Hysteria 2" else "VLESS Reality & Hysteria 2",
-                        desc = if (isRu) "Протоколы для подключения в разных сетях" else "Protocols for connecting across different networks"
+                        icon = { SparkleStarIcon(color = AppColors.BrandMintBright, size = 18.dp) },
+                        title = if (isRu) "AdGuard DNS в комплекте" else "Built-in AdGuard DNS",
+                        desc = if (isRu) "Фильтрация рекламных и трекерных доменов" else "Filters ad and tracking domains"
                     )
                     PaywallFeatureRow(
-                        icon = "🚫",
-                        title = if (isRu) "Блокировка рекламы" else "Ad-blocking built in",
-                        desc = if (isRu) "AdGuard DNS фильтрует часть рекламных и следящих доменов" else "AdGuard DNS filters some ad and tracking domains"
+                        icon = { DevicesMultiIcon(color = AppColors.SkyBlue, size = 18.dp) },
+                        title = if (isRu) "Работает на всех устройствах" else "Works across your devices",
+                        desc = if (isRu) "Смартфон, планшет, ноутбук или ТВ" else "Phone, tablet, laptop, or TV"
                     )
-                    PaywallFeatureRow(
-                        icon = "📱",
-                        title = if (isRu) "До $selectedDeviceCount устройств на аккаунт" else "Up to $selectedDeviceCount devices per account",
-                        desc = if (isRu) "Телефон, планшет, компьютер или телевизор" else "Phone, tablet, computer or TV"
+                }
+
+                if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = if (isRu) {
+                            "Войдите в свой аккаунт ByMeVPN для синхронизации доступа или активируйте бесплатный 3-дневный пробный период."
+                        } else {
+                            "Sign in to your ByMeVPN account to sync access or activate the free 3-day trial."
+                        },
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ByMePrimaryButton(
+                        text = if (isRu) "Понятно" else "Close",
+                        onClick = onDismissRequest,
+                        showArrow = false,
+                        height = 48.dp
+                    )
+                    return@Column
                 }
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Tariff selection header
                 Text(
-                    text = if (isRu) "Выберите тариф:" else "Choose a subscription plan:",
+                    text = if (isRu) "Выберите тариф" else "Choose a subscription plan",
                     color = AppColors.TextSecondary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -261,8 +272,8 @@ fun PaywallSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(AppColors.InputBg)
-                        .border(1.dp, AppColors.CardBorder, RoundedCornerShape(14.dp))
+                        .background(AppColors.BgInput)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(14.dp))
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -272,14 +283,19 @@ fun PaywallSheet(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isSelected) AppColors.BrandGreen else Color.Transparent)
+                                .background(
+                                    if (isSelected) AppGradients.PrimaryButton
+                                    else androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                        listOf(Color.Transparent, Color.Transparent)
+                                    )
+                                )
                                 .clickable(enabled = !plansLoading) { selectedDeviceCount = deviceCount }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = if (isRu) "$deviceCount устройств" else "$deviceCount devices",
-                                color = if (isSelected) AppColors.DarkText else AppColors.TextSecondary,
+                                text = if (isRu) "$deviceCount устр." else "$deviceCount dev.",
+                                color = if (isSelected) AppColors.BrandMintDark else AppColors.TextSecondary,
                                 fontSize = 12.sp,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                             )
@@ -289,7 +305,6 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Plans list
                 tariffOptions.forEach { plan ->
                     val isSelected = selectedPlan?.code == plan.code
                     PlanCard(
@@ -302,7 +317,7 @@ fun PaywallSheet(
                 }
 
                 if (plansLoading) {
-                    CircularProgressIndicator(color = AppColors.BrandGreen, modifier = Modifier.size(22.dp))
+                    CircularProgressIndicator(color = AppColors.SkyBlue, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                 } else if (plansUnavailable || tariffOptions.isEmpty()) {
                     Text(
@@ -319,7 +334,7 @@ fun PaywallSheet(
                     )
                     Text(
                         text = if (isRu) "Повторить" else "Try again",
-                        color = AppColors.BrandGreen,
+                        color = AppColors.SkyBlue,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
@@ -331,92 +346,51 @@ fun PaywallSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
-                // Payment methods preview (SBP, SberPay, Mir)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (isRu) "Способы оплаты: СБП • SberPay • T-Pay • Карты МИР" else "Payment: SBP • SberPay • T-Pay • Mir Cards",
-                        color = AppColors.TextMuted,
-                        fontSize = 11.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    text = if (isRu) "Способы оплаты: СБП • SberPay • T-Pay • Карты МИР" else "Payment: SBP • SberPay • T-Pay • Mir Cards",
+                    color = AppColors.TextMuted,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = if (isRu) "Разовая оплата. В Android карта не сохраняется для автопродления."
-                        else "One-time payment. Android checkout does not save a card for auto-renewal.",
+                    text = if (isRu) "Разовая оплата без автоматического списания с карты."
+                    else "One-time payment without automatic recurring card charges.",
                     color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
-                )
-
-                // Primary YooKassa Button
-                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(AppColors.BrandGreen, AppColors.BrandGreenGlow)
-                            )
-                        )
-                        .clickable(enabled = !isProcessingPayment && !plansLoading && confirmedSelectedPlan?.checkoutEnabled == true) {
-                            val tariff = confirmedSelectedPlan
-                            if (tariff != null) {
-                                isProcessingPayment = true
-                                scope.launch {
-                                    YooKassaPaymentHandler.openCheckout(
-                                        context = context,
-                                        tariff = tariff,
-                                        devices = selectedDeviceCount,
-                                        onCheckoutFailed = { isProcessingPayment = false },
-                                        onCheckoutLaunched = { isProcessingPayment = false }
-                                    )
-                                }
-                            }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isProcessingPayment) {
-                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("⚡", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = if (plansLoading) {
-                                    if (isRu) "Проверяем цену…" else "Checking price…"
-                                } else if (confirmedSelectedPlan?.checkoutEnabled == true) {
-                                    if (isRu) "Оплатить через ЮKassa • ${confirmedSelectedPlan.priceRub} ₽" else "Pay via YooKassa • ${confirmedSelectedPlan.priceRub} ₽"
-                                } else {
-                                    if (isRu) "Оплата временно недоступна" else "Checkout temporarily unavailable"
-                                },
-                                color = AppColors.DarkText,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.ExtraBold
+                        .padding(bottom = 12.dp)
+                )
+
+                val canPay = !isProcessingPayment && !plansLoading && confirmedSelectedPlan?.checkoutEnabled == true
+                ByMePrimaryButton(
+                    text = when {
+                        isProcessingPayment -> if (isRu) "Открываем оплату…" else "Opening checkout…"
+                        plansLoading -> if (isRu) "Проверяем цену…" else "Checking price…"
+                        confirmedSelectedPlan?.checkoutEnabled == true ->
+                            if (isRu) "Оплатить • ${confirmedSelectedPlan.priceRub} ₽" else "Pay • ${confirmedSelectedPlan.priceRub} ₽"
+                        else -> if (isRu) "Оплата временно недоступна" else "Checkout temporarily unavailable"
+                    },
+                    enabled = canPay,
+                    onClick = {
+                        val tariff = confirmedSelectedPlan ?: return@ByMePrimaryButton
+                        isProcessingPayment = true
+                        scope.launch {
+                            YooKassaPaymentHandler.openCheckout(
+                                context = context,
+                                tariff = tariff,
+                                devices = selectedDeviceCount,
+                                onCheckoutFailed = { isProcessingPayment = false },
+                                onCheckoutLaunched = { isProcessingPayment = false }
                             )
                         }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                } else {
-                    Text(
-                        text = if (isRu) "Покупки в этой версии приложения пока недоступны." else "Purchases are not available in this version of the app yet.",
-                        color = AppColors.TextSecondary,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)
-                    )
-                }
+                )
             }
         }
     }
@@ -427,7 +401,7 @@ internal fun filterPlansByDeviceCount(plans: List<PlanItem>, deviceCount: Int): 
 
 @Composable
 private fun PaywallFeatureRow(
-    icon: String,
+    icon: @Composable () -> Unit,
     title: String,
     desc: String
 ) {
@@ -435,10 +409,12 @@ private fun PaywallFeatureRow(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top
     ) {
-        Text(text = icon, fontSize = 17.sp, modifier = Modifier.padding(top = 1.dp))
+        Box(modifier = Modifier.padding(top = 2.dp)) {
+            icon()
+        }
         Spacer(modifier = Modifier.width(10.dp))
         Column {
-            Text(text = title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(text = title, color = AppColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             Text(text = desc, color = AppColors.TextSecondary, fontSize = 12.5.sp, lineHeight = 18.sp)
         }
     }
@@ -451,8 +427,8 @@ private fun PlanCard(
     isRu: Boolean,
     onClick: () -> Unit
 ) {
-    val borderColor = if (isSelected) AppColors.BrandGreen else AppColors.CardBorder
-    val bg = if (isSelected) Color(0xFF0F1E19) else AppColors.InputBg
+    val borderColor = if (isSelected) AppColors.BrandMint else AppColors.BorderDefault
+    val bg = if (isSelected) AppColors.BgSurfaceElevated else AppColors.BgInput
 
     Row(
         modifier = Modifier
@@ -460,19 +436,18 @@ private fun PlanCard(
             .clip(RoundedCornerShape(14.dp))
             .background(bg)
             .border(if (isSelected) 1.5.dp else 1.dp, borderColor, RoundedCornerShape(14.dp))
-            .clickable { onClick() }
+            .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Radio circle
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .size(20.dp)
                     .clip(CircleShape)
-                    .border(1.5.dp, if (isSelected) AppColors.BrandGreen else AppColors.TextMuted, CircleShape)
-                    .background(if (isSelected) AppColors.BrandGreen else Color.Transparent),
+                    .border(1.5.dp, if (isSelected) AppColors.BrandMint else AppColors.TextMuted, CircleShape)
+                    .background(if (isSelected) AppColors.BrandMint else Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
                 if (isSelected) {
@@ -480,7 +455,7 @@ private fun PlanCard(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(AppColors.BgCanvas)
+                            .background(AppColors.BrandMintDark)
                     )
                 }
             }
@@ -491,7 +466,7 @@ private fun PlanCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = plan.name,
-                        color = Color.White,
+                        color = AppColors.TextPrimary,
                         fontSize = 14.5.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -500,12 +475,12 @@ private fun PlanCard(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
-                                .background(AppColors.BrandGreen)
+                                .background(AppColors.BrandMint)
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = plan.badge,
-                                color = AppColors.DarkText,
+                                color = AppColors.BrandMintDark,
                                 fontSize = 9.5.sp,
                                 fontWeight = FontWeight.ExtraBold
                             )
@@ -515,7 +490,7 @@ private fun PlanCard(
 
                 Text(
                     text = "${plan.pricePerMonthRub} ₽ / ${if (isRu) "месяц" else "month"}",
-                    color = if (isSelected) AppColors.BrandGreen else AppColors.TextSecondary,
+                    color = if (isSelected) AppColors.SkyBlue else AppColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium
                 )
@@ -524,7 +499,7 @@ private fun PlanCard(
 
         Text(
             text = "${plan.priceRub} ₽",
-            color = Color.White,
+            color = AppColors.TextPrimary,
             fontSize = 16.sp,
             fontWeight = FontWeight.ExtraBold
         )
