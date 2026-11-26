@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMePrimaryButton
+import com.example.bymevpn.components.ByMeSecondaryButton
 import com.example.bymevpn.components.ByMeTopBar
 import com.example.bymevpn.components.SmartphoneIcon
 import com.example.bymevpn.data.AccountRepository
@@ -102,72 +103,89 @@ fun DevicesScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 26.dp, vertical = 12.dp)
             ) {
-                // Large device count display matching mockup 15_devices
-                Row(verticalAlignment = Alignment.Bottom) {
+                if (deviceListUnavailable) {
                     Text(
-                        text = if (deviceListUnavailable) "—" else "$effectiveConnected",
+                        text = effectiveMax?.let {
+                            if (isRu) "Лимит тарифа: до $it устройств" else "Plan limit: up to $it devices"
+                        } ?: if (isRu) "Устройства" else "Devices",
                         color = AppColors.TextPrimary,
-                        fontSize = 60.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-3).sp
+                        fontSize = 19.sp,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = effectiveMax?.let { if (isRu) " из $it" else " of $it" } ?: "",
-                        color = AppColors.BrandMint,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
+                        text = if (isRu) "Подтверждённый список с сервера сейчас недоступен." else "Confirmed device list from the server is unavailable.",
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
                     )
-                }
-
-                Text(
-                    text = if (deviceListUnavailable) {
-                        if (isRu) "Не удалось получить подтверждённый список с сервера." else "Could not retrieve the confirmed device list."
-                    } else if (effectiveMax == null) {
-                        if (devicesList.isEmpty()) {
-                            if (isRu) "Зарегистрированных устройств пока нет." else "No registered devices yet."
-                        } else {
-                            if (isRu) "Сейчас отображается $effectiveConnected устройств." else "$effectiveConnected devices are shown now."
+                } else {
+                    Row {
+                        Text(
+                            text = "$effectiveConnected",
+                            color = AppColors.TextPrimary,
+                            fontSize = 44.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-1.5).sp,
+                            modifier = Modifier.alignByBaseline()
+                        )
+                        if (effectiveMax != null) {
+                            Text(
+                                text = if (isRu) " из $effectiveMax" else " of $effectiveMax",
+                                color = AppColors.BrandMint,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.alignByBaseline().padding(start = 4.dp)
+                            )
                         }
-                    } else if (isRu) "Подключено устройств · максимум $effectiveMax" else "Devices connected · up to $effectiveMax",
-                    color = AppColors.TextSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 24.dp)
-                )
+                    }
 
-                if (effectiveMax != null && !deviceListUnavailable) {
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { (effectiveConnected.toFloat() / effectiveMax).coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(4.dp),
-                        color = AppColors.SkyBlue,
-                        trackColor = AppColors.BorderDefault
+                    Text(
+                        text = if (effectiveMax == null) {
+                            if (devicesList.isEmpty()) {
+                                if (isRu) "Зарегистрированных устройств пока нет." else "No registered devices yet."
+                            } else {
+                                if (isRu) "Сейчас отображается $effectiveConnected устройств." else "$effectiveConnected devices shown."
+                            }
+                        } else if (isRu) "Подключено устройств · максимум $effectiveMax" else "Devices connected · up to $effectiveMax",
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
                     )
-                    Spacer(Modifier.height(20.dp))
+
+                    if (effectiveMax != null) {
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { (effectiveConnected.toFloat() / effectiveMax).coerceIn(0f, 1f) },
+                            modifier = Modifier.fillMaxWidth().height(4.dp),
+                            color = AppColors.SkyBlue,
+                            trackColor = AppColors.BorderDefault
+                        )
+                        Spacer(Modifier.height(18.dp))
+                    }
                 }
 
                 if (deviceListUnavailable) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(17.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(AppColors.BgSurface)
-                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
+                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = if (isRu) "Список устройств временно недоступен" else "Device list is temporarily unavailable",
+                            text = if (isRu) "Не удалось загрузить список" else "Could not load device list",
                             color = AppColors.TextPrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(6.dp))
                         Text(
-                            text = if (isRu) "Мы не меняли лимит и не удаляли устройства. Повторите загрузку." else "Your device limit and registered devices were not changed. Try loading again.",
+                            text = if (isRu) "Лимит и устройства не изменились." else "Your limit and registered devices were not changed.",
                             color = AppColors.TextSecondary,
-                            fontSize = 12.sp
+                            fontSize = 12.5.sp
                         )
                         Spacer(Modifier.height(14.dp))
-                        ByMePrimaryButton(
+                        ByMeSecondaryButton(
                             text = if (isRefreshingDevices) {
                                 if (isRu) "Загружаем…" else "Loading…"
                             } else {
@@ -183,12 +201,10 @@ fun DevicesScreen(
                                     }
                                 }
                             },
-                            enabled = !isRefreshingDevices,
-                            height = 46.dp,
-                            showArrow = false
+                            enabled = !isRefreshingDevices
                         )
                     }
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(16.dp))
                 }
 
                 val localModel = "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}".trim()
@@ -321,16 +337,9 @@ fun DevicesScreen(
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                     }
-                } else {
-                    Text(
-                        text = if (isRu) "Пока отображается только это устройство." else "Only this device is shown for now.",
-                        color = AppColors.TextSecondary,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED && effectiveMax != null && effectiveMax in setOf(2, 5) && subscription?.isUsable == true) {
                     val isFull = effectiveConnected >= effectiveMax
@@ -389,30 +398,14 @@ fun DevicesScreen(
                     Spacer(Modifier.height(14.dp))
                 }
 
-                // Info Box
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(17.dp))
-                        .background(AppColors.BgSurface)
-                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
-                        .padding(18.dp)
-                ) {
-                    Text(
-                        text = if (isRu) "Добавить устройство" else "Add a device",
-                        color = AppColors.SkyBlue,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (isRu) "Войдите в ByMeVPN на другом устройстве с тем же аккаунтом. Оно появится здесь после регистрации на сервере."
-                            else "Sign in to ByMeVPN on another device with the same account. It will appear here once registered with the server.",
-                        color = AppColors.TextSecondary,
-                        fontSize = 12.5.sp,
-                        lineHeight = 18.sp
-                    )
-                }
+                Text(
+                    text = if (isRu) "Чтобы добавить устройство, войдите в ByMeVPN с тем же аккаунтом на другом устройстве."
+                    else "To add a device, sign in to ByMeVPN with this account on another device.",
+                    color = AppColors.TextMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+                )
             }
 
             ByMeBottomNav(

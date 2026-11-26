@@ -186,6 +186,7 @@ data class DeviceItem(
 object ApiJsonParsers {
     fun parseDeviceResponse(json: JSONObject, currentInstallId: String? = null): List<DeviceItem> {
         val devices = json.optJSONArray("devices")
+            ?: json.optJSONArray("raw_array")
             ?: throw IllegalArgumentException("Device list missing from server response")
         return parseDevices(devices, currentInstallId)
     }

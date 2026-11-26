@@ -122,8 +122,8 @@ object AccountRepository {
                     Result.success(auth.user)
                 }
                 is GoogleAuthResult.Error -> {
-                    Log.w(TAG, "Google sign-in failed at $stage")
-                    Result.failure(ApiError("GOOGLE_AUTH_FAILED", authResult.message))
+                    Log.w(TAG, "Google sign-in failed at $stage (code=${authResult.code})")
+                    Result.failure(ApiError(authResult.code, authResult.message))
                 }
                 is GoogleAuthResult.Cancelled -> {
                     Result.failure(ApiError("USER_CANCELLED", "Sign-in cancelled"))

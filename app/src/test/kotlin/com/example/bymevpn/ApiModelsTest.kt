@@ -144,6 +144,11 @@ class ApiModelsTest {
             ApiJsonParsers.parseDeviceResponse(JSONObject("{}"))
         }
         assertTrue(ApiJsonParsers.parseDeviceResponse(JSONObject("{\"devices\":[]}")).isEmpty())
+        val fromRawArray = ApiJsonParsers.parseDeviceResponse(
+            JSONObject("""{"raw_array":[{"id":7,"device_model":"Pixel 9","platform":"Android"}]}""")
+        )
+        assertEquals(1, fromRawArray.size)
+        assertEquals("Pixel 9", fromRawArray.single().deviceModel)
     }
 
     @Test

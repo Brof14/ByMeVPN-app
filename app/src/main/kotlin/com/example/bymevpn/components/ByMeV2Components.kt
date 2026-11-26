@@ -328,8 +328,8 @@ fun ByMePrimaryButton(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (enabled && pressed) 0.96f else 1f,
-        animationSpec = tween(140, easing = LogoTapEase),
+        targetValue = if (enabled && pressed) 0.97f else 1f,
+        animationSpec = tween(100, easing = LogoTapEase),
         label = "primary_btn_scale"
     )
     Box(
@@ -391,8 +391,8 @@ fun ByMeSecondaryButton(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (enabled && pressed) 0.96f else 1f,
-        animationSpec = tween(140, easing = LogoTapEase),
+        targetValue = if (enabled && pressed) 0.97f else 1f,
+        animationSpec = tween(100, easing = LogoTapEase),
         label = "secondary_btn_scale"
     )
     Box(
@@ -446,14 +446,9 @@ fun ByMeToggle(
 ) {
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 19.dp else 0.dp,
-        animationSpec = tween(180, easing = LogoTapEase),
+        animationSpec = tween(140, easing = LogoTapEase),
         label = "toggle_anim"
     )
-    val trackBrush = if (checked) {
-        AppGradients.PrimaryButton
-    } else {
-        Brush.horizontalGradient(listOf(AppColors.ToggleTrackOff, AppColors.ToggleTrackOff))
-    }
     val thumbColor = if (checked) AppColors.ToggleThumbOn else AppColors.ToggleThumbOff
 
     Box(
@@ -466,7 +461,10 @@ fun ByMeToggle(
             modifier = Modifier
                 .size(width = 44.dp, height = 25.dp)
                 .clip(RoundedCornerShape(99.dp))
-                .background(trackBrush)
+                .then(
+                    if (checked) Modifier.background(AppGradients.PrimaryButton)
+                    else Modifier.background(AppColors.ToggleTrackOff)
+                )
                 .border(
                     width = 1.dp,
                     color = if (checked) Color.Transparent else AppColors.BorderDefault,

@@ -40,7 +40,6 @@ import androidx.compose.ui.window.DialogProperties
 import com.example.bymevpn.components.BottomNavTab
 import com.example.bymevpn.components.ByMeBottomNav
 import com.example.bymevpn.components.ByMeCardGroup
-import com.example.bymevpn.components.ByMeInfoBox
 import com.example.bymevpn.components.ByMeSettingRow
 import com.example.bymevpn.components.ByMeToggle
 import com.example.bymevpn.components.ByMeTopBar
@@ -261,13 +260,7 @@ fun SettingsScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                ByMeInfoBox(
-                    text = if (isRu) "Не уверены, что выбрать? Оставьте настройки по умолчанию." else "Not sure? Keep the default settings."
-                )
-
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             ByMeBottomNav(

@@ -6,12 +6,24 @@ object AccountActionErrorMessages {
         val apiError = error as? ApiError
         val message = when {
             apiError?.code == "USER_CANCELLED" -> ""
+            apiError?.code == "NO_GOOGLE_ACCOUNT" -> if (isRussian) {
+                "На устройстве не найден аккаунт Google. Добавьте его в настройках или войдите по почте."
+            } else {
+                "No Google account found on this device. Add one in Settings or sign in with email."
+            }
+            apiError?.code == "GOOGLE_CREDENTIAL_UNAVAILABLE" -> if (isRussian) {
+                "Вход через Google недоступен на этом устройстве. Войдите по почте или через Telegram."
+            } else {
+                "Google sign-in is unavailable on this device. Sign in with email or Telegram."
+            }
             apiError?.code == "NETWORK_ERROR" -> if (isRussian) {
                 "Нет соединения. Проверьте интернет и попробуйте войти снова."
             } else {
                 "No connection. Check your internet and try signing in again."
             }
-            apiError?.httpStatusCode == 503 || apiError?.code == "GOOGLE_AUTH_UNAVAILABLE" -> if (isRussian) {
+            apiError?.httpStatusCode == 503 ||
+                apiError?.code == "GOOGLE_AUTH_UNAVAILABLE" ||
+                apiError?.httpStatusCode?.let { it in 500..599 } == true -> if (isRussian) {
                 "Вход через Google временно недоступен. Попробуйте позже."
             } else {
                 "Google sign-in is temporarily unavailable. Please try again later."
@@ -27,7 +39,7 @@ object AccountActionErrorMessages {
                 "Could not sign in with Google. Try again or sign in with email."
             }
         }
-        return appendSupportCode(message, apiError)
+        return appendSupportCode(message, apiError, isRussian)
     }
 
     fun telegramSignInStart(error: Throwable?, isRussian: Boolean): String {
@@ -54,7 +66,7 @@ object AccountActionErrorMessages {
                 "Could not start Telegram sign-in. Please try again."
             }
         }
-        return appendSupportCode(message, apiError)
+        return appendSupportCode(message, apiError, isRussian)
     }
 
     fun telegramSignInCheck(error: Throwable?, isRussian: Boolean): String {
@@ -81,7 +93,7 @@ object AccountActionErrorMessages {
                 "Could not finish Telegram sign-in. Please start again."
             }
         }
-        return appendSupportCode(message, apiError)
+        return appendSupportCode(message, apiError, isRussian)
     }
 
     fun activateTrial(error: Throwable?, isRussian: Boolean): String {
@@ -118,7 +130,7 @@ object AccountActionErrorMessages {
                 "Could not activate the trial. Please try again."
             }
         }
-        return appendSupportCode(message, apiError)
+        return appendSupportCode(message, apiError, isRussian)
     }
 
     fun deleteDevice(error: Throwable?, isRussian: Boolean): String {
@@ -152,9 +164,10 @@ object AccountActionErrorMessages {
         }
     }
 
-    private fun appendSupportCode(message: String, error: ApiError?): String {
+    private fun appendSupportCode(message: String, error: ApiError?, isRussian: Boolean): String {
         if (message.isBlank()) return message
         val correlationId = error?.correlationId ?: return message
-        return "$message (код: $correlationId)"
+        val label = if (isRussian) "код" else "code"
+        return "$message ($label: $correlationId)"
     }
 }

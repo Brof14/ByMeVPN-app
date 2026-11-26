@@ -84,4 +84,41 @@ class AccountActionErrorMessagesTest {
         assertTrue(unavailable.contains("Сервер не смог удалить"))
         assertTrue(!unavailable.contains("internal detail"))
     }
+
+    @Test
+    fun supportCodeLabelFollowsSelectedLanguage() {
+        val enTrial = AccountActionErrorMessages.activateTrial(
+            ApiError("HTTP_500", "internal", 500, correlationId = "a17fe10f9e8e6211"), false
+        )
+        assertTrue(enTrial.contains("(code: a17fe10f9e8e6211)"))
+        assertTrue(!enTrial.contains("код"))
+
+        val ruTrial = AccountActionErrorMessages.activateTrial(
+            ApiError("HTTP_500", "internal", 500, correlationId = "a17fe10f9e8e6211"), true
+        )
+        assertTrue(ruTrial.contains("(код: a17fe10f9e8e6211)"))
+    }
+
+    @Test
+    fun googleCredentialExceptionsGiveClearLocalizedGuidance() {
+        val noAccountRu = AccountActionErrorMessages.googleSignIn(
+            ApiError("NO_GOOGLE_ACCOUNT", "No Google account"), true
+        )
+        assertTrue(noAccountRu.contains("аккаунт Google"))
+
+        val noAccountEn = AccountActionErrorMessages.googleSignIn(
+            ApiError("NO_GOOGLE_ACCOUNT", "No Google account"), false
+        )
+        assertTrue(noAccountEn.contains("No Google account"))
+
+        val unavailableRu = AccountActionErrorMessages.googleSignIn(
+            ApiError("GOOGLE_CREDENTIAL_UNAVAILABLE", "Unavailable"), true
+        )
+        assertTrue(unavailableRu.contains("недоступен"))
+
+        val unavailableEn = AccountActionErrorMessages.googleSignIn(
+            ApiError("GOOGLE_CREDENTIAL_UNAVAILABLE", "Unavailable"), false
+        )
+        assertTrue(unavailableEn.contains("unavailable"))
+    }
 }

@@ -1,6 +1,5 @@
 package com.example.bymevpn.screens
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,7 +42,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
@@ -60,7 +58,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
-import androidx.compose.ui.unit.coerceIn
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.ChevronRightIcon
@@ -161,30 +158,26 @@ fun SignUpScreen(
                 .navigationBarsPadding(),
             contentAlignment = Alignment.Center
         ) {
-            val screenWidth = maxWidth
-            val screenHeight = maxHeight
-            val logoSize = (screenWidth * 0.34f).coerceIn(96.dp, 128.dp)
-            val horizontalPadding = (screenWidth * 0.065f).coerceIn(20.dp, 26.dp)
+            val compactScreen = maxHeight < 680.dp
+            val logoSize = if (compactScreen) 64.dp else 74.dp
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .widthIn(max = 500.dp)
+                    .fillMaxWidth()
+                    .widthIn(max = 440.dp)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = horizontalPadding),
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Spacer(modifier = Modifier.height(screenHeight * 0.02f))
-
                 ShieldLogo(size = logoSize, isActive = true)
 
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 val brandText = buildAnnotatedString {
-                    withStyle(SpanStyle(color = AppColors.TextPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold)) {
+                    withStyle(SpanStyle(color = AppColors.TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold)) {
                         append("ByMe")
                     }
-                    withStyle(SpanStyle(color = AppColors.SkyBlue, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)) {
+                    withStyle(SpanStyle(color = AppColors.SkyBlue, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)) {
                         append("VPN")
                     }
                 }
@@ -193,77 +186,79 @@ fun SignUpScreen(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = if (isRu) "Создайте защищённый аккаунт" else "Create your secure account",
+                    text = if (isRu) "Регистрация" else "Create account",
                     color = AppColors.TextSecondary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
+                    fontSize = 13.5.sp
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 if (com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
-                // Primary 1-Tap Google Sign-Up
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White)
-                        .clickable(enabled = !isLoading) {
-                            isLoading = true
-                            authError = null
-                            scope.launch {
-                                val result = AccountRepository.loginWithGoogle(context)
-                                isLoading = false
-                                if (result.isSuccess) {
-                                    onSignUpSuccess()
-                                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(Color.White)
+                            .clickable(enabled = !isLoading) {
+                                isLoading = true
+                                authError = null
+                                scope.launch {
+                                    val result = AccountRepository.loginWithGoogle(context)
+                                    isLoading = false
+                                    if (result.isSuccess) {
+                                        onSignUpSuccess()
+                                    } else {
                                         val message = com.example.bymevpn.data.api.AccountActionErrorMessages
                                             .googleSignIn(result.exceptionOrNull(), isRu)
                                         authError = message.takeIf { it.isNotBlank() }
+                                    }
                                 }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                GoogleLogoIcon(size = 20.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = if (isRu) "Продолжить с Google" else "Continue with Google",
+                                    color = Color(0xFF14191F),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Spacer(modifier = Modifier.weight(1f))
+                                ChevronRightIcon(color = Color(0xFF5F6368), size = 16.dp)
                             }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(color = AppColors.DarkText, modifier = Modifier.size(22.dp))
-                    } else {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            GoogleLogoIcon(size = 20.dp)
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = if (isRu) "Продолжить с Google" else "Continue with Google",
-                                color = Color(0xFF1A1A1A),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
+                        Text(
+                            text = if (isRu) "или" else "or",
+                            color = AppColors.TextMuted,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                        HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
-
-                // Divider
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
-                    Text(
-                        text = if (isRu) "ИЛИ ПО ПОЧТЕ" else "OR VIA EMAIL",
-                        color = AppColors.TextMuted,
-                        fontSize = 11.5.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 14.dp)
-                    )
-                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.CardBorder, thickness = 1.dp)
-                }
-
-                Spacer(modifier = Modifier.height(18.dp))
-                }
-
-                // Email
                 SignUpInputField(
                     value = email,
                     onValueChange = {
@@ -271,8 +266,8 @@ fun SignUpScreen(
                         emailError = null
                         authError = null
                     },
-                    hintText = if (isRu) "Адрес эл. почты" else "Email address",
-                    leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.SkyBlue) },
+                    hintText = if (isRu) "Email" else "Email address",
+                    leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.TextMuted, size = 19.dp) },
                     keyboardType = KeyboardType.Email,
                     imeAction = ImeAction.Next,
                     isError = emailError != null
@@ -283,13 +278,12 @@ fun SignUpScreen(
                         text = emailError ?: "",
                         color = AppColors.StatusError,
                         fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Password
                 SignUpInputField(
                     value = password,
                     onValueChange = {
@@ -298,11 +292,11 @@ fun SignUpScreen(
                         authError = null
                     },
                     hintText = if (isRu) "Пароль (от 6 символов)" else "Password (6+ characters)",
-                    leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.SkyBlue) },
+                    leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.TextMuted, size = 19.dp) },
                     trailingIcon = {
                         IconButton(
                             onClick = { passwordVisible = !passwordVisible },
-                            modifier = Modifier.semantics {
+                            modifier = Modifier.size(44.dp).semantics {
                                 contentDescription = if (passwordVisible) {
                                     if (isRu) "Скрыть пароль" else "Hide password"
                                 } else {
@@ -310,7 +304,7 @@ fun SignUpScreen(
                                 }
                             }
                         ) {
-                            EyeIcon(visible = passwordVisible, color = AppColors.TextSecondary)
+                            EyeIcon(visible = passwordVisible, color = AppColors.TextMuted, size = 19.dp)
                         }
                     },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -324,13 +318,12 @@ fun SignUpScreen(
                         text = passwordError ?: "",
                         color = AppColors.StatusError,
                         fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Confirm Password
                 SignUpInputField(
                     value = confirmPassword,
                     onValueChange = {
@@ -339,7 +332,7 @@ fun SignUpScreen(
                         authError = null
                     },
                     hintText = if (isRu) "Повторите пароль" else "Confirm password",
-                    leadingIcon = { LockIcon(color = if (confirmError != null) AppColors.StatusError else AppColors.SkyBlue) },
+                    leadingIcon = { LockIcon(color = if (confirmError != null) AppColors.StatusError else AppColors.TextMuted, size = 19.dp) },
                     visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done,
@@ -352,35 +345,34 @@ fun SignUpScreen(
                         text = confirmError ?: "",
                         color = AppColors.StatusError,
                         fontSize = 12.sp,
-                        modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp)
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 4.dp)
                     )
                 }
 
                 if (authError != null) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = authError ?: "",
                         color = AppColors.StatusError,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.Center
                     )
                 }
 
-                Spacer(modifier = Modifier.height(22.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
-                // Submit Button
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
-                        .clip(RoundedCornerShape(18.dp))
+                        .height(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
                         .background(AppGradients.PrimaryButton)
                         .clickable(enabled = !isLoading) { submitSignUp() },
                     contentAlignment = Alignment.Center
                 ) {
                     if (isLoading) {
-                        CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(22.dp))
+                        CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
                         Text(
                             text = if (isRu) "Создать аккаунт" else "Create Account",
@@ -391,31 +383,27 @@ fun SignUpScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                // Switch to Sign In
                 Row(
                     modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable(onClick = onSignInClick)
-                        .padding(vertical = 10.dp),
+                        .padding(horizontal = 8.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = if (isRu) "Уже есть аккаунт? " else "Already have an account? ",
                         color = AppColors.TextSecondary,
-                        fontSize = 14.sp
+                        fontSize = 13.5.sp
                     )
                     Text(
                         text = if (isRu) "Войти" else "Sign In",
                         color = AppColors.SkyBlue,
-                        fontSize = 14.sp,
+                        fontSize = 13.5.sp,
                         fontWeight = FontWeight.Bold
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    ChevronRightIcon(color = AppColors.SkyBlue, size = 14.dp)
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }

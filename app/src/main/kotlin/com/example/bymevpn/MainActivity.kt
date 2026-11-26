@@ -404,10 +404,10 @@ fun MainAppNav(onRestoreViaTelegram: () -> Unit = {}) {
     NavHost(
         navController = navController,
         startDestination = if (currentUser != null) AppRoute.Home else AppRoute.SignIn,
-        enterTransition = { fadeIn(tween(160)) },
-        exitTransition = { fadeOut(tween(160)) },
-        popEnterTransition = { fadeIn(tween(160)) },
-        popExitTransition = { fadeOut(tween(160)) }
+        enterTransition = { fadeIn(tween(100)) },
+        exitTransition = { fadeOut(tween(100)) },
+        popEnterTransition = { fadeIn(tween(100)) },
+        popExitTransition = { fadeOut(tween(100)) }
     ) {
         composable(AppRoute.SignIn) {
                 SignInScreen(

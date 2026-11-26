@@ -1,11 +1,15 @@
 package com.example.bymevpn.data.auth
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
+import androidx.credentials.exceptions.GetCredentialInterruptedException
+import androidx.credentials.exceptions.GetCredentialProviderConfigurationException
 import androidx.credentials.exceptions.NoCredentialException
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.api.ApiConfig
@@ -16,7 +20,7 @@ import kotlinx.coroutines.withContext
 
 sealed class GoogleAuthResult {
     data class Success(val idToken: String, val email: String, val displayName: String?) : GoogleAuthResult()
-    data class Error(val message: String) : GoogleAuthResult()
+    data class Error(val message: String, val code: String = "GOOGLE_AUTH_FAILED") : GoogleAuthResult()
     object Cancelled : GoogleAuthResult()
 }
 
@@ -27,6 +31,12 @@ class GoogleAuthHelper(private val context: Context) {
 
     companion object {
         private const val TAG = "GoogleAuthHelper"
+
+        private tailrec fun findActivity(context: Context): Activity? = when (context) {
+            is Activity -> context
+            is ContextWrapper -> findActivity(context.baseContext)
+            else -> null
+        }
     }
 
     private val credentialManager = CredentialManager.create(context)
@@ -34,11 +44,15 @@ class GoogleAuthHelper(private val context: Context) {
     suspend fun signInWithGoogle(serverNonce: String): GoogleAuthResult = withContext(Dispatchers.Main) {
         if (ApiConfig.GOOGLE_SERVER_CLIENT_ID.startsWith("YOUR_GOOGLE_SERVER_CLIENT_ID")) {
             return@withContext GoogleAuthResult.Error(
-                "Google Sign-In requires configuring a valid Google Web Client ID in ApiConfig.GOOGLE_SERVER_CLIENT_ID"
+                message = "Google Sign-In requires configuring a valid Google Web Client ID in ApiConfig.GOOGLE_SERVER_CLIENT_ID",
+                code = "GOOGLE_CREDENTIAL_UNAVAILABLE"
             )
         }
         if (serverNonce.isBlank()) {
-            return@withContext GoogleAuthResult.Error("Google sign-in challenge is unavailable")
+            return@withContext GoogleAuthResult.Error(
+                message = "Google sign-in challenge is unavailable",
+                code = "GOOGLE_AUTH_UNAVAILABLE"
+            )
         }
         try {
             val googleIdOption = GetGoogleIdOption.Builder()
@@ -52,9 +66,10 @@ class GoogleAuthHelper(private val context: Context) {
                 .addCredentialOption(googleIdOption)
                 .build()
 
+            val uiContext: Context = findActivity(context) ?: context
             val result = credentialManager.getCredential(
                 request = request,
-                context = context
+                context = uiContext
             )
 
             val credential = result.credential
@@ -75,14 +90,27 @@ class GoogleAuthHelper(private val context: Context) {
             Log.w(TAG, "No Google credentials available on device")
             val isRu = LocaleManager.isRussian()
             GoogleAuthResult.Error(
-                if (isRu) {
+                message = if (isRu) {
                     "На устройстве не найден аккаунт Google. Добавьте аккаунт в настройках или войдите по почте."
                 } else {
                     "No Google account found on this device. Add one in Settings or sign in with email."
-                }
+                },
+                code = "NO_GOOGLE_ACCOUNT"
+            )
+        } catch (e: GetCredentialProviderConfigurationException) {
+            Log.e(TAG, "Google Credential Provider unavailable: ${e.type}")
+            GoogleAuthResult.Error(
+                message = e.localizedMessage ?: "Google credential provider unavailable",
+                code = "GOOGLE_CREDENTIAL_UNAVAILABLE"
+            )
+        } catch (e: GetCredentialInterruptedException) {
+            Log.w(TAG, "Google sign-in interrupted")
+            GoogleAuthResult.Error(
+                message = e.localizedMessage ?: "Google sign-in interrupted",
+                code = "GOOGLE_AUTH_INTERRUPTED"
             )
         } catch (e: GetCredentialException) {
-            Log.e(TAG, "Google Credential Manager error: ${e.javaClass.simpleName}")
+            Log.e(TAG, "Google Credential Manager error: ${e.javaClass.simpleName} (${e.type})")
             GoogleAuthResult.Error(e.localizedMessage ?: "Google sign-in failed")
         } catch (e: Exception) {
             Log.e(TAG, "Unexpected Google sign in error: ${e.javaClass.simpleName}")

@@ -35,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -587,11 +586,10 @@ private fun DeviceCountTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bgBrush = if (selected) AppGradients.PrimaryButton else Brush.horizontalGradient(listOf(Color.Transparent, Color.Transparent))
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(11.dp))
-            .background(bgBrush)
+            .then(if (selected) Modifier.background(AppGradients.PrimaryButton) else Modifier)
             .clickable(onClick = onClick)
             .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center

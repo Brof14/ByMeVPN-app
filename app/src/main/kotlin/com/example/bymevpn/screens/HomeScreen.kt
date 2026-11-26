@@ -568,31 +568,23 @@ private fun HomeNoPlanContent(
         contentAlignment = Alignment.Center
     ) {
         val compact = maxHeight < 530.dp
-        val logoSize = if (compact) 130.dp else minOf(200.dp, maxHeight * 0.29f)
+        val logoSize = if (compact) 88.dp else 108.dp
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 26.dp, vertical = 8.dp),
+                .padding(horizontal = 24.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             ShieldLogo(size = logoSize)
-            Spacer(Modifier.height(if (compact) 10.dp else 16.dp))
-            Text(
-                text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",
-                color = AppColors.TextPrimary,
-                fontSize = if (compact) 22.sp else 24.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Spacer(Modifier.height(if (compact) 14.dp else 22.dp))
+            Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(21.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(AppGradients.AccentCard)
-                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
-                    .padding(if (compact) 16.dp else 19.dp)
+                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
+                    .padding(if (compact) 16.dp else 20.dp)
             ) {
                 Text(
                     text = when {
@@ -605,7 +597,7 @@ private fun HomeNoPlanContent(
                         else -> if (isRu) "Доступ не активен" else "Access inactive"
                     },
                     color = AppColors.TextPrimary,
-                    fontSize = 23.sp,
+                    fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.height(6.dp))
@@ -614,7 +606,7 @@ private fun HomeNoPlanContent(
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Загружаем данные аккаунта." else "Loading account details."
                         subscriptionUnknown -> if (isRu) "Повторите проверку, чтобы обновить данные аккаунта." else "Retry to refresh your account details."
                         accessConfirmationRequired -> if (isRu) "Обновите статус доступа. Пробный период не будет списан." else "Refresh access status. Your trial will not be used."
-                        trialAvailable -> if (isRu) "Попробуйте сервис 3 дня без ограничений." else "Try the service free for 3 days."
+                        trialAvailable -> if (isRu) "Полный доступ без привязки карты." else "Full access, no card required."
                         trialUnavailableReason == "trial_already_used" -> if (hasCheckout) {
                             if (isRu) "Выберите тариф, чтобы продолжить пользоваться VPN." else "Choose a plan to continue using VPN."
                         } else {

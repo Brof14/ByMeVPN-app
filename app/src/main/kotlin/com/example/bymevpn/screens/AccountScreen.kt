@@ -243,21 +243,24 @@ fun AccountScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Row(verticalAlignment = Alignment.Bottom) {
+                        Row {
                             Text(
                                 text = remainingDays?.toString() ?: "—",
                                 color = AppColors.TextPrimary,
-                                fontSize = 60.sp,
+                                fontSize = 54.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = (-3).sp
+                                letterSpacing = (-2).sp,
+                                modifier = Modifier.alignByBaseline()
                             )
-                            Text(
-                                text = if (remainingDays == null) "" else t(" дн.", " days"),
-                                color = AppColors.BrandMint,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                modifier = Modifier.padding(bottom = 10.dp, start = 4.dp)
-                            )
+                            if (remainingDays != null) {
+                                Text(
+                                    text = t(" дн.", " days"),
+                                    color = AppColors.BrandMint,
+                                    fontSize = 19.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.alignByBaseline().padding(start = 4.dp)
+                                )
+                            }
                         }
 
                         Text(
@@ -325,20 +328,20 @@ fun AccountScreen(
                             fontSize = 21.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = if (accessConfirmationRequired) t(
-                                "Подписка активна, но доступ этого устройства ещё не подтверждён. Обновите данные; пробный период не будет списан.",
-                                "Your subscription is active, but this device's access is not confirmed yet. Refresh your account; your trial will not be used."
+                                "Подписка активна, но это устройство ещё не подтверждено. Обновите данные.",
+                                "Subscription is active, but this device isn't confirmed yet. Refresh your account."
                             ) else t(
-                                "Доступ пока не подтверждён. Обновите данные аккаунта; пробный период и подписка не менялись.",
-                                "Access is not confirmed yet. Refresh your account; your trial and subscription have not been changed."
+                                "Доступ пока не подтверждён. Обновите данные — подписка не изменилась.",
+                                "Access isn't confirmed yet. Refresh your account — your plan is unchanged."
                             ),
                             color = AppColors.TextSecondary,
                             fontSize = 12.5.sp,
                             lineHeight = 18.sp
                         )
-                        Spacer(modifier = Modifier.height(20.dp))
+                        Spacer(modifier = Modifier.height(18.dp))
                         ByMePrimaryButton(
                             text = if (isCheckingSubscription || refreshingAccount) {
                                 t("Проверяем…", "Checking…")
@@ -366,20 +369,20 @@ fun AccountScreen(
                                 t("Пробный период использован", "Free trial already used")
                             else t("Подписка не активна", "Subscription inactive"),
                             color = AppColors.TextPrimary,
-                            fontSize = 23.sp,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
                             text = when (subscription?.trialUnavailableReason) {
                                 "trial_activation_pending" -> t("Активация проверяется. Обновите данные позже.", "Activation is being checked. Refresh your account later.")
                                 "eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable" -> t("Не удалось проверить доступность пробного периода.", "Could not check trial availability.")
                                 else -> if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
-                                    t("Оформите подписку, чтобы подключаться к серверам ByMeVPN.", "Choose a plan to connect to ByMeVPN servers.")
+                                    t("Выберите тариф, чтобы подключиться к ByMeVPN.", "Choose a plan to connect to ByMeVPN.")
                                 } else {
-                                    t("Активной подписки пока нет. Вы можете активировать пробный период на главной или обновить статус аккаунта.", "No active subscription yet. You can activate your trial on Home or refresh your account status.")
+                                    t("Активной подписки пока нет. Активируйте пробный период на главной или обновите статус.", "No active subscription yet. Activate your trial on Home or refresh status.")
                                 }
                             },
                             color = AppColors.TextSecondary,

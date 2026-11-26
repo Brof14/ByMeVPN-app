@@ -41,9 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -371,34 +369,30 @@ fun SignInScreen(
                     .padding(innerPadding)
                     .statusBarsPadding()
                     .navigationBarsPadding(),
-                contentAlignment = Alignment.TopCenter
+                contentAlignment = Alignment.Center
             ) {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .widthIn(max = 480.dp)
+                        .fillMaxWidth()
+                        .widthIn(max = 440.dp)
                         .verticalScroll(scrollState)
-                        .padding(horizontal = 24.dp),
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // 1. Shield Logo with ambient glowing halo
                     ShieldLogo(
-                        size = if (compactScreen) 106.dp else 150.dp,
+                        size = if (compactScreen) 64.dp else 76.dp,
                         isActive = true
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // 2. Title: ByMe (White) + VPN (Cyan)
                     val brandText = buildAnnotatedString {
                         withStyle(
                             SpanStyle(
                                 color = AppColors.TextPrimary,
-                                fontSize = 30.sp,
+                                fontSize = 26.sp,
                                 fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.3.sp
                             )
                         ) {
                             append("ByMe")
@@ -406,9 +400,9 @@ fun SignInScreen(
                         withStyle(
                             SpanStyle(
                                 color = AppColors.SkyBlue,
-                                fontSize = 30.sp,
+                                fontSize = 26.sp,
                                 fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 0.5.sp
+                                letterSpacing = 0.3.sp
                             )
                         ) {
                             append("VPN")
@@ -419,115 +413,89 @@ fun SignInScreen(
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    // 3. Slogan: Скорость. Свобода. Простота.
-                    Text(
-                        text = if (isRu) "VPN для ваших устройств" else "VPN for your devices",
-                        color = AppColors.TextSecondary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        textAlign = TextAlign.Center
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(if (compactScreen) 18.dp else 24.dp))
 
                     if (com.example.bymevpn.data.api.ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
-                    // 4. Primary 1-Tap Google Sign-In Button
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .drawBehind {
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x2800D8FF), Color.Transparent),
-                                        center = Offset(size.width / 2f, size.height + 4f),
-                                        radius = size.width * 0.45f
-                                    ),
-                                    radius = size.width * 0.45f,
-                                    center = Offset(size.width / 2f, size.height + 4f)
-                                )
-                            }
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Color.White)
-                            .clickable(enabled = !isGoogleLoading && !isEmailLoading) {
-                                isGoogleLoading = true
-                                authError = null
-                                scope.launch {
-                                    val result = AccountRepository.loginWithGoogle(context)
-                                    isGoogleLoading = false
-                                    if (result.isSuccess) {
-                                        onSignInSuccess()
-                                    } else {
-                                        val message = com.example.bymevpn.data.api.AccountActionErrorMessages
-                                            .googleSignIn(result.exceptionOrNull(), isRu)
-                                        authError = message.takeIf { it.isNotBlank() }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color.White)
+                                .clickable(enabled = !isGoogleLoading && !isEmailLoading && !isTelegramLoading) {
+                                    isGoogleLoading = true
+                                    authError = null
+                                    scope.launch {
+                                        val result = AccountRepository.loginWithGoogle(context)
+                                        isGoogleLoading = false
+                                        if (result.isSuccess) {
+                                            onSignInSuccess()
+                                        } else {
+                                            val message = com.example.bymevpn.data.api.AccountActionErrorMessages
+                                                .googleSignIn(result.exceptionOrNull(), isRu)
+                                            authError = message.takeIf { it.isNotBlank() }
+                                        }
                                     }
                                 }
-                            }
-                            .testTag("google_login_button"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isGoogleLoading) {
-                            CircularProgressIndicator(
-                                color = Color(0xFF14191F),
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.5.dp
-                            )
-                        } else {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                GoogleLogoIcon(size = 22.dp)
-                                Spacer(modifier = Modifier.width(14.dp))
-                                Text(
-                                    text = if (isRu) "Продолжить с Google" else "Continue with Google",
+                                .testTag("google_login_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isGoogleLoading) {
+                                CircularProgressIndicator(
                                     color = Color(0xFF14191F),
-                                    fontSize = 15.5.sp,
-                                    fontWeight = FontWeight.Bold
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
                                 )
-                                Spacer(modifier = Modifier.weight(1f))
-                                ChevronRightIcon(color = Color(0xFF14191F), size = 18.dp)
+                            } else {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 18.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    GoogleLogoIcon(size = 20.dp)
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = if (isRu) "Войти через Google" else "Continue with Google",
+                                        color = Color(0xFF14191F),
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
+                                    ChevronRightIcon(color = Color(0xFF5F6368), size = 16.dp)
+                                }
                             }
                         }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(1.dp)
+                                    .background(AppColors.BorderSubtle)
+                            )
+                            Text(
+                                text = if (isRu) "или" else "or",
+                                color = AppColors.TextMuted,
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(horizontal = 12.dp)
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(1.dp)
+                                    .background(AppColors.BorderSubtle)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
-
-                    // 5. Divider: или по почте
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(1.dp)
-                                .background(AppColors.BorderDefault)
-                        )
-                        Text(
-                            text = if (isRu) "или по почте" else "or via email",
-                            color = AppColors.TextMuted,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Normal,
-                            modifier = Modifier.padding(horizontal = 14.dp)
-                        )
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(1.dp)
-                                .background(AppColors.BorderDefault)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(18.dp))
-                    }
-
-                    // 6. Email Input Field
                     ExactInputField(
                         value = email,
                         onValueChange = {
@@ -535,8 +503,8 @@ fun SignInScreen(
                             emailError = null
                             authError = null
                         },
-                        hintText = if (isRu) "Адрес эл. почты" else "Email address",
-                        leadingIcon = { MailIcon(color = AppColors.TextMuted, size = 20.dp) },
+                        hintText = if (isRu) "Email" else "Email address",
+                        leadingIcon = { MailIcon(color = AppColors.TextMuted, size = 19.dp) },
                         keyboardType = KeyboardType.Email,
                         imeAction = ImeAction.Next,
                         isError = emailError != null,
@@ -550,13 +518,12 @@ fun SignInScreen(
                             fontSize = 12.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 6.dp, top = 4.dp)
+                                .padding(start = 4.dp, top = 4.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // 7. Password Input Field
                     ExactInputField(
                         value = password,
                         onValueChange = {
@@ -565,11 +532,11 @@ fun SignInScreen(
                             authError = null
                         },
                         hintText = if (isRu) "Пароль" else "Password",
-                        leadingIcon = { LockIcon(color = AppColors.TextMuted, size = 20.dp) },
+                        leadingIcon = { LockIcon(color = AppColors.TextMuted, size = 19.dp) },
                         trailingIcon = {
                             IconButton(
                                 onClick = { passwordVisible = !passwordVisible },
-                                modifier = Modifier.size(48.dp).semantics {
+                                modifier = Modifier.size(44.dp).semantics {
                                     contentDescription = if (passwordVisible) {
                                         if (isRu) "Скрыть пароль" else "Hide password"
                                     } else {
@@ -577,7 +544,7 @@ fun SignInScreen(
                                     }
                                 }
                             ) {
-                                EyeIcon(visible = passwordVisible, color = AppColors.TextMuted, size = 20.dp)
+                                EyeIcon(visible = passwordVisible, color = AppColors.TextMuted, size = 19.dp)
                             }
                         },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -595,281 +562,191 @@ fun SignInScreen(
                             fontSize = 12.sp,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(start = 6.dp, top = 4.dp)
+                                .padding(start = 4.dp, top = 4.dp)
                         )
                     }
 
-                    TextButton(
-                        onClick = {
-                            resetEmail = email.trim()
-                            resetError = null
-                            resetSent = false
-                            showPasswordReset = true
-                        },
-                        modifier = Modifier.align(Alignment.End)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                resetEmail = email.trim()
+                                resetError = null
+                                resetSent = false
+                                showPasswordReset = true
+                            }
+                            .padding(horizontal = 4.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = if (isRu) "Забыли пароль?" else "Forgot password?",
-                            color = AppColors.SkyBlue
+                            color = AppColors.SkyBlue,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
 
                     if (authError != null) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
                             text = authError ?: "",
                             color = AppColors.StatusError,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // 8. Main "Войти" Button (Logo Cyan-Mint Gradient with Chevron)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(54.dp)
-                            .drawBehind {
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x4500D8FF), Color.Transparent),
-                                        center = Offset(size.width / 2f, size.height + 4f),
-                                        radius = size.width * 0.45f
-                                    ),
-                                    radius = size.width * 0.45f,
-                                    center = Offset(size.width / 2f, size.height + 4f)
-                                )
-                            }
-                            .clip(RoundedCornerShape(18.dp))
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
                             .background(AppGradients.PrimaryButton)
-                            .clickable(enabled = !isEmailLoading && !isGoogleLoading) { submitLogin() }
+                            .clickable(enabled = !isEmailLoading && !isGoogleLoading && !isTelegramLoading) { submitLogin() }
                             .testTag("login_button"),
                         contentAlignment = Alignment.Center
                     ) {
                         if (isEmailLoading) {
                             CircularProgressIndicator(
                                 color = AppColors.BrandMintDarkText,
-                                modifier = Modifier.size(22.dp),
-                                strokeWidth = 2.5.dp
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Text(
+                                text = if (isRu) "Войти" else "Sign In",
+                                color = AppColors.BrandMintDarkText,
+                                fontSize = 15.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(AppColors.SecondaryButtonBg)
+                            .border(1.dp, AppColors.BorderSecondaryButton, RoundedCornerShape(14.dp))
+                            .clickable(enabled = !isTelegramLoading && !isGoogleLoading && !isEmailLoading) {
+                                isTelegramLoading = true
+                                authError = null
+                                telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
+                                telegramLoginJob = scope.launch {
+                                    val sessionRes = AccountRepository.createTelegramAuthSession(context)
+                                    if (sessionRes.isSuccess) {
+                                        val session = sessionRes.getOrThrow()
+                                        if (!com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, session.botUrl)) {
+                                            isTelegramLoading = false
+                                            telegramStatusText = null
+                                            authError = if (isRu) "Не удалось открыть Telegram. Попробуйте ещё раз." else "Could not open Telegram. Please try again."
+                                            return@launch
+                                        }
+                                        telegramBotUrl = session.botUrl
+                                        telegramStatusText = if (isRu) "Ожидаем подтверждение в боте…" else "Waiting for confirmation in the bot…"
+
+                                        var confirmed = false
+                                        var transientFailures = 0
+                                        var checkError: Throwable? = null
+                                        for (attempt in 1..40) {
+                                            val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
+                                            if (checkRes.isSuccess && checkRes.getOrNull() != null) {
+                                                confirmed = true
+                                                break
+                                            }
+                                            val error = checkRes.exceptionOrNull()
+                                            if (error != null) {
+                                                if (TelegramAuthPollPolicy.shouldRetry(error, transientFailures)) {
+                                                    transientFailures++
+                                                    kotlinx.coroutines.delay(1500)
+                                                    continue
+                                                }
+                                                checkError = error
+                                                break
+                                            }
+                                            if (attempt % 7 == 0) {
+                                                telegramStatusText = if (isRu) "Всё ещё ждём подтверждение в боте…" else "Still waiting for the bot confirmation…"
+                                            }
+                                            kotlinx.coroutines.delay(1500)
+                                        }
+                                        isTelegramLoading = false
+                                        telegramStatusText = null
+                                        telegramBotUrl = null
+                                        if (confirmed) {
+                                            onSignInSuccess()
+                                        } else if (checkError != null) {
+                                            authError = com.example.bymevpn.data.api.AccountActionErrorMessages.telegramSignInCheck(checkError, isRu)
+                                        } else {
+                                            authError = if (isRu) "Подтверждение не получено. Начните вход заново и нажмите «Старт» в боте." else "Confirmation was not received. Start again and tap Start in the bot."
+                                        }
+                                    } else {
+                                        isTelegramLoading = false
+                                        telegramStatusText = null
+                                        authError = com.example.bymevpn.data.api.AccountActionErrorMessages.telegramSignInStart(
+                                            sessionRes.exceptionOrNull(), isRu
+                                        )
+                                    }
+                                }
+                            }
+                            .testTag("telegram_login_button"),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isTelegramLoading) {
+                            CircularProgressIndicator(
+                                color = AppColors.SkyBlue,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
                             )
                         } else {
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 22.dp),
+                                    .padding(horizontal = 18.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Spacer(modifier = Modifier.weight(1f))
+                                PaperPlaneIcon(color = AppColors.SkyBlue, size = 18.dp)
+                                Spacer(modifier = Modifier.width(12.dp))
                                 Text(
-                                    text = if (isRu) "Войти" else "Sign In",
-                                    color = AppColors.BrandMintDarkText,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = if (isRu) "Войти через Telegram" else "Continue with Telegram",
+                                    color = AppColors.SecondaryButtonText,
+                                    fontSize = 14.5.sp,
+                                    fontWeight = FontWeight.SemiBold
                                 )
                                 Spacer(modifier = Modifier.weight(1f))
-                                ChevronRightIcon(color = AppColors.BrandMintDarkText, size = 18.dp)
+                                ChevronRightIcon(color = AppColors.TextMuted, size = 16.dp)
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                    // 9. Dedicated Telegram-Bot Card
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .drawBehind {
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(Color(0x280077FF), Color.Transparent),
-                                        center = Offset(size.width / 2f, size.height / 2f),
-                                        radius = size.width * 0.52f
-                                    ),
-                                    radius = size.width * 0.52f,
-                                    center = Offset(size.width / 2f, size.height / 2f)
-                                )
-                            }
-                            .clip(RoundedCornerShape(22.dp))
-                            .background(AppColors.BgSurface)
-                            .border(1.2.dp, AppColors.BorderTelegram, RoundedCornerShape(22.dp))
-                            .padding(16.dp)
-                    ) {
-                        Column {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Telegram circle badge
-                                Box(
-                                    modifier = Modifier
-                                        .size(46.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            Brush.verticalGradient(
-                                                listOf(AppColors.BrandBlue, Color(0xFF0055CC))
-                                            )
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    PaperPlaneIcon(color = Color.White, size = 22.dp)
-                                }
-
-                                Spacer(modifier = Modifier.width(14.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = if (isRu) "Войти через Telegram" else "Continue with Telegram",
-                                        color = AppColors.TextPrimary,
-                                        fontSize = 14.5.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        lineHeight = 19.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(3.dp))
-                                    Text(
-                                        text = if (isRu) "Подтвердите вход в боте. Для восстановления подписки используйте прежний Telegram-аккаунт." else "Confirm in the bot. Use your original Telegram account to restore an existing subscription.",
-                                        color = AppColors.TextSecondary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Normal
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            // Inner "Войти через Telegram" Button
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(46.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(AppGradients.PrimaryButton)
-                                    .clickable(enabled = !isTelegramLoading) {
-                                        isTelegramLoading = true
-                                        authError = null
-                                        telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
-                                        telegramLoginJob = scope.launch {
-                                            val sessionRes = AccountRepository.createTelegramAuthSession(context)
-                                            if (sessionRes.isSuccess) {
-                                                val session = sessionRes.getOrThrow()
-                                                if (!com.example.bymevpn.data.auth.TelegramLinkOpener.open(context, session.botUrl)) {
-                                                    isTelegramLoading = false
-                                                    telegramStatusText = null
-                                                    authError = if (isRu) "Не удалось открыть Telegram. Попробуйте ещё раз." else "Could not open Telegram. Please try again."
-                                                    return@launch
-                                                }
-                                                telegramBotUrl = session.botUrl
-                                                telegramStatusText = if (isRu) "Ожидаем подтверждение в боте…" else "Waiting for confirmation in the bot…"
-
-                                                var confirmed = false
-                                                var transientFailures = 0
-                                                var checkError: Throwable? = null
-                                                for (attempt in 1..40) {
-                                                    val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
-                                                    if (checkRes.isSuccess && checkRes.getOrNull() != null) {
-                                                        confirmed = true
-                                                        break
-                                                    }
-                                                    val error = checkRes.exceptionOrNull()
-                                                    if (error != null) {
-                                                        if (TelegramAuthPollPolicy.shouldRetry(error, transientFailures)) {
-                                                            transientFailures++
-                                                            kotlinx.coroutines.delay(1500)
-                                                            continue
-                                                        }
-                                                        checkError = error
-                                                        break
-                                                    }
-                                                    if (attempt % 7 == 0) {
-                                                        telegramStatusText = if (isRu) "Всё ещё ждём подтверждение в боте…" else "Still waiting for the bot confirmation…"
-                                                    }
-                                                    kotlinx.coroutines.delay(1500)
-                                                }
-                                                isTelegramLoading = false
-                                                telegramStatusText = null
-                                                telegramBotUrl = null
-                                                if (confirmed) {
-                                                    onSignInSuccess()
-                                                } else if (checkError != null) {
-                                                    authError = com.example.bymevpn.data.api.AccountActionErrorMessages.telegramSignInCheck(checkError, isRu)
-                                                } else {
-                                                    authError = if (isRu) "Подтверждение не получено. Начните вход заново и нажмите «Старт» в боте." else "Confirmation was not received. Start again and tap Start in the bot."
-                                                }
-                                            } else {
-                                                isTelegramLoading = false
-                                                telegramStatusText = null
-                                                authError = com.example.bymevpn.data.api.AccountActionErrorMessages.telegramSignInStart(
-                                                    sessionRes.exceptionOrNull(), isRu
-                                                )
-                                            }
-                                        }
-                                    }
-                                    .testTag("telegram_login_button"),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isTelegramLoading) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = telegramStatusText ?: (if (isRu) "Вход..." else "Logging in..."),
-                                            color = AppColors.BrandMintDarkText,
-                                            fontSize = 12.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                } else {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        PaperPlaneIcon(color = AppColors.BrandMintDarkText, size = 18.dp)
-                                        Spacer(modifier = Modifier.width(8.dp))
-                                        Text(
-                                            text = if (isRu) "Продолжить через Telegram" else "Continue with Telegram",
-                                            color = AppColors.BrandMintDarkText,
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Spacer(modifier = Modifier.weight(1f))
-                                        ChevronRightIcon(color = AppColors.BrandMintDarkText, size = 18.dp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    // 10. Footer: "Нет аккаунта? Зарегистрироваться >"
                     Row(
                         modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
                             .clickable(onClick = onSignUpClick)
-                            .padding(vertical = 12.dp)
+                            .padding(horizontal = 8.dp, vertical = 10.dp)
                             .testTag("signup_link"),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = if (isRu) "Нет аккаунта? " else "Don't have an account? ",
                             color = AppColors.TextSecondary,
-                            fontSize = 13.5.sp,
-                            fontWeight = FontWeight.Normal
+                            fontSize = 13.5.sp
                         )
                         Text(
-                            text = if (isRu) "Зарегистрироваться" else "Sign Up",
+                            text = if (isRu) "Создать" else "Sign Up",
                             color = AppColors.SkyBlue,
                             fontSize = 13.5.sp,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        ChevronRightIcon(color = AppColors.SkyBlue, size = 14.dp)
                     }
-
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }
