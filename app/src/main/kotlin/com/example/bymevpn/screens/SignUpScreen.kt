@@ -263,8 +263,6 @@ fun SignUpScreen(
             contentAlignment = Alignment.Center
         ) {
             val compactScreen = maxHeight < 680.dp
-            val logoSize = if (compactScreen) 52.dp else 60.dp
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
