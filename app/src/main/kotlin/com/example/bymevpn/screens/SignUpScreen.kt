@@ -263,8 +263,6 @@ fun SignUpScreen(
             contentAlignment = Alignment.Center
         ) {
             val compactScreen = maxHeight < 680.dp
-            val logoSize = if (compactScreen) 52.dp else 60.dp
-
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -273,27 +271,10 @@ fun SignUpScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                ShieldLogo(size = logoSize, isActive = true)
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(SpanStyle(color = AppColors.TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold)) {
-                            append("ByMe")
-                        }
-                        withStyle(SpanStyle(color = AppColors.SkyBlue, fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)) {
-                            append("VPN")
-                        }
-                    }
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isRu) "Создание аккаунта" else "Create account",
-                    color = AppColors.TextSecondary,
-                    fontSize = 13.5.sp
+                AuthBrandPanel(
+                    isRu = isRu,
+                    isSignUp = true,
+                    compact = compactScreen
                 )
 
                 Spacer(modifier = Modifier.height(if (compactScreen) 16.dp else 20.dp))

@@ -210,12 +210,15 @@ class ByMeApiClient(private val context: Context) {
     }
 
     suspend fun getMe(): UserProfile {
-        val requestedOwner = storage.getCachedUser()?.id
+        val requestedSessionId = storage.getAccountSessionId()
         val json = request("GET", "/me", null, requiresAuth = true)
         val user = ApiJsonParsers.parseUserProfile(json)
-        val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
-            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner || user.id != requestedOwner) false
-            else { storage.saveCachedUser(user); true }
+        if (user.id.isBlank()) {
+            throw ApiError("INVALID_PROFILE", "The account profile did not include a user ID")
+        }
+        val saved = storage.withCurrentAccountSession(requestedSessionId) {
+            storage.saveCachedUser(user)
+            true
         }
         if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading profile")
         return user
@@ -231,30 +234,28 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getSubscriptionStatus(): SubscriptionStatus {
-        val requestedOwner = storage.getCachedUser()?.id
+        val requestedSessionId = storage.getAccountSessionId()
         val json = request("GET", "/subscription/status", null, requiresAuth = true)
         val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        val token = storage.getAccessToken().orEmpty()
-        val saved = storage.withCurrentAccount(token) {
-            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
-            else { storage.saveCachedSubscription(sub); true }
+        val saved = storage.withCurrentAccountSession(requestedSessionId) {
+            storage.saveCachedSubscription(sub)
+            true
         }
         if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading subscription")
         return sub
     }
 
     suspend fun activateTrial(): SubscriptionStatus {
-        val requestedOwner = storage.getCachedUser()?.id
+        val requestedSessionId = storage.getAccountSessionId()
         val body = JSONObject().apply {
             put("install_id", storage.getInstallId(context))
             put("device_model", storage.getDeviceModel())
         }
         val json = request("POST", "/subscription/trial", body, requiresAuth = true)
         val sub = ApiJsonParsers.parseSubscriptionStatus(json)
-        val token = storage.getAccessToken().orEmpty()
-        val saved = storage.withCurrentAccount(token) {
-            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
-            else { storage.saveCachedSubscription(sub); true }
+        val saved = storage.withCurrentAccountSession(requestedSessionId) {
+            storage.saveCachedSubscription(sub)
+            true
         }
         if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while activating trial")
         return sub
@@ -308,9 +309,8 @@ class ByMeApiClient(private val context: Context) {
     // -------------------------------------------------------------
 
     suspend fun getServers(awaitSubscriptionRefresh: Boolean = false): List<ServerNode> {
-        val requestedOwner = storage.getCachedUser()?.id
+        val requestedSessionId = storage.getAccountSessionId()
         val json = request("GET", "/servers", null, requiresAuth = true)
-        val accountToken = storage.getAccessToken().orEmpty()
         val payload = ApiJsonParsers.parseServerListResponse(json)
         val subUrl = payload.subscriptionUrl.orEmpty()
         val array = payload.servers
@@ -323,27 +323,23 @@ class ByMeApiClient(private val context: Context) {
             "GET /servers: nodes=${parsed.size}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}"
         )
 
-        val saved = storage.withCurrentAccount(accountToken) {
-            if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) {
-                false
-            } else {
-                com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
-                    .acceptServerAccessProof(json)
-                if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
-                for (i in 0 until array.length()) {
-                    val serverObject = array.optJSONObject(i) ?: continue
-                    val code = ApiJsonParsers.serverNodeCode(serverObject) ?: continue
-                    val configObject = serverObject.optJSONObject("config")
-                        ?: serverObject.optJSONObject("vpn_config")
-                    if (configObject != null) {
-                        val config = ApiJsonParsers.parseVpnSessionConfig(configObject)
-                        storage.saveServerConfig(code, config)
-                    } else if (awaitSubscriptionRefresh) {
-                        storage.removeServerConfig(code)
-                    }
+        val saved = storage.withCurrentAccountSession(requestedSessionId) {
+            com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
+                .acceptServerAccessProof(json)
+            if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
+            for (i in 0 until array.length()) {
+                val serverObject = array.optJSONObject(i) ?: continue
+                val code = ApiJsonParsers.serverNodeCode(serverObject) ?: continue
+                val configObject = serverObject.optJSONObject("config")
+                    ?: serverObject.optJSONObject("vpn_config")
+                if (configObject != null) {
+                    val config = ApiJsonParsers.parseVpnSessionConfig(configObject)
+                    storage.saveServerConfig(code, config)
+                } else if (awaitSubscriptionRefresh) {
+                    storage.removeServerConfig(code)
                 }
-                true
             }
+            true
         }
         if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading servers")
 
@@ -365,7 +361,7 @@ class ByMeApiClient(private val context: Context) {
                     val imported = subManager.applySubscriptionUrl(
                         subUrl,
                         includeDeviceHeaders = true,
-                        expectedAccountToken = accountToken
+                        expectedAccountSessionId = requestedSessionId
                     ).getOrThrow()
 
                     if (registeringDevice) {
@@ -405,10 +401,10 @@ class ByMeApiClient(private val context: Context) {
                         val imported = subManager.applySubscriptionUrl(
                             subUrl,
                             includeDeviceHeaders = true,
-                            expectedAccountToken = accountToken
+                            expectedAccountSessionId = requestedSessionId
                         ).getOrNull()
                         if (imported != null && imported.servers.isNotEmpty() &&
-                            storage.getAccessToken().orEmpty() == accountToken
+                            storage.getAccountSessionId() == requestedSessionId
                         ) {
                             val merged = com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
                                 apiNodes = parsed,

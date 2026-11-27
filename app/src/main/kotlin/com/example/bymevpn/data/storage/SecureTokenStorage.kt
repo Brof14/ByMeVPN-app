@@ -103,6 +103,23 @@ class SecureTokenStorage private constructor(context: Context) {
         return block()
     }
 
+    /**
+     * Commits account-owned data while the requesting login session is still active.
+     * Unlike access tokens, the session ID remains stable during token rotation and
+     * is changed atomically whenever credentials are cleared for a new account.
+     */
+    @Synchronized
+    fun <T> withCurrentAccountSession(expectedSessionId: String, block: () -> T): T? {
+        if (!AccountSessionCommitPolicy.canCommit(
+                expectedSessionId = expectedSessionId,
+                currentSessionId = getAccountSessionId(),
+                hasAccessToken = !getAccessToken().isNullOrBlank(),
+                externalProfileMode = isExternalProfileMode()
+            )
+        ) return null
+        return block()
+    }
+
     @Synchronized
     fun clearTokens() {
         prefs.edit()
