@@ -88,10 +88,6 @@ class GoogleAuthHelper(private val context: Context) {
             else -> null
         }
 
-        private fun isPlayServicesPresentAndEnabled(context: Context): Boolean = runCatching {
-            val info = context.packageManager.getApplicationInfo("com.google.android.gms", 0)
-            info.enabled
-        }.getOrDefault(false)
     }
 
     suspend fun signInWithGoogle(serverNonce: String): GoogleAuthResult = withContext(Dispatchers.Main) {
@@ -107,18 +103,6 @@ class GoogleAuthHelper(private val context: Context) {
                 code = "GOOGLE_AUTH_UNAVAILABLE"
             )
         }
-        if (!isPlayServicesPresentAndEnabled(context)) {
-            val isRu = LocaleManager.isRussian()
-            return@withContext GoogleAuthResult.Error(
-                message = if (isRu) {
-                    "Сервисы Google Play недоступны на этом устройстве."
-                } else {
-                    "Google Play Services are unavailable on this device."
-                },
-                code = "GOOGLE_CREDENTIAL_UNAVAILABLE"
-            )
-        }
-
         val uiContext: Context = findActivity(context) ?: context
         val credentialManager = CredentialManager.create(uiContext)
 

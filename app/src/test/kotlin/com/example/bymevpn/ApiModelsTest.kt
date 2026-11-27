@@ -5,6 +5,7 @@ import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ApiJsonParsers
 import com.example.bymevpn.data.api.TelegramAuthStatus
 import com.example.bymevpn.data.CountryFlags
+import com.example.bymevpn.data.subscription.SubscriptionFetchPolicy
 import org.json.JSONObject
 import org.json.JSONArray
 import org.junit.Assert.assertEquals
@@ -33,6 +34,81 @@ class ApiModelsTest {
         assertEquals("🇯🇵", servers[2].flag)
         assertEquals("🌐", servers[3].flag)
     }
+    @Test
+    fun serverResponseSupportsSubscriptionUrlAndNodeAliases() {
+        val response = ApiJsonParsers.parseServerListResponse(
+            JSONObject(
+                """
+                {
+                  "sub_url": "https://panel.example/sub/token",
+                  "nodes": [
+                    {"node_code": "nl-1"},
+                    {"node_code": "de-1"}
+                  ]
+                }
+                """.trimIndent()
+            )
+        )
+        assertEquals("https://panel.example/sub/token", response.subscriptionUrl)
+        assertEquals(2, ApiJsonParsers.parseServers(response.servers).size)
+    }
+
+    @Test
+    fun serverResponseSupportsNestedDataAndRawArray() {
+        val nested = ApiJsonParsers.parseServerListResponse(
+            JSONObject(
+                """
+                {
+                  "data": {
+                    "subscription": {"url": "https://panel.example/sub/nested"},
+                    "servers": [{"code": "node-a"}]
+                  }
+                }
+                """.trimIndent()
+            )
+        )
+        assertEquals("https://panel.example/sub/nested", nested.subscriptionUrl)
+        assertEquals("node-a", ApiJsonParsers.parseServers(nested.servers).single().nodeCode)
+
+        val raw = ApiJsonParsers.parseServerListResponse(
+            JSONObject("""{"raw_array":[{"node_code":"node-b"}]}""")
+        )
+        assertEquals("node-b", ApiJsonParsers.parseServers(raw.servers).single().nodeCode)
+    }
+
+    @Test
+    fun serverParserUsesNonBlankNodeCodeAndSkipsMissingOrDuplicateIds() {
+        val servers = ApiJsonParsers.parseServers(
+            JSONArray(
+                """
+                [
+                  {"code": "", "node_code": "node-a"},
+                  {"code": "node-b"},
+                  {"code": "node-b"},
+                  {"remark": "missing id"}
+                ]
+                """.trimIndent()
+            )
+        )
+        assertEquals(listOf("node-a", "node-b"), servers.map { it.nodeCode })
+    }
+
+    @Test
+    fun subscriptionFetchPolicyWaitsForFirstStaleOrForcedRefreshOnly() {
+        val now = 1_800_000_000_000L
+        assertTrue(SubscriptionFetchPolicy.shouldAwaitRefresh(false, false, 0, now, now))
+        assertTrue(SubscriptionFetchPolicy.shouldAwaitRefresh(false, true, 5, now, now))
+        assertTrue(SubscriptionFetchPolicy.shouldAwaitRefresh(true, false, 5, now, now))
+        assertFalse(SubscriptionFetchPolicy.shouldAwaitRefresh(false, false, 5, now - 60_000L, now))
+        assertTrue(
+            SubscriptionFetchPolicy.shouldAwaitRefresh(
+                false, false, 5,
+                now - SubscriptionFetchPolicy.REFRESH_INTERVAL_MS,
+                now
+            )
+        )
+    }
+
     @Test
     fun preservesTrialUnavailabilityReason() {
         val status = ApiJsonParsers.parseSubscriptionStatus(JSONObject("""{"status":"none","trial_available":false,"trial_unavailable_reason":"trial_already_used"}"""))

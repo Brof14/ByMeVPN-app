@@ -489,24 +489,23 @@ class VpnManager private constructor(private val context: Context) {
                     setServers(saved)
                     _serversError.value = null
                     scope.launch {
-                        if (subscriptionManager.refreshStatus().isSuccess) {
-                            val refreshed = storage.getServerNodes()
+                        try {
+                            val refreshed = apiClient.getServers()
                             if (refreshed.isNotEmpty()) {
                                 setServers(refreshed)
                                 _serversError.value = null
                             }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Background server refresh failed: ${e.javaClass.simpleName}")
                         }
                     }
                     Log.d(TAG, "Serving saved subscription list (${saved.size} nodes)")
                     return@withContext Result.success(saved)
                 }
-                // Nothing saved yet: refresh in the background so it cannot delay the API request below.
-                scope.launch {
-                    if (subscriptionManager.refreshStatus().isSuccess) {
-                        val refreshed = storage.getServerNodes()
-                        if (refreshed.isNotEmpty()) onSubscriptionServersUpdated(refreshed)
-                    }
-                }
+                // No local panel list exists yet. The /servers request below waits for
+                // the first complete subscription feed instead of racing it in the background.
             }
 
             // API-only accounts also need an offline list, scoped to the signed-in account.
@@ -714,7 +713,7 @@ class VpnManager private constructor(private val context: Context) {
                             // it validates the account and panel slot and may issue a
                             // short, device-bound entitlement. The client completes
                             // the HWID subscription fetch before returning these nodes.
-                            val bootstrapServers = apiClient.getServers()
+                            val bootstrapServers = apiClient.getServers(awaitSubscriptionRefresh = true)
                             if (bootstrapServers.isNotEmpty()) setServers(bootstrapServers)
                             coroutineContext.ensureActive()
                             if (!subscriptionManager.canConnect()) {

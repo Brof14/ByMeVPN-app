@@ -216,17 +216,24 @@ class SecureTokenStorage private constructor(context: Context) {
     }
 
     fun saveSubscriptionUrl(url: String?, backendIssued: Boolean = false) {
-        if (url.isNullOrBlank()) {
-            prefs.edit()
-                .remove(KEY_SUBSCRIPTION_URL)
-                .remove(KEY_SUBSCRIPTION_URL_TRUSTED)
-                .apply()
-        } else {
-            prefs.edit()
-                .putString(KEY_SUBSCRIPTION_URL, url.trim())
-                .putBoolean(KEY_SUBSCRIPTION_URL_TRUSTED, backendIssued)
-                .apply()
+        val normalized = url?.trim()?.takeIf { it.isNotBlank() }
+        val previous = prefs.getString(KEY_SUBSCRIPTION_URL, null)
+        val editor = prefs.edit()
+
+        // A rotated panel URL is a different feed. Force its first download instead
+        // of reusing the previous URL's six-hour refresh timestamp.
+        if (previous != normalized) {
+            editor.remove("server_refresh_attempt")
         }
+
+        if (normalized == null) {
+            editor.remove(KEY_SUBSCRIPTION_URL)
+                .remove(KEY_SUBSCRIPTION_URL_TRUSTED)
+        } else {
+            editor.putString(KEY_SUBSCRIPTION_URL, normalized)
+                .putBoolean(KEY_SUBSCRIPTION_URL_TRUSTED, backendIssued)
+        }
+        editor.apply()
     }
 
     fun getSubscriptionUrl(): String? = prefs.getString(KEY_SUBSCRIPTION_URL, null)

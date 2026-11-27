@@ -11,6 +11,11 @@ data class AuthResponse(
     val subscription: SubscriptionStatus?
 )
 
+data class ServerListResponse(
+    val servers: JSONArray,
+    val subscriptionUrl: String?
+)
+
 data class TelegramSessionResponse(
     val sessionToken: String,
     val botUrl: String
@@ -188,6 +193,50 @@ data class DeviceItem(
 )
 
 object ApiJsonParsers {
+    /**
+     * Normalizes server-list responses across backend versions. Some deployments
+     * return "sub_url"/"nodes", while others return "subscription_url"/"servers".
+     */
+    fun parseServerListResponse(json: JSONObject): ServerListResponse {
+        val data = json.optJSONObject("data") ?: json
+        val subscription = data.optJSONObject("subscription")
+            ?: json.optJSONObject("subscription")
+
+        fun value(source: JSONObject?, key: String): String? {
+            val raw = source?.opt(key) ?: return null
+            return raw.toString().trim().takeIf { it.isNotBlank() && it != "null" }
+        }
+
+        val subscriptionUrl = sequenceOf(
+            value(data, "subscription_url"),
+            value(data, "sub_url"),
+            value(json, "subscription_url"),
+            value(json, "sub_url"),
+            value(subscription, "url"),
+            value(subscription, "subscription_url"),
+            value(subscription, "sub_url")
+        ).firstOrNull { !it.isNullOrBlank() }
+
+        val arrays = listOf(
+            data.optJSONArray("servers"),
+            data.optJSONArray("nodes"),
+            json.optJSONArray("servers"),
+            json.optJSONArray("nodes"),
+            json.optJSONArray("raw_array")
+        )
+        val servers = arrays.firstOrNull { it?.length()?.let { size -> size > 0 } == true }
+            ?: arrays.firstOrNull { it != null }
+            ?: JSONArray()
+
+        return ServerListResponse(servers, subscriptionUrl)
+    }
+
+    /** Returns only a stable server identifier; never fabricates a default node ID. */
+    fun serverNodeCode(json: JSONObject): String? =
+        sequenceOf("node_code", "code")
+            .map { key -> json.opt(key)?.toString()?.trim().orEmpty() }
+            .firstOrNull { it.isNotBlank() && it != "null" }
+
     fun parseDeviceResponse(json: JSONObject, currentInstallId: String? = null): List<DeviceItem> {
         val devices = json.optJSONArray("devices")
             ?: json.optJSONArray("raw_array")
@@ -325,9 +374,11 @@ object ApiJsonParsers {
 
     fun parseServers(array: JSONArray): List<ServerNode> {
         val list = mutableListOf<ServerNode>()
+        val seenCodes = hashSetOf<String>()
         for (i in 0 until array.length()) {
-            val obj = array.getJSONObject(i)
-            val code = obj.optString("code", obj.optString("node_code", "default"))
+            val obj = array.optJSONObject(i) ?: continue
+            val code = serverNodeCode(obj) ?: continue
+            if (!seenCodes.add(code)) continue
             val cCode = CountryFlags.normalize(obj.optString("country_code", ""))
                 ?: CountryFlags.regionIn(obj.optString("country_code", ""))
                 ?: CountryFlags.regionIn(obj.optString("flag", ""))

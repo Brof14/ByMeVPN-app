@@ -20,6 +20,26 @@ import java.net.URL
 import org.json.JSONObject
 
 /**
+ * Controls whether a server-list caller must wait for the full panel subscription feed.
+ * A cached panel list is safe to show immediately only while it is fresh.
+ */
+internal object SubscriptionFetchPolicy {
+    const val REFRESH_INTERVAL_MS = 6L * 60L * 60L * 1000L
+
+    fun shouldAwaitRefresh(
+        force: Boolean,
+        registeringDevice: Boolean,
+        cachedNodeCount: Int,
+        lastRefreshAt: Long,
+        nowMillis: Long
+    ): Boolean {
+        if (force || registeringDevice || cachedNodeCount <= 0) return true
+        if (lastRefreshAt <= 0L || lastRefreshAt > nowMillis) return true
+        return nowMillis - lastRefreshAt >= REFRESH_INTERVAL_MS
+    }
+}
+
+/**
  * Manages the current subscription, offline entitlement evaluation, and trial activation.
  * Offline rule:
  * - When the release has the server ES256 key, its signed entitlement is mandatory.
@@ -43,6 +63,7 @@ class SubscriptionManager private constructor(private val context: Context) {
     }
 
     private val refreshMutex = Mutex()
+    private val subscriptionApplyMutex = Mutex()
     // Login auto-activation and the Trial screen can request the same grant at once.
     private val trialActivationMutex = Mutex()
     private val apiClient = ByMeApiClient(context)
@@ -223,7 +244,8 @@ class SubscriptionManager private constructor(private val context: Context) {
         urlOrConfig: String,
         includeDeviceHeaders: Boolean = false,
         expectedAccountToken: String? = null
-    ): Result<ParsedSubscription> = withContext(Dispatchers.IO) {
+    ): Result<ParsedSubscription> = subscriptionApplyMutex.withLock {
+        withContext(Dispatchers.IO) {
         _isSyncing.value = true
         try {
             val trimmed = urlOrConfig.trim()
@@ -281,6 +303,7 @@ class SubscriptionManager private constructor(private val context: Context) {
             Result.failure(e)
         } finally {
             _isSyncing.value = false
+        }
         }
     }
 

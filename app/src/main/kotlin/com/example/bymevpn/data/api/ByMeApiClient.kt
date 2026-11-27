@@ -311,11 +311,18 @@ class ByMeApiClient(private val context: Context) {
         val requestedOwner = storage.getCachedUser()?.id
         val json = request("GET", "/servers", null, requiresAuth = true)
         val accountToken = storage.getAccessToken().orEmpty()
-        val subUrl = json.optString("subscription_url")
-        val array = json.optJSONArray("servers") ?: JSONArray()
-        // No URLs or tokens here: only counts and presence flags are diagnostic.
-        Log.d(TAG, "GET /servers: nodes=${array.length()}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}")
+        val payload = ApiJsonParsers.parseServerListResponse(json)
+        val subUrl = payload.subscriptionUrl.orEmpty()
+        val array = payload.servers
         val parsed = ApiJsonParsers.parseServers(array)
+        val cachedNodesBeforeFetch = storage.getServerNodes()
+
+        // Never log a subscription URL, access token, or device identifier.
+        Log.d(
+            TAG,
+            "GET /servers: nodes=${parsed.size}, subscriptionUrl=${if (subUrl.isBlank()) "absent" else "present"}"
+        )
+
         val saved = storage.withCurrentAccount(accountToken) {
             if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) {
                 false
@@ -324,14 +331,14 @@ class ByMeApiClient(private val context: Context) {
                     .acceptServerAccessProof(json)
                 if (subUrl.isNotBlank()) storage.saveSubscriptionUrl(subUrl, backendIssued = true)
                 for (i in 0 until array.length()) {
-                    val sObj = array.getJSONObject(i)
-                    val code = sObj.optString("node_code", sObj.optString("code"))
-                    val cfgObj = sObj.optJSONObject("config")
-                    if (code.isNotBlank() && cfgObj != null) {
-                        val cfg = ApiJsonParsers.parseVpnSessionConfig(cfgObj)
-                        storage.saveServerConfig(code, cfg)
-                    } else if (code.isNotBlank() && awaitSubscriptionRefresh) {
-                        // An omitted endpoint must not revive a stale cached configuration.
+                    val serverObject = array.optJSONObject(i) ?: continue
+                    val code = ApiJsonParsers.serverNodeCode(serverObject) ?: continue
+                    val configObject = serverObject.optJSONObject("config")
+                        ?: serverObject.optJSONObject("vpn_config")
+                    if (configObject != null) {
+                        val config = ApiJsonParsers.parseVpnSessionConfig(configObject)
+                        storage.saveServerConfig(code, config)
+                    } else if (awaitSubscriptionRefresh) {
                         storage.removeServerConfig(code)
                     }
                 }
@@ -339,45 +346,60 @@ class ByMeApiClient(private val context: Context) {
             }
         }
         if (saved != true) throw ApiError("ACCOUNT_CHANGED", "Account changed while loading servers")
+
         if (subUrl.isNotBlank()) {
             val subManager = com.example.bymevpn.data.subscription.SubscriptionManager.getInstance(context)
             val registeringDevice = subManager.subscriptionStatus.value?.entitlementBootstrap == true
-            if (parsed.isEmpty() || registeringDevice || awaitSubscriptionRefresh) {
-                // 3x-ui learns X-HWID on a subscription fetch, not from tunnel
-                // packets. Finish the first registration before starting Xray.
+            val shouldAwaitRefresh = com.example.bymevpn.data.subscription.SubscriptionFetchPolicy.shouldAwaitRefresh(
+                force = awaitSubscriptionRefresh,
+                registeringDevice = registeringDevice,
+                cachedNodeCount = cachedNodesBeforeFetch.size,
+                lastRefreshAt = storage.getServerRefreshAttempt(),
+                nowMillis = System.currentTimeMillis()
+            )
+
+            if (shouldAwaitRefresh) {
                 try {
+                    // For a new installation or stale/rotated feed, wait for the full
+                    // multi-node list before returning a partial /servers summary.
                     val imported = subManager.applySubscriptionUrl(
                         subUrl,
                         includeDeviceHeaders = true,
                         expectedAccountToken = accountToken
                     ).getOrThrow()
-                    if (registeringDevice) subManager.refreshStatus(forceBackend = true)
-                    if (imported.servers.isNotEmpty()) {
-                        val merged = com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
-                            apiNodes = parsed,
-                            subscriptionNodes = imported.servers,
-                            hasSubscriptionUrl = true
-                        )
-                        com.example.bymevpn.vpn.VpnManager.getInstance(context)
-                            .onSubscriptionServersUpdated(merged)
-                        return merged
+
+                    if (registeringDevice) {
+                        subManager.refreshStatus(forceBackend = true).getOrThrow()
                     }
+
+                    if (imported.servers.isEmpty() || imported.configs.isEmpty()) {
+                        throw IllegalStateException("Subscription feed returned no usable server configurations")
+                    }
+
+                    val merged = com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
+                        apiNodes = parsed,
+                        subscriptionNodes = imported.servers,
+                        hasSubscriptionUrl = true
+                    )
+                    com.example.bymevpn.vpn.VpnManager.getInstance(context).onSubscriptionServersUpdated(merged)
+                    return merged
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    Log.w(TAG, "Subscription URL from /servers was not applied: ${safeError(e)}")
-                    if (registeringDevice) {
+                    Log.w(TAG, "Synchronous subscription refresh failed: ${safeError(e)}")
+                    if (registeringDevice || awaitSubscriptionRefresh || cachedNodesBeforeFetch.isEmpty()) {
                         val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
                         throw ApiError(
-                            "DEVICE_REGISTRATION_FAILED",
-                            if (isRu) "Не удалось зарегистрировать устройство на VPN-сервере. Попробуйте подключиться ещё раз."
-                            else "Could not register this device with the VPN server. Please try connecting again."
+                            "SUBSCRIPTION_REFRESH_FAILED",
+                            if (isRu) {
+                                "Не удалось загрузить серверы подписки. Проверьте интернет и попробуйте ещё раз."
+                            } else {
+                                "Could not load subscription servers. Check the connection and try again."
+                            }
                         )
                     }
                 }
             } else {
-                // Nodes are already available: never delay the server list for a subscription fetch,
-                // and push refreshed multi-node subscription lists to VpnManager when completed.
                 backgroundScope.launch {
                     try {
                         val imported = subManager.applySubscriptionUrl(
@@ -396,12 +418,15 @@ class ByMeApiClient(private val context: Context) {
                             com.example.bymevpn.vpn.VpnManager.getInstance(context)
                                 .onSubscriptionServersUpdated(merged)
                         }
+                    } catch (e: kotlinx.coroutines.CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         Log.w(TAG, "Background subscription refresh failed: ${safeError(e)}")
                     }
                 }
             }
         }
+
         return com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
             apiNodes = parsed,
             subscriptionNodes = if (subUrl.isNotBlank()) storage.getServerNodes() else emptyList(),

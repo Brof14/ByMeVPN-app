@@ -25,6 +25,17 @@ class GoogleCredentialErrorClassifierTest {
     }
 
     @Test
+    fun missingGoogleAccountIsClassifiedFromProviderTypeWithoutMessage() {
+        assertEquals(
+            "NO_GOOGLE_ACCOUNT",
+            GoogleCredentialErrorClassifier.classify(
+                type = "androidx.credentials.TYPE_NO_CREDENTIAL",
+                message = null
+            )
+        )
+    }
+
+    @Test
     fun classifiesCancellationNetworkInterruptedAndUnsupported() {
         assertEquals(
             "USER_CANCELLED",
