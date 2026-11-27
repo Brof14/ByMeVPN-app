@@ -572,115 +572,111 @@ private fun HomeNoPlanContent(
         contentAlignment = Alignment.Center
     ) {
         val compact = maxHeight < 530.dp
-        val logoSize = if (compact) 84.dp else 104.dp
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = if (compact) 8.dp else 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ShieldLogo(size = logoSize)
-            Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(AppGradients.AccentCard)
-                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
-                    .padding(if (compact) 16.dp else 20.dp)
-            ) {
-                Text(
-                    text = when {
-                        subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем подписку…" else "Checking subscription…"
-                        subscriptionUnknown -> if (isRu) "Не удалось проверить подписку" else "Could not check subscription"
-                        accessConfirmationRequired -> if (isRu) "Подписка активна, доступ не подтверждён" else "Subscription active, access not confirmed"
-                        trialAvailable -> if (isRu) "3 дня бесплатно" else "3 days free"
-                        trialUnavailableReason == "trial_already_used" -> if (isRu) "Пробный период использован" else "Free trial already used"
-                        trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Проверяем активацию" else "Checking activation"
-                        else -> if (isRu) "Доступ не активен" else "Access inactive"
-                    },
-                    color = AppColors.TextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
+            if (subscriptionUnknown || accessConfirmationRequired) {
+                SubscriptionRecoveryCard(
+                    isRu = isRu,
+                    isChecking = isCheckingSubscription,
+                    accessConfirmationRequired = accessConfirmationRequired,
+                    onRetry = onRetrySubscription
                 )
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = when {
-                        subscriptionUnknown && isCheckingSubscription -> if (isRu) "Загружаем данные аккаунта." else "Loading account details."
-                        subscriptionUnknown -> if (isRu) "Повторите проверку для обновления данных." else "Retry to refresh your account details."
-                        accessConfirmationRequired -> if (isRu) "Обновите доступ — пробный период не будет списан." else "Refresh access status — your trial will not be used."
-                        trialAvailable -> if (isRu) "Полный доступ без привязки карты и автосписаний." else "Full access with no card or auto-charges."
-                        trialUnavailableReason == "trial_already_used" -> if (hasCheckout) {
-                            if (isRu) "Выберите тариф, чтобы продолжить пользоваться VPN." else "Choose a plan to continue using VPN."
-                        } else {
-                            if (isRu) "Обновите статус или войдите под другим аккаунтом." else "Refresh your status or sign in with another account."
-                        }
-                        trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Обновите статус через некоторое время." else "Refresh your status in a little while."
-                        trialUnavailableReason in setOf("eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> if (isRu) "Не удалось проверить пробный период. Попробуйте ещё раз." else "Could not check trial availability. Please try again."
-                        else -> if (hasCheckout) {
-                            if (isRu) "Выберите подходящий тариф." else "Choose a plan that works for you."
-                        } else {
-                            if (isRu) "Войдите в аккаунт с подпиской и обновите статус." else "Sign in with an active account and refresh status."
-                        }
-                    },
-                    color = AppColors.TextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 18.sp
-                )
-                if (trialAvailable && !subscriptionUnknown && !accessConfirmationRequired) {
-                    Spacer(Modifier.height(12.dp))
-                    HomeTrialPerkRow(if (isRu) "Все серверы и протоколы без ограничений" else "All servers and protocols unlocked")
+            } else {
+                ShieldLogo(size = if (compact) 84.dp else 104.dp)
+                Spacer(Modifier.height(if (compact) 16.dp else 24.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(AppGradients.AccentCard)
+                        .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
+                        .padding(if (compact) 16.dp else 20.dp)
+                ) {
+                    Text(
+                        text = when {
+                            trialAvailable -> if (isRu) "3 дня бесплатно" else "3 days free"
+                            trialUnavailableReason == "trial_already_used" -> if (isRu) "Пробный период использован" else "Free trial already used"
+                            trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Проверяем активацию" else "Checking activation"
+                            else -> if (isRu) "Доступ не активен" else "Access inactive"
+                        },
+                        color = AppColors.TextPrimary,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                     Spacer(Modifier.height(8.dp))
-                    HomeTrialPerkRow(if (isRu) "Без карты и автоматических списаний" else "No card required, no auto-renewal")
-                }
-                Spacer(Modifier.height(16.dp))
-                val shouldRetry = subscriptionUnknown ||
-                    accessConfirmationRequired ||
-                    trialUnavailableReason in setOf(
+                    Text(
+                        text = when {
+                            trialAvailable -> if (isRu) "Полный доступ без привязки карты и автосписаний." else "Full access with no card or auto-charges."
+                            trialUnavailableReason == "trial_already_used" -> if (hasCheckout) {
+                                if (isRu) "Выберите тариф, чтобы продолжить пользоваться VPN." else "Choose a plan to continue using VPN."
+                            } else {
+                                if (isRu) "Обновите статус или войдите под другим аккаунтом." else "Refresh your status or sign in with another account."
+                            }
+                            trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Обновите статус через некоторое время." else "Refresh your status in a little while."
+                            trialUnavailableReason in setOf("eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> if (isRu) "Не удалось проверить пробный период. Попробуйте ещё раз." else "Could not check trial availability. Please try again."
+                            else -> if (hasCheckout) {
+                                if (isRu) "Выберите подходящий тариф." else "Choose a plan that works for you."
+                            } else {
+                                if (isRu) "Войдите в аккаунт с подпиской и обновите статус." else "Sign in with an active account and refresh status."
+                            }
+                        },
+                        color = AppColors.TextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 18.sp
+                    )
+                    if (trialAvailable) {
+                        Spacer(Modifier.height(12.dp))
+                        HomeTrialPerkRow(if (isRu) "Все серверы и протоколы без ограничений" else "All servers and protocols unlocked")
+                        Spacer(Modifier.height(8.dp))
+                        HomeTrialPerkRow(if (isRu) "Без карты и автоматических списаний" else "No card required, no auto-renewal")
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    val shouldRetry = trialUnavailableReason in setOf(
                         "trial_activation_pending",
                         "eligibility_check_unavailable",
                         "device_confirmation_required",
                         "subscription_check_unavailable"
-                    ) ||
-                    (!trialAvailable && !hasCheckout)
-                ByMePrimaryButton(
-                    text = when {
-                        subscriptionUnknown && isCheckingSubscription -> if (isRu) "Проверяем…" else "Checking…"
-                        subscriptionUnknown -> if (isRu) "Повторить проверку" else "Retry status check"
-                        accessConfirmationRequired -> if (isRu) "Обновить доступ" else "Refresh access"
-                        isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
-                        isActivatingTrial -> if (isRu) "Подключаем…" else "Activating…"
-                        trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
-                        shouldRetry -> if (isRu) "Обновить статус" else "Refresh status"
-                        else -> if (isRu) "Посмотреть тарифы" else "View plans"
-                    },
-                    onClick = when {
-                        trialAvailable -> onTrialClick
-                        shouldRetry -> onRetrySubscription
-                        else -> onChoosePlanClick
-                    },
-                    enabled = !isActivatingTrial && !isCheckingSubscription,
-                    height = 52.dp
-                )
-                if (offerTelegramRecovery && !subscriptionUnknown) {
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = if (isRu) "Подписка в Telegram? Войти через Telegram"
-                        else "Subscribed in Telegram? Sign in with Telegram",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable(onClick = onRestoreViaTelegram)
-                            .padding(vertical = 4.dp),
-                        textAlign = TextAlign.Center,
-                        color = AppColors.SkyBlue,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                    ) || (!trialAvailable && !hasCheckout)
+                    ByMePrimaryButton(
+                        text = when {
+                            isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
+                            isActivatingTrial -> if (isRu) "Подключаем…" else "Activating…"
+                            trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
+                            shouldRetry -> if (isRu) "Обновить статус" else "Refresh status"
+                            else -> if (isRu) "Посмотреть тарифы" else "View plans"
+                        },
+                        onClick = when {
+                            trialAvailable -> onTrialClick
+                            shouldRetry -> onRetrySubscription
+                            else -> onChoosePlanClick
+                        },
+                        enabled = !isActivatingTrial && !isCheckingSubscription,
+                        height = 52.dp
                     )
-                }
-                if (!trialError.isNullOrBlank()) {
-                    Spacer(Modifier.height(10.dp))
-                    Text(trialError, color = AppColors.StatusWarning, fontSize = 11.5.sp, lineHeight = 16.sp)
+                    if (offerTelegramRecovery) {
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = if (isRu) "Подписка в Telegram? Войти через Telegram"
+                            else "Subscribed in Telegram? Sign in with Telegram",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onRestoreViaTelegram)
+                                .padding(vertical = 4.dp),
+                            textAlign = TextAlign.Center,
+                            color = AppColors.SkyBlue,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (!trialError.isNullOrBlank()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(trialError, color = AppColors.StatusWarning, fontSize = 11.5.sp, lineHeight = 16.sp)
+                    }
                 }
             }
         }
