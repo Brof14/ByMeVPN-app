@@ -308,52 +308,13 @@ fun AccountScreen(
                         }
                     }
                 } else if (subscriptionUnknown || accessConfirmationRequired) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(AppGradients.AccentCard)
-                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
-                            .padding(20.dp)
-                    ) {
-                        Text(
-                            text = if (isCheckingSubscription || refreshingAccount) {
-                                t("Проверяем подписку", "Checking subscription")
-                            } else if (accessConfirmationRequired) {
-                                t("Доступ не подтверждён", "Access not confirmed")
-                            } else {
-                                t("Не удалось проверить подписку", "Could not verify subscription")
-                            },
-                            color = AppColors.TextPrimary,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = if (accessConfirmationRequired) t(
-                                "Подписка активна, но устройство ещё не подтверждено. Обновите данные.",
-                                "Subscription is active, but this device isn't confirmed yet. Refresh your account."
-                            ) else t(
-                                "Доступ пока не подтверждён. Обновите данные — подписка сохранится.",
-                                "Access isn't confirmed yet. Refresh your account — your plan is unchanged."
-                            ),
-                            color = AppColors.TextSecondary,
-                            fontSize = 13.sp,
-                            lineHeight = 18.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        ByMePrimaryButton(
-                            text = if (isCheckingSubscription || refreshingAccount) {
-                                t("Проверяем…", "Checking…")
-                            } else {
-                                t("Повторить проверку", "Retry status check")
-                            },
-                            onClick = { refreshAccountData() },
-                            enabled = !isCheckingSubscription && !refreshingAccount,
-                            height = 52.dp,
-                            showArrow = false
-                        )
-                    }
+                    SubscriptionRecoveryCard(
+                        isRu = isRu,
+                        isChecking = isCheckingSubscription || refreshingAccount,
+                        accessConfirmationRequired = accessConfirmationRequired,
+                        onRetry = { refreshAccountData() },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 } else {
                     val offerTrial = TrialActivationPolicy.shouldOfferTrial(subscription)
                     Column(
