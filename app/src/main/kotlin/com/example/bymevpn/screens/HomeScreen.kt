@@ -63,7 +63,6 @@ import com.example.bymevpn.components.ChevronRightIcon
 import com.example.bymevpn.components.ClockVectorIcon
 import com.example.bymevpn.components.CountryFlagView
 import com.example.bymevpn.components.FaqDialog
-import com.example.bymevpn.components.LiveSpeedWave
 import com.example.bymevpn.components.PrivacyPolicyDialog
 import com.example.bymevpn.components.QuestionHelpIcon
 import com.example.bymevpn.components.RefreshIcon
@@ -795,9 +794,9 @@ private fun HomeConnectedContent(
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        ConnectedTelemetryBlock(vpnManager = vpnManager, isRu = isRu)
+        ConnectedTimerText(vpnManager = vpnManager)
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(22.dp))
 
         HomeBottomDock(
             isRu = isRu,
@@ -813,48 +812,24 @@ private fun HomeConnectedContent(
 }
 
 /**
- * Isolated telemetry observer so 1-second timer & live speed updates only recompose
- * the timer and wave card rather than the entire HomeScreen hierarchy.
+ * Isolated timer observer so 1-second timer updates only recompose
+ * the elapsed-time label rather than the entire HomeScreen hierarchy.
  */
 @Composable
-private fun ConnectedTelemetryBlock(
-    vpnManager: VpnManager,
-    isRu: Boolean
-) {
+private fun ConnectedTimerText(vpnManager: VpnManager) {
     val connectedSeconds by vpnManager.connectedSeconds.collectAsState()
-    val bytesIn by vpnManager.bytesIn.collectAsState()
-    val bytesOut by vpnManager.bytesOut.collectAsState()
-    val downloadSpeedBps by vpnManager.downloadSpeedBps.collectAsState()
-    val uploadSpeedBps by vpnManager.uploadSpeedBps.collectAsState()
-
     val hours = connectedSeconds / 3600
     val minutes = (connectedSeconds % 3600) / 60
     val seconds = connectedSeconds % 60
     val timerText = String.format(java.util.Locale.US, "%02d:%02d:%02d", hours, minutes, seconds)
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = timerText,
-            color = AppColors.SkyBlue,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 2.sp
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        LiveSpeedWave(
-            bytesIn = bytesIn,
-            bytesOut = bytesOut,
-            downloadBps = downloadSpeedBps,
-            uploadBps = uploadSpeedBps,
-            isConnected = true,
-            isRussian = isRu
-        )
-    }
+    Text(
+        text = timerText,
+        color = AppColors.SkyBlue,
+        fontSize = 14.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 2.sp
+    )
 }
 
 @Composable

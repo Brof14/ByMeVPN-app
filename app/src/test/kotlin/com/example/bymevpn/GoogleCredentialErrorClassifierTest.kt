@@ -15,6 +15,13 @@ class GoogleCredentialErrorClassifierTest {
                 message = "Caller not whitelisted: [10] DEVELOPER_ERROR"
             )
         )
+        assertEquals(
+            "GOOGLE_AUTH_CONFIG_ERROR",
+            GoogleCredentialErrorClassifier.classify(
+                type = "android.credentials.GetCredentialException.TYPE_NO_CREDENTIAL",
+                message = "[28444] Developer console is not set up correctly."
+            )
+        )
     }
 
     @Test

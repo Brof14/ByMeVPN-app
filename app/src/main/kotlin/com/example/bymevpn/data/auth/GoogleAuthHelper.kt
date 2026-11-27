@@ -15,6 +15,7 @@ import androidx.credentials.exceptions.NoCredentialException
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.api.ApiConfig
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GetSignInWithGoogleOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,7 +42,14 @@ internal object GoogleCredentialErrorClassifier {
                 msg.contains("CANCELLED", ignoreCase = true) -> "USER_CANCELLED"
 
             msg.contains("[10]") ||
+                msg.contains("[28444]") ||
+                msg.contains("28444") ||
+                msg.contains("[28436]") ||
+                msg.contains("28436") ||
                 msg.contains("DEVELOPER_ERROR", ignoreCase = true) ||
+                msg.contains("Developer console", ignoreCase = true) ||
+                msg.contains("Caller not whitelisted", ignoreCase = true) ||
+                msg.contains("not whitelisted", ignoreCase = true) ||
                 msg.contains("SHA-1", ignoreCase = true) ||
                 msg.contains("10:") -> "GOOGLE_AUTH_CONFIG_ERROR"
 
@@ -83,8 +91,6 @@ class GoogleAuthHelper(private val context: Context) {
         }.getOrDefault(false)
     }
 
-    private val credentialManager = CredentialManager.create(context)
-
     suspend fun signInWithGoogle(serverNonce: String): GoogleAuthResult = withContext(Dispatchers.Main) {
         if (ApiConfig.GOOGLE_SERVER_CLIENT_ID.startsWith("YOUR_GOOGLE_SERVER_CLIENT_ID")) {
             return@withContext GoogleAuthResult.Error(
@@ -109,19 +115,53 @@ class GoogleAuthHelper(private val context: Context) {
                 code = "GOOGLE_CREDENTIAL_UNAVAILABLE"
             )
         }
-        try {
-            val googleIdOption = GetGoogleIdOption.Builder()
-                .setFilterByAuthorizedAccounts(false)
-                .setServerClientId(ApiConfig.GOOGLE_SERVER_CLIENT_ID)
-                .setAutoSelectEnabled(false)
-                .setNonce(serverNonce)
-                .build()
 
-            val request = GetCredentialRequest.Builder()
-                .addCredentialOption(googleIdOption)
-                .build()
+        val uiContext: Context = findActivity(context) ?: context
+        val credentialManager = CredentialManager.create(uiContext)
 
-            val uiContext: Context = findActivity(context) ?: context
+        // Button-triggered sign-in must use GetSignInWithGoogleOption first;
+        // GetGoogleIdOption (One Tap) frequently throws NoCredentialException on HyperOS/Android 14+.
+        val signInOption = GetSignInWithGoogleOption.Builder(ApiConfig.GOOGLE_SERVER_CLIENT_ID)
+            .setNonce(serverNonce)
+            .build()
+        val primaryRequest = GetCredentialRequest.Builder()
+            .addCredentialOption(signInOption)
+            .build()
+
+        val primaryResult = executeCredentialRequest(credentialManager, uiContext, primaryRequest)
+        if (primaryResult is GoogleAuthResult.Success || primaryResult is GoogleAuthResult.Cancelled) {
+            return@withContext primaryResult
+        }
+        if (primaryResult is GoogleAuthResult.Error &&
+            primaryResult.code in setOf("GOOGLE_AUTH_CONFIG_ERROR", "NETWORK_ERROR", "GOOGLE_AUTH_INTERRUPTED")
+        ) {
+            return@withContext primaryResult
+        }
+
+        // Fallback to One Tap option if explicit Sign-In option returned no credentials or unsupported.
+        val oneTapOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(ApiConfig.GOOGLE_SERVER_CLIENT_ID)
+            .setAutoSelectEnabled(false)
+            .setNonce(serverNonce)
+            .build()
+        val fallbackRequest = GetCredentialRequest.Builder()
+            .addCredentialOption(oneTapOption)
+            .build()
+
+        val fallbackResult = executeCredentialRequest(credentialManager, uiContext, fallbackRequest)
+        if (fallbackResult is GoogleAuthResult.Success || fallbackResult is GoogleAuthResult.Cancelled) {
+            return@withContext fallbackResult
+        }
+        fallbackResult
+    }
+
+    private suspend fun executeCredentialRequest(
+        credentialManager: CredentialManager,
+        uiContext: Context,
+        request: GetCredentialRequest
+    ): GoogleAuthResult {
+        return try {
             val result = credentialManager.getCredential(
                 request = request,
                 context = uiContext
@@ -149,17 +189,28 @@ class GoogleAuthHelper(private val context: Context) {
             )
         } catch (e: NoCredentialException) {
             val classified = GoogleCredentialErrorClassifier.classify(e.type, e.message)
-            val code = if (classified == "GOOGLE_AUTH_FAILED") "NO_GOOGLE_ACCOUNT" else classified
-            Log.w(TAG, "No Google credentials available on device (classified=$code)")
-            val isRu = LocaleManager.isRussian()
-            GoogleAuthResult.Error(
-                message = if (isRu) {
-                    "На устройстве не найден аккаунт Google. Добавьте аккаунт в настройках или войдите по почте."
-                } else {
-                    "No Google account found on this device. Add one in Settings or sign in with email."
-                },
-                code = code
-            )
+            when (classified) {
+                "USER_CANCELLED" -> GoogleAuthResult.Cancelled
+                "GOOGLE_AUTH_CONFIG_ERROR", "NETWORK_ERROR", "GOOGLE_AUTH_INTERRUPTED" -> {
+                    Log.w(TAG, "Google sign-in failed during credential query (classified=$classified)")
+                    GoogleAuthResult.Error(
+                        message = e.localizedMessage ?: "Google sign-in failed",
+                        code = classified
+                    )
+                }
+                else -> {
+                    Log.w(TAG, "No Google credentials available on device (type=${e.type})")
+                    val isRu = LocaleManager.isRussian()
+                    GoogleAuthResult.Error(
+                        message = if (isRu) {
+                            "На устройстве не найден активный аккаунт Google. Проверьте вход в Google или войдите по почте."
+                        } else {
+                            "No Google account found on this device. Check your Google account in Settings or sign in with email."
+                        },
+                        code = "NO_GOOGLE_ACCOUNT"
+                    )
+                }
+            }
         } catch (e: GetCredentialProviderConfigurationException) {
             Log.e(TAG, "Google Credential Provider unavailable: ${e.type}")
             GoogleAuthResult.Error(
