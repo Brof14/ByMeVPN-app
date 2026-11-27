@@ -75,7 +75,7 @@ fun ByMeTopBar(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .padding(horizontal = 22.dp, vertical = 12.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -498,9 +498,9 @@ fun ByMeCardGroup(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(AppColors.BgSurface)
-            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(18.dp))
+            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
     ) {
         content()
     }
@@ -514,14 +514,14 @@ fun ByMeSettingRow(
     trailing: @Composable () -> Unit,
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
-    height: Dp = 74.dp,
+    height: Dp = 72.dp,
     showBottomDivider: Boolean = true
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 15.dp)
+            .padding(horizontal = 16.dp)
     ) {
         Row(
             modifier = Modifier
@@ -586,14 +586,14 @@ fun ByMeInfoBox(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(15.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF091D3A))
-            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(15.dp))
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(11.dp),
+            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        InfoCircleIcon(color = AppColors.SkyBlue, size = 19.dp)
+        InfoCircleIcon(color = AppColors.SkyBlue, size = 18.dp)
         Text(
             text = text,
             color = AppColors.TextSoft,

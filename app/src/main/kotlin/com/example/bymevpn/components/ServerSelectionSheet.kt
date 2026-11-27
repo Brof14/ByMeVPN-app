@@ -86,7 +86,7 @@ fun ServerSelectionSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 22.dp)
+                .padding(horizontal = 20.dp)
                 .padding(top = 8.dp, bottom = 24.dp)
                 .navigationBarsPadding()
         ) {
@@ -98,9 +98,9 @@ fun ServerSelectionSheet(
                 Text(
                     text = if (isRu) "Серверы" else "Servers",
                     color = AppColors.TextPrimary,
-                    fontSize = 25.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = (-0.9).sp,
+                    letterSpacing = (-0.8).sp,
                     modifier = Modifier.weight(1f)
                 )
 
@@ -131,17 +131,24 @@ fun ServerSelectionSheet(
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            TextButton(
-                onClick = {
-                    haptics.tap()
-                    onRefreshPing()
-                },
-                enabled = servers.none { it.pingMs == -3 || it.pingMs == -4 },
-                modifier = Modifier.semantics {
-                    contentDescription = if (isRu) "Проверить задержку серверов" else "Measure server latency"
-                }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(AppColors.BgSurface)
+                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(12.dp))
+                    .clickable(enabled = servers.none { it.pingMs == -3 || it.pingMs == -4 }) {
+                        haptics.tap()
+                        onRefreshPing()
+                    }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .semantics {
+                        contentDescription = if (isRu) "Проверить задержку серверов" else "Measure server latency"
+                    },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (servers.any { it.pingMs == -3 || it.pingMs == -4 }) {
                     CircularProgressIndicator(
@@ -149,38 +156,40 @@ fun ServerSelectionSheet(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp
                     )
-                    Spacer(Modifier.width(8.dp))
                 } else {
                     RefreshIcon(color = AppColors.BrandMint, size = 16.dp)
-                    Spacer(Modifier.width(8.dp))
                 }
                 Text(
                     text = if (isRu) "Проверить задержку" else "Measure latency",
-                    color = AppColors.BrandMint
+                    color = AppColors.BrandMint,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
             Text(
                 text = if (isRu)
-                    "Измеряется задержка через каждый сервер до интернета. VPN включать не нужно."
+                    "Пинг измеряется напрямую до серверов без включения VPN."
                 else
-                    "Measures internet latency through each server. VPN does not need to be connected.",
+                    "Measures direct latency to each server without turning VPN on.",
                 color = AppColors.TextMuted,
                 fontSize = 11.5.sp,
-                lineHeight = 16.sp,
-                modifier = Modifier.padding(horizontal = 12.dp)
+                lineHeight = 16.sp
             )
             val checkingCount = servers.count { it.pingMs == -3 }
             val queuedCount = servers.count { it.pingMs == -4 }
             if (checkingCount + queuedCount > 0) {
                 Text(
                     text = if (isRu) {
-                        "Проверяем серверы: $checkingCount сейчас, $queuedCount в очереди"
+                        "Проверяем: $checkingCount · в очереди: $queuedCount"
                     } else {
-                        "Checking servers: $checkingCount active, $queuedCount queued"
+                        "Checking: $checkingCount · queued: $queuedCount"
                     },
                     color = AppColors.TextSoft,
                     fontSize = 12.sp,
-                    modifier = Modifier.padding(start = 12.dp, top = 4.dp)
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
 
@@ -189,22 +198,22 @@ fun ServerSelectionSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(78.dp)
-                    .clip(RoundedCornerShape(18.dp))
+                    .height(76.dp)
+                    .clip(RoundedCornerShape(16.dp))
                     .background(AppGradients.ActivePlanCard)
                     .border(
                         width = if (isAutoSelected) 1.5.dp else 1.dp,
                         color = if (isAutoSelected) AppColors.BrandMint else AppColors.BorderAccent,
-                        shape = RoundedCornerShape(18.dp)
+                        shape = RoundedCornerShape(16.dp)
                     )
                     .selectable(selected = isAutoSelected, role = Role.RadioButton) {
                         haptics.selection()
                         onSelectAuto()
                         dismissSheet()
                     }
-                    .padding(horizontal = 14.dp),
+                    .padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(13.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -264,7 +273,7 @@ fun ServerSelectionSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             if (servers.isEmpty()) {
                 Column(
@@ -305,22 +314,22 @@ fun ServerSelectionSheet(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(74.dp)
-                            .clip(RoundedCornerShape(17.dp))
+                            .height(72.dp)
+                            .clip(RoundedCornerShape(16.dp))
                             .background(if (isSelected) AppColors.BgSurfaceElevated else AppColors.BgSurface)
                             .border(
                                 if (isSelected) 1.5.dp else 1.dp,
                                 if (isSelected) AppColors.BrandMint else AppColors.BorderDefault,
-                                RoundedCornerShape(17.dp)
+                                RoundedCornerShape(16.dp)
                             )
                             .selectable(selected = isSelected, role = Role.RadioButton) {
                                 haptics.selection()
                                 onSelectServer(server)
                                 dismissSheet()
                             }
-                            .padding(horizontal = 14.dp),
+                            .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(13.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         CountryFlagView(
                             countryCode = server.countryCode,

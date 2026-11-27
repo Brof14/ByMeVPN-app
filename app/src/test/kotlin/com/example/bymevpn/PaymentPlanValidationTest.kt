@@ -3,8 +3,8 @@ package com.example.bymevpn
 import com.example.bymevpn.data.api.PlanItem
 import com.example.bymevpn.data.api.DeviceItem
 import com.example.bymevpn.data.api.ApiJsonParsers
-import com.example.bymevpn.components.filterPlansByDeviceCount
 import com.example.bymevpn.screens.PlanDuration
+import com.example.bymevpn.screens.filterPlansByDeviceCount
 import com.example.bymevpn.screens.matchesConfirmedPlan
 import com.example.bymevpn.screens.visibleDeviceCount
 import org.junit.Assert.assertEquals

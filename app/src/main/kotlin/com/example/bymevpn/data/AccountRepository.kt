@@ -15,9 +15,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -80,7 +83,25 @@ object AccountRepository {
         if (_isInitialized.value) return
         val appContext = context.applicationContext
         val cachedUser = withContext(Dispatchers.IO) {
-            SecureTokenStorage.getInstance(appContext).getCachedUser()
+            coroutineScope {
+                val userDeferred = async { SecureTokenStorage.getInstance(appContext).getCachedUser() }
+                val langDeferred = async {
+                    runCatching {
+                        com.example.bymevpn.data.settings.SettingsRepository.getInstance(appContext)
+                            .settingsFlow.first().language
+                    }.getOrNull()
+                }
+                val subWarm = async { runCatching { SubscriptionManager.getInstance(appContext) } }
+                val user = userDeferred.await()
+                langDeferred.await()?.let { code ->
+                    LocaleManager.setLanguage(AppLanguage.fromCode(code))
+                }
+                subWarm.await()
+                if (user != null) {
+                    runCatching { com.example.bymevpn.vpn.VpnManager.getInstance(appContext) }
+                }
+                user
+            }
         }
         if (cachedUser != null) {
             _currentUser.value = cachedUser

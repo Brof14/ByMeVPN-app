@@ -139,15 +139,15 @@ fun SplitTunnelingScreen(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 22.dp)
+                    .padding(horizontal = 20.dp)
             ) {
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Исключения для приложений" else "App bypass",
                         subtitle = if (isRu) {
-                            "Отмеченные приложения идут напрямую, минуя VPN"
+                            "Отмеченные приложения идут напрямую без VPN"
                         } else {
-                            "Selected apps connect directly outside the VPN tunnel"
+                            "Selected apps connect directly without VPN"
                         },
                         icon = { SplitTunnelIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
@@ -167,13 +167,13 @@ fun SplitTunnelingScreen(
                 }
 
                 if (hasPendingTunnelChange && vpnState == VpnConnectionState.CONNECTED) {
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(AppGradients.ActivePlanCard)
-                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(14.dp))
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(16.dp))
                             .padding(horizontal = 14.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp)

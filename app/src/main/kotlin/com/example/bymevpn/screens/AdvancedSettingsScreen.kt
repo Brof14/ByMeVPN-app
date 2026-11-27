@@ -213,16 +213,16 @@ fun AdvancedSettingsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 20.dp)
             ) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = if (isRu) "Сеть и маршрутизация" else "Network & Routing",
                     color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
@@ -245,7 +245,7 @@ fun AdvancedSettingsScreen(
                         settings.splitTunnelingEnabled ->
                             if (isRu) "Включено · выберите приложения" else "Enabled · choose apps"
                         else ->
-                            if (isRu) "Исключить выбранные приложения из VPN" else "Bypass VPN for selected apps"
+                            if (isRu) "Исключить приложения из VPN" else "Bypass VPN for selected apps"
                     }
                     ByMeSettingRow(
                         title = if (isRu) "Раздельное туннелирование" else "Split tunneling",
@@ -267,14 +267,14 @@ fun AdvancedSettingsScreen(
                     color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Скорость в шторке" else "Speed in notification",
-                        subtitle = if (isRu) "Показывать скорость загрузки и отдачи в уведомлении"
-                        else "Show live download and upload speed in notification",
+                        subtitle = if (isRu) "Скорость загрузки и отдачи в уведомлении"
+                        else "Show download and upload speed in notification",
                         icon = { SmartphoneIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
@@ -289,8 +289,8 @@ fun AdvancedSettingsScreen(
                     )
                     ByMeSettingRow(
                         title = if (isRu) "Уведомления о статусе" else "Status notifications",
-                        subtitle = if (isRu) "Обновлять статус и скорость в системном уведомлении"
-                        else "Show live status updates in the system notification",
+                        subtitle = if (isRu) "Статус подключения в системном уведомлении"
+                        else "Connection status in system notification",
                         icon = { ShieldSecurityIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
@@ -312,14 +312,14 @@ fun AdvancedSettingsScreen(
                     color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Постоянный VPN и Kill Switch" else "Always-on VPN & Kill Switch",
-                        subtitle = if (isRu) "Открыть системные параметры Android для блокировки трафика без VPN"
-                        else "Open Android VPN settings for Always-on VPN and leak protection",
+                        subtitle = if (isRu) "Системные параметры Android для защиты от утечек"
+                        else "Android VPN settings for Always-on and leak protection",
                         icon = { LockIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = {
@@ -338,7 +338,7 @@ fun AdvancedSettingsScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             ByMeBottomNav(

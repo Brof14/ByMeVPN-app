@@ -25,7 +25,28 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Prepare shared debug keystore for Google Sign-In
+        shell: bash
+        run: |
+          test -s debug.keystore.base64
+          base64 --decode debug.keystore.base64 > debug.keystore
       - run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:bundlePlay cyclonedxBom --no-daemon
+      - name: Verify debug APK certificate matches registered Google OAuth SHA-1
+        env:
+          EXPECTED_DEBUG_SHA256: D7A05338F720A169E763165F3A29AC6D05DB3476616652229FA73E2D6CEC3752
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          cert_output="$("$apksigner" verify --print-certs "$apk")"
+          printf '%s\n' "$cert_output"
+          actual="$(printf '%s\n' "$cert_output" | sed -nE 's/.*SHA-256 digest: ([0-9a-fA-F:]+).*/\1/p' | head -n 1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')"
+          test "$actual" = "$EXPECTED_DEBUG_SHA256"
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-debug
@@ -125,6 +146,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Prepare shared debug keystore
+        shell: bash
+        run: |
+          if [ -s debug.keystore.base64 ]; then
+            base64 --decode debug.keystore.base64 > debug.keystore
+          fi
       - name: Allow KVM access for the emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=10"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

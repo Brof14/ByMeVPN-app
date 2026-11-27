@@ -102,7 +102,7 @@ fun DevicesScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 26.dp, vertical = 12.dp)
+                    .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
                 if (deviceListUnavailable) {
                     Text(
@@ -217,21 +217,21 @@ fun DevicesScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(17.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(AppColors.BgSurface)
-                        .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(17.dp))
+                        .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(16.dp))
                         .padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(37.dp)
-                            .clip(RoundedCornerShape(11.dp))
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .background(AppColors.BgSurfaceAccent),
                         contentAlignment = Alignment.Center
                     ) {
-                        SmartphoneIcon(color = AppColors.SkyBlue, size = 21.dp)
+                        SmartphoneIcon(color = AppColors.SkyBlue, size = 20.dp)
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -271,15 +271,15 @@ fun DevicesScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 if (otherDevices.isNotEmpty()) {
                     Text(
                         text = if (isRu) "Другие устройства" else "Other devices",
-                        color = AppColors.TextSecondary,
+                        color = AppColors.TextKicker,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                 }
 
@@ -288,22 +288,22 @@ fun DevicesScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 66.dp)
+                                .heightIn(min = 68.dp)
                                 .clip(RoundedCornerShape(16.dp))
                                 .background(AppColors.BgSurface)
                                 .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(37.dp)
-                                    .clip(RoundedCornerShape(11.dp))
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(12.dp))
                                     .background(AppColors.BgSurfaceAccent),
                                 contentAlignment = Alignment.Center
                             ) {
-                                SmartphoneIcon(color = AppColors.SkyBlue, size = 21.dp)
+                                SmartphoneIcon(color = AppColors.SkyBlue, size = 20.dp)
                             }
 
                             Column(modifier = Modifier.weight(1f)) {
@@ -347,10 +347,10 @@ fun DevicesScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(17.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(AppColors.BgSurface)
-                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(17.dp))
-                            .padding(18.dp)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(16.dp))
+                            .padding(16.dp)
                     ) {
                         Text(
                             text = if (isFull) {
@@ -365,15 +365,15 @@ fun DevicesScreen(
                         Spacer(Modifier.height(8.dp))
                         Text(
                             text = if (isRu) {
-                                "Доплата за 5 или 10 устройств рассчитывается за оставшийся срок вашей подписки. Выберите лимит и проверьте сумму в Telegram-боте перед оплатой."
+                                "Расширить лимит до 5 или 10 устройств с перерасчётом за остаток срока можно в Telegram-боте."
                             } else {
-                                "Upgrades to 5 or 10 devices are prorated over your remaining subscription period. Choose a limit and review the final price in the Telegram bot."
+                                "Upgrade to 5 or 10 devices with prorated pricing in our Telegram bot."
                             },
                             color = AppColors.TextSecondary,
                             fontSize = 13.sp,
-                            lineHeight = 19.sp
+                            lineHeight = 18.sp
                         )
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(16.dp))
                         ByMePrimaryButton(
                             text = if (isRu) "Увеличить лимит в Telegram" else "Upgrade devices in Telegram",
                             onClick = {
@@ -388,20 +388,13 @@ fun DevicesScreen(
                                 }
                             }
                         )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = if (isRu) "В боте откройте подписку → Мои устройства → Увеличить лимит."
-                                else "In the bot: Subscription → My devices → Upgrade device limit.",
-                            color = AppColors.TextMuted,
-                            fontSize = 12.sp
-                        )
                     }
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 Text(
-                    text = if (isRu) "Чтобы добавить устройство, войдите в ByMeVPN с тем же аккаунтом на другом устройстве."
-                    else "To add a device, sign in to ByMeVPN with this account on another device.",
+                    text = if (isRu) "Чтобы подключить новое устройство, войдите в этот аккаунт на нём."
+                    else "To add a device, sign in with this account on another device.",
                     color = AppColors.TextMuted,
                     fontSize = 12.sp,
                     lineHeight = 17.sp,

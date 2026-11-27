@@ -25,6 +25,7 @@ migrate_working_dir/
 /.gradle/
 /.kotlin/
 /app/build/
+/debug.keystore
 
 
 # Flutter/Dart/Pub related

@@ -49,8 +49,8 @@ fun TrialActivatedDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(28.dp)),
-            shape = RoundedCornerShape(28.dp),
+                .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
             color = AppColors.BgSurfaceElevated,
             shadowElevation = 24.dp
         ) {
@@ -61,12 +61,12 @@ fun TrialActivatedDialog(
                             listOf(AppColors.BgSurfaceAccent, AppColors.BgSurface)
                         )
                     )
-                    .padding(horizontal = 24.dp, vertical = 26.dp),
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(124.dp)) {
-                    Canvas(Modifier.size(120.dp)) {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(120.dp)) {
+                    Canvas(Modifier.size(116.dp)) {
                         val p = progress.value
                         val radius = size.minDimension * (0.24f + 0.22f * p)
                         drawCircle(
@@ -89,7 +89,7 @@ fun TrialActivatedDialog(
                     }
                     Box(
                         modifier = Modifier
-                            .size(76.dp)
+                            .size(72.dp)
                             .scale(0.72f + 0.28f * progress.value)
                             .clip(CircleShape)
                             .background(AppGradients.PrimaryButton),
@@ -99,15 +99,15 @@ fun TrialActivatedDialog(
                     }
                 }
                 Text(
-                    text = if (isRussian) "Пробный период активирован!" else "Your free trial is active!",
+                    text = if (isRussian) "Пробный период активен" else "Free trial activated",
                     color = AppColors.TextPrimary,
-                    fontSize = 21.sp,
-                    lineHeight = 27.sp,
+                    fontSize = 20.sp,
+                    lineHeight = 26.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = if (isRussian) "Вам доступны 3 дня ByMeVPN. Приятного пользования!" else "You have 3 days of ByMeVPN. Enjoy!",
+                    text = if (isRussian) "Доступ на 3 дня открыт." else "3 days of full access are ready.",
                     color = AppColors.TextSecondary,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
@@ -115,18 +115,18 @@ fun TrialActivatedDialog(
                 )
                 if (!serversReady) {
                     Text(
-                        text = if (isRussian) "Список серверов обновляется — он появится на главном экране." else "Your server list is refreshing and will appear on Home.",
+                        text = if (isRussian) "Серверы загрузятся на главном экране." else "Servers will finish loading on Home.",
                         color = AppColors.TextMuted,
                         fontSize = 12.sp,
-                        lineHeight = 17.sp,
+                        lineHeight = 16.sp,
                         textAlign = TextAlign.Center
                     )
                 }
-                Spacer(Modifier.size(2.dp))
+                Spacer(Modifier.size(4.dp))
                 ByMePrimaryButton(
                     text = if (isRussian) "К подключению" else "Go to VPN",
                     onClick = onDismiss,
-                    height = 54.dp
+                    height = 52.dp
                 )
             }
         }

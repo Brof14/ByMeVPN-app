@@ -168,25 +168,25 @@ fun AccountScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 26.dp)
+                    .padding(horizontal = 20.dp)
             ) {
                 // Profile Minimal Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 18.dp),
+                        .padding(top = 8.dp, bottom = 16.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(51.dp)
+                            .size(48.dp)
                             .clip(RoundedCornerShape(16.dp))
                             .background(AppColors.BgSurfaceAccent)
                             .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(16.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        PersonProfileIcon(color = AppColors.SkyBlue, size = 25.dp)
+                        PersonProfileIcon(color = AppColors.SkyBlue, size = 24.dp)
                     }
 
                     Column(modifier = Modifier.weight(1f)) {
@@ -200,7 +200,7 @@ fun AccountScreen(
                         Text(
                             text = currentUser?.email?.takeIf { it.isNotBlank() && it != "user@bymevpn.app" } ?: t("Аккаунт ByMeVPN", "ByMeVPN account"),
                             color = AppColors.TextSecondary,
-                            fontSize = 11.5.sp
+                            fontSize = 12.sp
                         )
                     }
 
@@ -208,7 +208,7 @@ fun AccountScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(if (isActive) AppColors.BadgeGreenBg else AppColors.BadgeRedBg)
-                            .padding(horizontal = 9.dp, vertical = 7.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = when {
@@ -218,7 +218,7 @@ fun AccountScreen(
                                 else -> t("Без подписки", "No subscription")
                             },
                             color = if (isActive && !accessConfirmationRequired) AppColors.BadgeGreenText else AppColors.BadgeRedText,
-                            fontSize = 10.sp,
+                            fontSize = 10.5.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -229,10 +229,10 @@ fun AccountScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(21.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(AppGradients.ActivePlanCard)
-                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
-                            .padding(21.dp)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
+                            .padding(20.dp)
                     ) {
                         Text(
                             text = t("Подписка ByMeVPN", "ByMeVPN subscription"),
@@ -311,10 +311,10 @@ fun AccountScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(21.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(AppGradients.AccentCard)
-                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
-                            .padding(21.dp)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
+                            .padding(20.dp)
                     ) {
                         Text(
                             text = if (isCheckingSubscription || refreshingAccount) {
@@ -325,23 +325,23 @@ fun AccountScreen(
                                 t("Не удалось проверить подписку", "Could not verify subscription")
                             },
                             color = AppColors.TextPrimary,
-                            fontSize = 21.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = if (accessConfirmationRequired) t(
-                                "Подписка активна, но это устройство ещё не подтверждено. Обновите данные.",
+                                "Подписка активна, но устройство ещё не подтверждено. Обновите данные.",
                                 "Subscription is active, but this device isn't confirmed yet. Refresh your account."
                             ) else t(
-                                "Доступ пока не подтверждён. Обновите данные — подписка не изменилась.",
+                                "Доступ пока не подтверждён. Обновите данные — подписка сохранится.",
                                 "Access isn't confirmed yet. Refresh your account — your plan is unchanged."
                             ),
                             color = AppColors.TextSecondary,
-                            fontSize = 12.5.sp,
+                            fontSize = 13.sp,
                             lineHeight = 18.sp
                         )
-                        Spacer(modifier = Modifier.height(18.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
                         ByMePrimaryButton(
                             text = if (isCheckingSubscription || refreshingAccount) {
                                 t("Проверяем…", "Checking…")
@@ -350,7 +350,7 @@ fun AccountScreen(
                             },
                             onClick = { refreshAccountData() },
                             enabled = !isCheckingSubscription && !refreshingAccount,
-                            height = 50.dp,
+                            height = 52.dp,
                             showArrow = false
                         )
                     }
@@ -359,10 +359,10 @@ fun AccountScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(21.dp))
+                            .clip(RoundedCornerShape(20.dp))
                             .background(AppGradients.AccentCard)
-                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(21.dp))
-                            .padding(21.dp)
+                            .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
+                            .padding(20.dp)
                     ) {
                         Text(
                             text = if (subscription?.trialUnavailableReason == "trial_already_used")
@@ -429,20 +429,20 @@ fun AccountScreen(
                 // Section: Управление
                 Text(
                     text = t("Управление", "Management"),
-                    color = AppColors.TextSecondary,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = t("Мои устройства", "My devices"),
                         subtitle = if (deviceListUnavailable) {
-                            t("Не удалось загрузить список устройств", "Could not load your devices")
+                            t("Список устройств недоступен", "Device list unavailable")
                         } else if (devices.isNotEmpty()) {
                             effectiveDevicesText
-                        } else maxDevices?.let { t("0 из $it · нет списка устройств", "0 of $it · no device list") } ?: t("Сервер не передал лимит тарифа", "Server did not provide the plan limit"),
+                        } else maxDevices?.let { t("0 из $it", "0 of $it") } ?: t("Лимит уточняется", "Checking limit"),
                         icon = { DevicesMultiIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = onNavigateToDevices,
@@ -458,7 +458,7 @@ fun AccountScreen(
                         )
                         ByMeSettingRow(
                             title = t("Автопродление", "Auto-renewal"),
-                            subtitle = t("Посмотреть статус и управлять", "View and manage renewal"),
+                            subtitle = t("Статус и управление", "Status and control"),
                             icon = { RefreshIcon(color = AppColors.SkyBlue, size = 20.dp) },
                             trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                             onClick = onNavigateToRenewal,
@@ -470,16 +470,16 @@ fun AccountScreen(
                 // Section: Аккаунт
                 Text(
                     text = t("Аккаунт", "Account"),
-                    color = AppColors.TextSecondary,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = t("Аккаунт и безопасность", "Account and security"),
-                        subtitle = t("Данные профиля, выход и удаление", "Profile details, sign out and deletion"),
+                        subtitle = t("Профиль, выход и удаление", "Profile, sign out and deletion"),
                         icon = { PersonProfileIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = { showAccountDialog = true },
@@ -514,13 +514,13 @@ fun AccountScreen(
                         .fillMaxWidth()
                         .heightIn(max = 680.dp)
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 22.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(t("Аккаунт и безопасность", "Account and security"), fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                        Text(t("Аккаунт и безопасность", "Account and security"), fontSize = 22.sp, fontWeight = FontWeight.Bold)
                         Text(
-                            t("Данные профиля и управление аккаунтом", "Profile details and account management"),
+                            t("Профиль и управление доступом", "Profile details and account control"),
                             color = AppColors.TextSecondary,
                             fontSize = 13.sp
                         )
@@ -529,9 +529,9 @@ fun AccountScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(AppColors.CardBg)
-                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(18.dp))
+                            .border(1.dp, AppColors.CardBorder, RoundedCornerShape(16.dp))
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {

@@ -4,12 +4,15 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
@@ -23,7 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.BuildConfig
@@ -161,39 +166,55 @@ fun RenewalScreen(
 
     Column(modifier.fillMaxSize().background(AppColors.BgCanvas)) {
         ByMeTopBar(title = if (isRu) "Автопродление" else "Auto-renewal", onBackClick = onBackClick, onMoreClick = null)
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(26.dp)) {
-            Text(
-                if (isRu) "Статус: $status" else "Status: $status",
-                color = AppColors.TextPrimary,
-                fontSize = 19.sp
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
-                    if (isRu) {
-                        "Отключение автопродления не отменяет уже оплаченную подписку. Подключить его можно через Telegram-бота."
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(AppColors.BgSurface)
+                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(20.dp))
+                    .padding(20.dp)
+            ) {
+                Text(
+                    text = if (isRu) "Статус: $status" else "Status: $status",
+                    color = if (enabled == true) AppColors.BrandMint else AppColors.TextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
+                        if (isRu) {
+                            "Отключение автопродления не отменяет уже оплаченный доступ. Подключить его можно через Telegram-бота."
+                        } else {
+                            "Turning off auto-renewal keeps your current paid access. To enable it, use the Telegram bot."
+                        }
                     } else {
-                        "Turning off auto-renewal does not cancel paid access. To enable it, use the Telegram bot."
-                    }
-                } else {
-                    if (isRu) {
-                        "Отключение автопродления не отменяет уже оплаченную подписку."
-                    } else {
-                        "Turning off auto-renewal does not cancel already active access."
-                    }
-                },
-                color = AppColors.TextSecondary,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
-            Spacer(Modifier.height(10.dp))
-            Text(
-                if (isRu) "Дата следующего списания, сумма и привязанная карта не предоставляются текущим API приложения. Мы не показываем неподтверждённые данные."
-                else "The current app API does not supply the next charge date, amount, or linked card. Unverified billing details are not displayed.",
-                color = AppColors.TextMuted,
-                fontSize = 13.sp,
-                lineHeight = 19.sp
-            )
+                        if (isRu) {
+                            "Отключение автопродления не отменяет уже оплаченный доступ."
+                        } else {
+                            "Turning off auto-renewal keeps your current paid access."
+                        }
+                    },
+                    color = AppColors.TextSecondary,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = if (isRu) "Детали карты и дата списания не передаются в приложение."
+                    else "Card details and the next billing date are not stored in the app.",
+                    color = AppColors.TextMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp
+                )
+            }
+
             Spacer(Modifier.height(20.dp))
             if (enabled == true) {
                 ByMePrimaryButton(
@@ -201,18 +222,18 @@ fun RenewalScreen(
                     onClick = { showConfirmation = true },
                     enabled = !refreshing && !cancelling
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
             } else if (enabled == false && canEnable) {
                 ByMePrimaryButton(
                     text = if (isRu) "Включить автопродление" else "Enable auto-renewal",
                     onClick = { showEnableConfirmation = true },
                     enabled = !refreshing && !cancelling && !enabling
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
             }
             if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED && enabled == false && !canEnable) {
                 ByMeSecondaryButton(
-                    text = if (isRu) "Настроить способ оплаты в Telegram" else "Set up a payment method in Telegram",
+                    text = if (isRu) "Настроить способ оплаты в Telegram" else "Set up payment method in Telegram",
                     onClick = {
                         runCatching {
                             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/ByMeVPNbot")))
@@ -225,15 +246,15 @@ fun RenewalScreen(
                         }
                     }
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    if (isRu) "Для автопродления нужен ранее сохранённый способ оплаты с вашим согласием."
-                    else "Auto-renewal requires a previously saved payment method with your consent.",
-                    color = AppColors.TextSecondary,
+                    if (isRu) "Требуется сохранённый способ оплаты."
+                    else "Requires a saved payment method.",
+                    color = AppColors.TextMuted,
                     fontSize = 12.sp
                 )
+                Spacer(Modifier.height(12.dp))
             }
-            Spacer(Modifier.height(20.dp))
             ByMeSecondaryButton(
                 text = if (refreshing) {
                     if (isRu) "Обновляем…" else "Refreshing…"

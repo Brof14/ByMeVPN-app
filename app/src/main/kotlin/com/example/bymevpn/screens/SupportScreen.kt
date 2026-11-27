@@ -91,44 +91,43 @@ fun SupportScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 26.dp)
+                    .padding(horizontal = 20.dp)
             ) {
                 // Support Intro Hero
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp, bottom = 16.dp),
+                        .padding(top = 12.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
                             .size(56.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(AppColors.BgSurfaceAccent),
                         contentAlignment = Alignment.Center
                     ) {
                         ChatHeartIcon(color = AppColors.SkyBlue, size = 26.dp)
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Text(
                         text = t("Поддержка ByMeVPN", "ByMeVPN Support"),
                         color = AppColors.TextPrimary,
-                        fontSize = 23.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = t("Поможем с подключением, тарифами и устройствами.", "Help with connection, plans, and devices."),
                         color = AppColors.TextSecondary,
-                        fontSize = 12.5.sp,
+                        fontSize = 13.sp,
                         lineHeight = 18.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp)
+                        textAlign = TextAlign.Center
                     )
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -153,10 +152,10 @@ fun SupportScreen(
                 // Section: Полезное
                 Text(
                     text = t("Полезное", "Useful links"),
-                    color = AppColors.TextSecondary,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
@@ -194,17 +193,18 @@ fun SupportScreen(
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }
-                        }
+                        },
+                        showBottomDivider = false
                     )
                 }
 
                 // Section: Информация
                 Text(
                     text = t("Информация", "Information"),
-                    color = AppColors.TextSecondary,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
@@ -231,7 +231,7 @@ fun SupportScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
             ByMeBottomNav(

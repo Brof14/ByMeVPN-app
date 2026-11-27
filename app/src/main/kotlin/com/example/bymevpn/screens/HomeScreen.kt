@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -121,6 +122,7 @@ fun HomeScreen(
     val subscriptionNowMs = remember(subscription) { System.currentTimeMillis() }
     val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
     val hasPlan = subscription?.let { it.isActive && !it.knownExpiryReached(subscriptionNowMs) } == true
+    val isTrialPlan = subscription?.status == "trial"
     val accessConfirmationRequired = SubscriptionPresentationPolicy.requiresAccessConfirmation(
         subscription,
         subManager.canConnect()
@@ -129,6 +131,7 @@ fun HomeScreen(
         (currentUser?.isGoogle == true || !currentUser?.email.isNullOrBlank())
 
     val remainingDays = subscription?.daysRemainingAt(subscriptionNowMs)
+    val vpnError by vpnManager.errorMessage.collectAsState()
 
     LaunchedEffect(currentUser?.id) {
         if (subscription?.isUsable != true || !subManager.canConnect()) {
@@ -363,9 +366,9 @@ fun HomeScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(AppColors.BgSurfaceElevated)
-                            .border(1.dp, AppColors.BorderActiveGreen, RoundedCornerShape(14.dp))
+                            .border(1.dp, AppColors.BorderActiveGreen, RoundedCornerShape(16.dp))
                             .clickable(enabled = !isInstallingUpdate) {
                                 val info = updateInfo ?: return@clickable
                                 val needsInstallPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
@@ -380,7 +383,7 @@ fun HomeScreen(
                                     startUpdateInstall(info)
                                 }
                             }
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
@@ -394,10 +397,10 @@ fun HomeScreen(
                             Text(
                                 text = when {
                                     isInstallingUpdate -> if (isRu) "Загружаем обновление…" else "Downloading update…"
-                                    else -> if (isRu) "Нажмите, чтобы скачать и установить" else "Tap to download and install"
+                                    else -> if (isRu) "Нажмите для установки" else "Tap to download and install"
                                 },
                                 color = AppColors.TextSecondary,
-                                fontSize = 10.5.sp
+                                fontSize = 11.sp
                             )
                         }
                         Text(
@@ -406,7 +409,7 @@ fun HomeScreen(
                                 else -> if (isRu) "Обновить >" else "Update >"
                             },
                             color = AppColors.SkyBlue,
-                            fontSize = 11.5.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -445,7 +448,7 @@ fun HomeScreen(
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
                                 .clickable(onClick = onNavigateToPricing)
-                                .padding(horizontal = 26.dp, vertical = 14.dp),
+                                .padding(horizontal = 20.dp, vertical = 14.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -455,12 +458,11 @@ fun HomeScreen(
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
-                            Spacer(modifier = Modifier.width(5.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
                             ChevronRightIcon(color = AppColors.SkyBlue, size = 16.dp)
                         }
                     }
                 } else if (vpnState == VpnConnectionState.ERROR) {
-                    val vpnError by vpnManager.errorMessage.collectAsState()
                     HomeConnectionErrorContent(
                         onRetry = { toggleVpn() },
                         onSupportClick = onNavigateToSupport,
@@ -476,6 +478,7 @@ fun HomeScreen(
                         onSubscriptionClick = onNavigateToAccount,
                         currentServer = currentServer,
                         remainingDays = remainingDays,
+                        isTrial = isTrialPlan,
                         serversError = serversError,
                         isLoadingServers = isLoadingServers,
                         onRefreshServers = { refreshServers() },
@@ -484,11 +487,13 @@ fun HomeScreen(
                 } else {
                     HomeDisconnectedContent(
                         isConnecting = vpnState == VpnConnectionState.CONNECTING,
+                        connectingHint = if (vpnState == VpnConnectionState.CONNECTING) vpnError else null,
                         onPowerClick = { toggleVpn() },
                         onServerSelectClick = { showServerSheet = true },
                         onSubscriptionClick = onNavigateToAccount,
                         currentServer = currentServer,
                         remainingDays = remainingDays,
+                        isTrial = isTrialPlan,
                         serversError = serversError,
                         isLoadingServers = isLoadingServers,
                         onRefreshServers = { refreshServers() }
@@ -567,12 +572,12 @@ private fun HomeNoPlanContent(
         contentAlignment = Alignment.Center
     ) {
         val compact = maxHeight < 530.dp
-        val logoSize = if (compact) 88.dp else 108.dp
+        val logoSize = if (compact) 84.dp else 104.dp
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 8.dp),
+                .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             ShieldLogo(size = logoSize)
@@ -599,30 +604,36 @@ private fun HomeNoPlanContent(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     text = when {
                         subscriptionUnknown && isCheckingSubscription -> if (isRu) "Загружаем данные аккаунта." else "Loading account details."
-                        subscriptionUnknown -> if (isRu) "Повторите проверку, чтобы обновить данные аккаунта." else "Retry to refresh your account details."
-                        accessConfirmationRequired -> if (isRu) "Обновите статус доступа. Пробный период не будет списан." else "Refresh access status. Your trial will not be used."
-                        trialAvailable -> if (isRu) "Полный доступ без привязки карты." else "Full access, no card required."
+                        subscriptionUnknown -> if (isRu) "Повторите проверку для обновления данных." else "Retry to refresh your account details."
+                        accessConfirmationRequired -> if (isRu) "Обновите доступ — пробный период не будет списан." else "Refresh access status — your trial will not be used."
+                        trialAvailable -> if (isRu) "Полный доступ без привязки карты и автосписаний." else "Full access with no card or auto-charges."
                         trialUnavailableReason == "trial_already_used" -> if (hasCheckout) {
                             if (isRu) "Выберите тариф, чтобы продолжить пользоваться VPN." else "Choose a plan to continue using VPN."
                         } else {
-                            if (isRu) "Обновите статус аккаунта или войдите под другим аккаунтом." else "Refresh your account status or sign in with another account."
+                            if (isRu) "Обновите статус или войдите под другим аккаунтом." else "Refresh your status or sign in with another account."
                         }
                         trialUnavailableReason == "trial_activation_pending" -> if (isRu) "Обновите статус через некоторое время." else "Refresh your status in a little while."
-                        trialUnavailableReason in setOf("eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> if (isRu) "Не удалось проверить доступность пробного периода. Попробуйте ещё раз." else "Could not check trial availability. Please try again."
+                        trialUnavailableReason in setOf("eligibility_check_unavailable", "device_confirmation_required", "subscription_check_unavailable") -> if (isRu) "Не удалось проверить пробный период. Попробуйте ещё раз." else "Could not check trial availability. Please try again."
                         else -> if (hasCheckout) {
                             if (isRu) "Выберите подходящий тариф." else "Choose a plan that works for you."
                         } else {
-                            if (isRu) "Войдите в аккаунт с активной подпиской и обновите статус." else "Sign in with an active account and refresh status."
+                            if (isRu) "Войдите в аккаунт с подпиской и обновите статус." else "Sign in with an active account and refresh status."
                         }
                     },
                     color = AppColors.TextSecondary,
-                    fontSize = 12.5.sp,
+                    fontSize = 13.sp,
                     lineHeight = 18.sp
                 )
+                if (trialAvailable && !subscriptionUnknown && !accessConfirmationRequired) {
+                    Spacer(Modifier.height(12.dp))
+                    HomeTrialPerkRow(if (isRu) "Все серверы и протоколы без ограничений" else "All servers and protocols unlocked")
+                    Spacer(Modifier.height(8.dp))
+                    HomeTrialPerkRow(if (isRu) "Без карты и автоматических списаний" else "No card required, no auto-renewal")
+                }
                 Spacer(Modifier.height(16.dp))
                 val shouldRetry = subscriptionUnknown ||
                     accessConfirmationRequired ||
@@ -639,7 +650,7 @@ private fun HomeNoPlanContent(
                         subscriptionUnknown -> if (isRu) "Повторить проверку" else "Retry status check"
                         accessConfirmationRequired -> if (isRu) "Обновить доступ" else "Refresh access"
                         isPreparingTrialServers -> if (isRu) "Готовим серверы…" else "Preparing servers…"
-                        isActivatingTrial -> if (isRu) "Подключаем пробный период…" else "Activating your trial…"
+                        isActivatingTrial -> if (isRu) "Подключаем…" else "Activating…"
                         trialAvailable -> if (isRu) "Активировать бесплатно" else "Activate free trial"
                         shouldRetry -> if (isRu) "Обновить статус" else "Refresh status"
                         else -> if (isRu) "Посмотреть тарифы" else "View plans"
@@ -650,17 +661,17 @@ private fun HomeNoPlanContent(
                         else -> onChoosePlanClick
                     },
                     enabled = !isActivatingTrial && !isCheckingSubscription,
-                    height = 50.dp
+                    height = 52.dp
                 )
                 if (offerTelegramRecovery && !subscriptionUnknown) {
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = if (isRu) "Подписка оформлена в Telegram? Войти через Telegram"
+                        text = if (isRu) "Подписка в Telegram? Войти через Telegram"
                         else "Subscribed in Telegram? Sign in with Telegram",
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable(onClick = onRestoreViaTelegram)
-                            .padding(vertical = 6.dp),
+                            .padding(vertical = 4.dp),
                         textAlign = TextAlign.Center,
                         color = AppColors.SkyBlue,
                         fontSize = 12.sp,
@@ -669,7 +680,7 @@ private fun HomeNoPlanContent(
                 }
                 if (!trialError.isNullOrBlank()) {
                     Spacer(Modifier.height(10.dp))
-                    Text(trialError, color = AppColors.StatusWarning, fontSize = 11.sp, lineHeight = 15.sp)
+                    Text(trialError, color = AppColors.StatusWarning, fontSize = 11.5.sp, lineHeight = 16.sp)
                 }
             }
         }
@@ -677,70 +688,114 @@ private fun HomeNoPlanContent(
 }
 
 @Composable
+private fun HomeTrialPerkRow(text: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        CheckmarkIcon(color = AppColors.BrandMint, size = 14.dp)
+        Text(
+            text = text,
+            color = AppColors.TextSoft,
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp
+        )
+    }
+}
+
+@Composable
 private fun HomeDisconnectedContent(
     isConnecting: Boolean,
+    connectingHint: String?,
     onPowerClick: () -> Unit,
     onServerSelectClick: () -> Unit,
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
     remainingDays: Long?,
+    isTrial: Boolean,
     serversError: String?,
     isLoadingServers: Boolean,
     onRefreshServers: () -> Unit
 ) {
     val isRu = homeIsRussian()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 25.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(14.dp))
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            VpnPowerButton(connected = false, connecting = isConnecting, isRussian = isRu, onClick = onPowerClick)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val buttonSize = when {
+            maxHeight < 520.dp -> 188.dp
+            maxHeight < 600.dp -> 216.dp
+            else -> 244.dp
         }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(modifier = Modifier.weight(0.6f, fill = true))
 
-        Spacer(modifier = Modifier.height(20.dp))
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                VpnPowerButton(
+                    connected = false,
+                    connecting = isConnecting,
+                    isRussian = isRu,
+                    onClick = onPowerClick,
+                    maxSize = buttonSize
+                )
+            }
 
-        Text(
-            text = if (isConnecting) { if (isRu) "Подключение..." else "Connecting..." } else { if (isRu) "VPN выключен" else "VPN is off" },
-            color = AppColors.TextPrimary,
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold
-        )
+            Spacer(modifier = Modifier.height(20.dp))
 
-        Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (isConnecting) {
+                    if (isRu) "Подключение…" else "Connecting…"
+                } else {
+                    if (isRu) "VPN выключен" else "VPN is off"
+                },
+                color = AppColors.TextPrimary,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold
+            )
 
-        Text(
-            text = if (isConnecting) { if (isRu) "Устанавливаем защищённый туннель" else "Establishing secure tunnel" } else { if (isRu) "Нажмите, чтобы подключиться" else "Tap to connect" },
-            color = AppColors.TextSecondary,
-            fontSize = 13.sp
-        )
+            Spacer(modifier = Modifier.height(6.dp))
 
-        if (currentServer == null && (isLoadingServers || !serversError.isNullOrBlank())) {
-            Spacer(modifier = Modifier.height(14.dp))
-            ServerLoadStatusRow(
+            Text(
+                text = if (isConnecting) {
+                    connectingHint?.takeIf { it.isNotBlank() }
+                        ?: if (isRu) "Устанавливаем защищённый туннель" else "Establishing secure tunnel"
+                } else {
+                    if (isRu) "Нажмите, чтобы подключиться" else "Tap to connect"
+                },
+                color = AppColors.TextSecondary,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+
+            if (currentServer == null && (isLoadingServers || !serversError.isNullOrBlank())) {
+                Spacer(modifier = Modifier.height(16.dp))
+                ServerLoadStatusRow(
+                    isRu = isRu,
+                    error = serversError,
+                    isLoading = isLoadingServers,
+                    onRefresh = onRefreshServers
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f, fill = true))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HomeBottomDock(
                 isRu = isRu,
-                error = serversError,
-                isLoading = isLoadingServers,
-                onRefresh = onRefreshServers
+                isConnected = false,
+                currentServer = currentServer,
+                remainingDays = remainingDays,
+                isTrial = isTrial,
+                serversError = serversError,
+                onServerSelectClick = onServerSelectClick,
+                onRefreshServers = onRefreshServers,
+                onSubscriptionClick = onSubscriptionClick
             )
         }
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        HomeBottomDock(
-            isRu = isRu,
-            isConnected = false,
-            currentServer = currentServer,
-            remainingDays = remainingDays,
-            serversError = serversError,
-            onServerSelectClick = onServerSelectClick,
-            onRefreshServers = onRefreshServers,
-            onSubscriptionClick = onSubscriptionClick
-        )
     }
 }
 
@@ -752,62 +807,74 @@ private fun HomeConnectedContent(
     onSubscriptionClick: () -> Unit,
     currentServer: ServerNode?,
     remainingDays: Long?,
+    isTrial: Boolean,
     serversError: String?,
     isLoadingServers: Boolean,
     onRefreshServers: () -> Unit,
     successPulseKey: Int
 ) {
     val isRu = homeIsRussian()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 25.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            VpnPowerButton(
-                connected = true,
-                connecting = false,
-                isRussian = isRu,
-                onClick = onPowerClick,
-                successPulseKey = successPulseKey
-            )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val buttonSize = when {
+            maxHeight < 520.dp -> 188.dp
+            maxHeight < 600.dp -> 216.dp
+            else -> 244.dp
         }
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CheckmarkIcon(color = AppColors.BrandMintBright, size = 22.dp)
-            Text(
-                text = if (isRu) "VPN подключён" else "VPN connected",
-                color = AppColors.TextPrimary,
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Bold
+            Spacer(modifier = Modifier.weight(0.6f, fill = true))
+
+            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                VpnPowerButton(
+                    connected = true,
+                    connecting = false,
+                    isRussian = isRu,
+                    onClick = onPowerClick,
+                    successPulseKey = successPulseKey,
+                    maxSize = buttonSize
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CheckmarkIcon(color = AppColors.BrandMintBright, size = 22.dp)
+                Text(
+                    text = if (isRu) "VPN подключён" else "VPN connected",
+                    color = AppColors.TextPrimary,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            ConnectedTimerText(vpnManager = vpnManager)
+
+            Spacer(modifier = Modifier.weight(1f, fill = true))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            HomeBottomDock(
+                isRu = isRu,
+                isConnected = true,
+                currentServer = currentServer,
+                remainingDays = remainingDays,
+                isTrial = isTrial,
+                serversError = serversError,
+                onServerSelectClick = onServerSelectClick,
+                onRefreshServers = onRefreshServers,
+                onSubscriptionClick = onSubscriptionClick
             )
         }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        ConnectedTimerText(vpnManager = vpnManager)
-
-        Spacer(modifier = Modifier.height(22.dp))
-
-        HomeBottomDock(
-            isRu = isRu,
-            isConnected = true,
-            currentServer = currentServer,
-            remainingDays = remainingDays,
-            serversError = serversError,
-            onServerSelectClick = onServerSelectClick,
-            onRefreshServers = onRefreshServers,
-            onSubscriptionClick = onSubscriptionClick
-        )
     }
 }
 
@@ -838,6 +905,7 @@ private fun HomeBottomDock(
     isConnected: Boolean,
     currentServer: ServerNode?,
     remainingDays: Long?,
+    isTrial: Boolean,
     serversError: String?,
     onServerSelectClick: () -> Unit,
     onRefreshServers: () -> Unit,
@@ -847,7 +915,7 @@ private fun HomeBottomDock(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 18.dp),
+            .padding(bottom = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(
@@ -861,7 +929,7 @@ private fun HomeBottomDock(
                     RoundedCornerShape(20.dp)
                 )
                 .clickable(onClick = if (currentServer == null) onRefreshServers else onServerSelectClick)
-                .padding(horizontal = 18.dp, vertical = 16.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -885,7 +953,7 @@ private fun HomeBottomDock(
                         overflow = TextOverflow.Ellipsis
                     )
                 }
-                Spacer(modifier = Modifier.height(5.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -896,16 +964,22 @@ private fun HomeBottomDock(
                         ProtocolChip(proto = proto)
                     }
                     if (LocalDensity.current.fontScale < 1.3f || currentServer == null) {
+                        val pingText = currentServer?.pingMs?.takeIf { it > 0 }?.let {
+                            if (isRu) "$it мс" else "$it ms"
+                        }
                         Text(
                             text = when {
                                 currentServer == null -> serversError ?: if (isRu) "Нажмите, чтобы обновить" else "Tap to refresh"
-                                isConnected -> if (isRu) "Подключено" else "Connected"
-                                isRu -> "Выбранная локация"
-                                else -> "Selected location"
+                                isConnected -> pingText ?: if (isRu) "Подключено" else "Connected"
+                                pingText != null -> pingText
+                                isRu -> "Выбранный сервер"
+                                else -> "Selected server"
                             },
                             color = if (isConnected) AppColors.BrandMint else AppColors.TextSecondary,
                             fontSize = 11.5.sp,
-                            fontWeight = if (isConnected) FontWeight.SemiBold else FontWeight.Normal
+                            fontWeight = if (isConnected) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -913,7 +987,7 @@ private fun HomeBottomDock(
 
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(32.dp)
                     .clip(RoundedCornerShape(10.dp))
                     .background(AppColors.BgSurfaceAccent)
                     .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(10.dp)),
@@ -926,11 +1000,15 @@ private fun HomeBottomDock(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(AppColors.BgSurface)
-                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(18.dp))
+                .border(
+                    1.dp,
+                    if (isTrial) AppColors.BorderAccent else AppColors.BorderDefault,
+                    RoundedCornerShape(16.dp)
+                )
                 .clickable(onClick = onSubscriptionClick)
-                .padding(horizontal = 17.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -942,20 +1020,27 @@ private fun HomeBottomDock(
                     .border(1.dp, AppColors.BorderDefault, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                ClockVectorIcon(color = AppColors.SkyBlue, size = 16.dp)
+                ClockVectorIcon(
+                    color = if (isTrial) AppColors.BrandMint else AppColors.SkyBlue,
+                    size = 16.dp
+                )
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isRu) "Подписка активна" else "Subscription active",
-                    color = AppColors.TextPrimary,
+                    text = when {
+                        isTrial -> if (isRu) "Пробный период" else "Free trial"
+                        isRu -> "Подписка активна"
+                        else -> "Subscription active"
+                    },
+                    color = if (isTrial) AppColors.BrandMint else AppColors.TextPrimary,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = remainingDays?.let { if (isRu) "Осталось $it дн." else "$it days remaining" }
-                        ?: if (isRu) "Срок подписки не подтверждён" else "Subscription duration not confirmed",
+                        ?: if (isRu) "Срок доступа не подтверждён" else "Duration not confirmed",
                     color = AppColors.TextSecondary,
                     fontSize = 11.5.sp
                 )
@@ -1015,9 +1100,9 @@ private fun ServerLoadStatusRow(
             .background(AppColors.BgSurface)
             .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
             .clickable(enabled = !isLoading, onClick = onRefresh)
-            .padding(horizontal = 15.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(11.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Box(
             modifier = Modifier
@@ -1074,155 +1159,172 @@ private fun HomeConnectionErrorContent(
     errorMessage: String? = null
 ) {
     val isRu = homeIsRussian()
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 25.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(modifier = Modifier.height(22.dp))
-
-        VpnPowerButton(connected = false, connecting = false, isRussian = isRu, onClick = onRetry)
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Text(
-            text = if (isRu) "Не удалось подключиться" else "Could not connect",
-            color = AppColors.TextPrimary,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = errorMessage?.takeIf { it.isNotBlank() } ?: if (isRu) "Проверьте интернет и попробуйте ещё раз" else "Check your internet connection and try again",
-            color = AppColors.TextSecondary,
-            fontSize = 13.sp,
-            textAlign = TextAlign.Center
-        )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .background(AppColors.SecondaryButtonBg)
-                .border(1.dp, AppColors.BorderSecondaryButton, RoundedCornerShape(14.dp))
-                .clickable(onClick = onRetry)
-                .padding(horizontal = 22.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            RefreshIcon(color = AppColors.SkyBlue, size = 17.dp)
-            Text(
-                text = if (isRu) "Повторить" else "Try again",
-                color = AppColors.SecondaryButtonText,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val buttonSize = when {
+            maxHeight < 520.dp -> 172.dp
+            maxHeight < 600.dp -> 200.dp
+            else -> 228.dp
         }
-
-        Spacer(modifier = Modifier.weight(1f))
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .heightIn(min = maxHeight)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(modifier = Modifier.weight(0.5f, fill = true))
+
+            VpnPowerButton(
+                connected = false,
+                connecting = false,
+                isRussian = isRu,
+                onClick = onRetry,
+                maxSize = buttonSize
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Text(
+                text = if (isRu) "Не удалось подключиться" else "Could not connect",
+                color = AppColors.TextPrimary,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = errorMessage?.takeIf { it.isNotBlank() }
+                    ?: if (isRu) "Проверьте интернет и попробуйте ещё раз" else "Check your internet connection and try again",
+                color = AppColors.TextSecondary,
+                fontSize = 13.sp,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(AppColors.BgSurface)
-                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(20.dp))
-                    .clickable(onClick = onServerSelectClick)
-                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(AppColors.SecondaryButtonBg)
+                    .border(1.dp, AppColors.BorderSecondaryButton, RoundedCornerShape(14.dp))
+                    .clickable(onClick = onRetry)
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CountryFlagView(
-                            countryCode = currentServer?.countryCode.orEmpty(),
-                            fallbackFlag = currentServer?.flag.orEmpty(),
-                            size = 24.dp
-                        )
-                        Text(
-                            text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name } ?: if (isRu) "Сервер не выбран" else "No server selected",
-                            color = AppColors.TextPrimary,
-                            fontSize = 15.5.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(start = 34.dp)
-                    ) {
-                        val proto = currentServer?.protocolLabel.orEmpty()
-                        if (proto.isNotBlank()) {
-                            ProtocolChip(proto = proto)
-                        }
-                        if (LocalDensity.current.fontScale < 1.3f) {
-                            Text(
-                                text = if (isRu) "Текущий сервер" else "Current server",
-                                color = AppColors.TextSecondary,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                }
-
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(AppColors.BgSurfaceAccent)
-                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(10.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ChevronRightIcon(color = AppColors.SkyBlue, size = 18.dp)
-                }
+                RefreshIcon(color = AppColors.SkyBlue, size = 16.dp)
+                Text(
+                    text = if (isRu) "Повторить" else "Try again",
+                    color = AppColors.SecondaryButtonText,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
 
-            Row(
+            Spacer(modifier = Modifier.weight(1f, fill = true))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(17.dp))
-                    .background(AppColors.BgSurface)
-                    .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
-                    .clickable(onClick = onSupportClick)
-                    .padding(horizontal = 17.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    .padding(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                QuestionHelpIcon(color = AppColors.SkyBlue, size = 20.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(AppColors.BgSurface)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(20.dp))
+                        .clickable(onClick = onServerSelectClick)
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            CountryFlagView(
+                                countryCode = currentServer?.countryCode.orEmpty(),
+                                fallbackFlag = currentServer?.flag.orEmpty(),
+                                size = 24.dp
+                            )
+                            Text(
+                                text = currentServer?.let { if (it.displayName.isNotBlank()) it.displayName else it.name }
+                                    ?: if (isRu) "Сервер не выбран" else "No server selected",
+                                color = AppColors.TextPrimary,
+                                fontSize = 15.5.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.padding(start = 34.dp)
+                        ) {
+                            val proto = currentServer?.protocolLabel.orEmpty()
+                            if (proto.isNotBlank()) {
+                                ProtocolChip(proto = proto)
+                            }
+                            if (LocalDensity.current.fontScale < 1.3f) {
+                                Text(
+                                    text = if (isRu) "Текущий сервер" else "Current server",
+                                    color = AppColors.TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
+                    }
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isRu) "Не получается подключиться?" else "Having trouble connecting?",
-                        color = AppColors.TextPrimary,
-                        fontSize = 12.5.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = if (isRu) "Напишите нам — поможем разобраться" else "Contact us for help",
-                        color = AppColors.TextSecondary,
-                        fontSize = 11.5.sp
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(AppColors.BgSurfaceAccent)
+                            .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(10.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        ChevronRightIcon(color = AppColors.SkyBlue, size = 18.dp)
+                    }
                 }
 
-                ChevronRightIcon(color = AppColors.TextMuted, size = 17.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AppColors.BgSurface)
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
+                        .clickable(onClick = onSupportClick)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    QuestionHelpIcon(color = AppColors.SkyBlue, size = 20.dp)
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isRu) "Не получается подключиться?" else "Having trouble connecting?",
+                            color = AppColors.TextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = if (isRu) "Напишите нам — поможем разобраться" else "Contact us for help",
+                            color = AppColors.TextSecondary,
+                            fontSize = 11.5.sp
+                        )
+                    }
+
+                    ChevronRightIcon(color = AppColors.TextMuted, size = 17.dp)
+                }
             }
         }
     }

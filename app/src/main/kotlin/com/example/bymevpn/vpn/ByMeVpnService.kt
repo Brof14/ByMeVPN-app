@@ -132,10 +132,10 @@ class ByMeVpnService : VpnService() {
     private var notificationStatsJob: Job? = null
     private var networkRecoveryJob: Job? = null
     private var networkCallbackRegistered = false
-    @Volatile private var lastPhysicalNetworkAvailable: Boolean? = null
+    @Volatile private var lastPhysicalSnapshot: PhysicalNetworkSnapshot? = null
     private val physicalNetworkCallback = object : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) = notifyPhysicalNetworkStateChanged(routeChanged = true)
-        override fun onLost(network: Network) = notifyPhysicalNetworkStateChanged(routeChanged = true)
+        override fun onAvailable(network: Network) = notifyPhysicalNetworkStateChanged()
+        override fun onLost(network: Network) = notifyPhysicalNetworkStateChanged()
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) =
             notifyPhysicalNetworkStateChanged()
     }
@@ -161,35 +161,64 @@ class ByMeVpnService : VpnService() {
         }
     }
 
-    private fun notifyPhysicalNetworkStateChanged(routeChanged: Boolean = false) {
-        val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
-        val hasPhysicalInternet = connectivity.allNetworks.any { network ->
-            val capabilities = connectivity.getNetworkCapabilities(network) ?: return@any false
-            val hasPhysicalTransport = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
-            UnderlyingNetworkPolicy.isUsable(
-                hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
-                isVpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
-                hasPhysicalTransport = hasPhysicalTransport
-            )
+    private fun capturePhysicalSnapshot(connectivity: ConnectivityManager): PhysicalNetworkSnapshot {
+        val activeNetwork = connectivity.activeNetwork
+        val candidates = buildList {
+            if (activeNetwork != null) add(activeNetwork)
+            connectivity.allNetworks.forEach { if (it != activeNetwork) add(it) }
         }
-        val previous = lastPhysicalNetworkAvailable
-        lastPhysicalNetworkAvailable = hasPhysicalInternet
-        if (previous != null && hasPhysicalInternet && (previous == false || routeChanged)) {
+        for (network in candidates) {
+            val capabilities = connectivity.getNetworkCapabilities(network) ?: continue
+            val transport = when {
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> NetworkTransport.WIFI
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> NetworkTransport.CELLULAR
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> NetworkTransport.ETHERNET
+                else -> NetworkTransport.OTHER
+            }
+            val hasPhysicalTransport = transport != NetworkTransport.OTHER && transport != NetworkTransport.NONE
+            if (UnderlyingNetworkPolicy.isUsable(
+                    hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                    isVpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                    hasPhysicalTransport = hasPhysicalTransport
+                )
+            ) {
+                return PhysicalNetworkSnapshot(
+                    hasUsableInternet = true,
+                    activeNetworkId = network.networkHandle,
+                    primaryTransport = transport
+                )
+            }
+        }
+        return PhysicalNetworkSnapshot(
+            hasUsableInternet = false,
+            activeNetworkId = null,
+            primaryTransport = NetworkTransport.NONE
+        )
+    }
+
+    private fun notifyPhysicalNetworkStateChanged() {
+        val connectivity = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return
+        val current = capturePhysicalSnapshot(connectivity)
+        val previous = lastPhysicalSnapshot
+        lastPhysicalSnapshot = current
+
+        if (ReconnectPolicy.shouldTriggerImmediateRouteProbe(previous, current)) {
             networkRecoveryJob?.cancel()
             networkRecoveryJob = serviceScope.launch {
-                // Let Android finish restoring the physical route before probing.
-                delay(2_000)
+                // Let Android finish switching the default physical route before probing.
+                delay(1_200)
                 val engine = XrayVpnEngine.getInstance(applicationContext)
                 if (!isServiceRunning) return@launch
                 if (!engine.checkConnectivity()) {
-                    // A Wi-Fi/mobile handover can briefly interrupt TLS. Keep the tunnel
-                    // until the periodic monitor confirms repeated failed rounds.
-                    Log.i(TAG, "Physical route changed; awaiting periodic tunnel health confirmation")
+                    delay(1_000)
+                    if (!isServiceRunning) return@launch
+                    if (!engine.checkConnectivity()) {
+                        Log.i(TAG, "Tunnel stalled after network handover; triggering immediate reconnect")
+                        stopFailedTunnel(engine)
+                    }
                 }
             }
-        } else if (!hasPhysicalInternet) {
+        } else if (!current.hasUsableInternet) {
             networkRecoveryJob?.cancel()
         }
     }

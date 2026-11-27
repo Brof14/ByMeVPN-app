@@ -177,22 +177,22 @@ fun SettingsScreen(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 20.dp)
             ) {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = if (isRu) "Подключение" else "Connection",
                     color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 ByMeCardGroup {
                     ByMeSettingRow(
-                        title = if (isRu) "Переподключаться после обрыва" else "Reconnect after a drop",
-                        subtitle = if (isRu) "Повторно подключать VPN после потери сети" else "Retry the VPN after network loss",
+                        title = if (isRu) "Автопереподключение" else "Auto-reconnect",
+                        subtitle = if (isRu) "Восстанавливать VPN после потери сети" else "Restore VPN after network drops",
                         icon = { PowerIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
@@ -205,7 +205,7 @@ fun SettingsScreen(
                     )
                     ByMeSettingRow(
                         title = if (isRu) "Российские сайты напрямую" else "Russian sites directly",
-                        subtitle = if (isRu) "Часть трафика идёт напрямую, минуя VPN" else "Some traffic bypasses the VPN and connects directly",
+                        subtitle = if (isRu) "Локальные сайты открываются без VPN" else "Russian sites bypass the VPN tunnel",
                         icon = { GlobeIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = {
                             ByMeToggle(
@@ -214,7 +214,7 @@ fun SettingsScreen(
                                     settingsRepo.setBypassRussianSites(checked)
                                     Toast.makeText(
                                         context,
-                                        if (isRu) "Изменение применится при следующем подключении" else "Applied next time you connect",
+                                        if (isRu) "Применится при следующем подключении" else "Applied next time you connect",
                                         Toast.LENGTH_SHORT
                                     ).show()
                                 }
@@ -229,7 +229,7 @@ fun SettingsScreen(
                     color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
                 )
                 ByMeCardGroup {
                     ByMeSettingRow(
@@ -247,12 +247,12 @@ fun SettingsScreen(
                     color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 22.dp, bottom = 10.dp, start = 2.dp)
+                    modifier = Modifier.padding(top = 20.dp, bottom = 8.dp)
                 )
                 ByMeCardGroup {
                     ByMeSettingRow(
                         title = if (isRu) "Расширенные настройки" else "Advanced settings",
-                        subtitle = if (isRu) "DNS, раздельное туннелирование, скорость в уведомлении" else "DNS, split tunneling, speed in notifications",
+                        subtitle = if (isRu) "DNS, исключения приложений, уведомления" else "DNS, split tunneling, notifications",
                         icon = { SettingsGearIcon(color = AppColors.SkyBlue, size = 20.dp) },
                         trailing = { ChevronRightIcon(color = AppColors.TextMuted, size = 18.dp) },
                         onClick = onNavigateToAdvancedSettings,

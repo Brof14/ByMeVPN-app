@@ -1,6 +1,7 @@
 package com.example.bymevpn.data
 
 import com.example.bymevpn.data.api.VpnSessionConfig
+import com.example.bymevpn.vpn.PingSelectionPolicy
 import com.example.bymevpn.vpn.xray.XrayConfigGenerator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -13,7 +14,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.util.concurrent.Future
-import java.util.concurrent.SynchronousQueue
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import libv2ray.Libv2ray
@@ -22,20 +23,41 @@ import org.json.JSONObject
 
 object PingTester {
     internal const val MAX_CONCURRENT_PROBES = 4
-    private const val PROBE_TIMEOUT_MS = 4_000L
+    private const val PER_URL_TIMEOUT_MS = 2_400L
     private val nativeProbeExecutor = ThreadPoolExecutor(
         MAX_CONCURRENT_PROBES,
-        MAX_CONCURRENT_PROBES,
-        0L,
-        TimeUnit.MILLISECONDS,
-        SynchronousQueue(),
-        { task -> Thread(task, "bymevpn-ping").apply { isDaemon = true } },
-        ThreadPoolExecutor.AbortPolicy()
+        MAX_CONCURRENT_PROBES * 2,
+        30L,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue(),
+        { task -> Thread(task, "bymevpn-ping").apply { isDaemon = true } }
     )
     private val probeUrls = listOf(
         "https://cp.cloudflare.com/generate_204",
         "https://www.google.com/generate_204"
     )
+
+    private fun measureSingleUrl(probeConfig: String, url: String): Int {
+        val future: Future<Int> = try {
+            nativeProbeExecutor.submit<Int> {
+                Libv2ray.measureOutboundDelay(probeConfig, url)
+                    .takeIf { it > 0 }
+                    ?.coerceAtMost(Int.MAX_VALUE.toLong())
+                    ?.toInt()
+                    ?: -1
+            }
+        } catch (_: Exception) {
+            return -1
+        }
+        return try {
+            future.get(PER_URL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+        } catch (_: java.util.concurrent.TimeoutException) {
+            future.cancel(true)
+            -1
+        } catch (_: Exception) {
+            -1
+        }
+    }
 
     suspend fun measureTunnelDelays(
         targets: List<Pair<String, VpnSessionConfig>>,
@@ -54,27 +76,11 @@ object PingTester {
                             val generated = XrayConfigGenerator.generateJson(config)
                             val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
                             val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound)).toString()
-                            val future: Future<Int> = nativeProbeExecutor.submit<Int> {
-                                val measurements = probeUrls.mapNotNull { url ->
-                                    Libv2ray.measureOutboundDelay(probeConfig, url)
-                                        .takeIf { it > 0 }
-                                        ?.coerceAtMost(Int.MAX_VALUE.toLong())
-                                        ?.toInt()
-                                }.sorted()
-                                when (measurements.size) {
-                                    0 -> -1
-                                    1 -> measurements[0]
-                                    else -> ((measurements[0].toLong() + measurements[1]) / 2L).toInt()
-                                }
+                            val samples = probeUrls.map { url ->
+                                currentCoroutineContext().ensureActive()
+                                measureSingleUrl(probeConfig, url)
                             }
-                            try {
-                                future.get(PROBE_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                            } catch (_: java.util.concurrent.TimeoutException) {
-                                future.cancel(true)
-                                -1
-                            } catch (_: java.util.concurrent.RejectedExecutionException) {
-                                -1
-                            }
+                            PingSelectionPolicy.aggregateLatencySamples(samples)
                         } catch (e: CancellationException) {
                             throw e
                         } catch (_: Exception) {

@@ -1,3 +1,5 @@
+import java.util.Base64
+
 plugins {
     id("com.android.application")
     kotlin("android")
@@ -50,9 +52,19 @@ android {
 
     signingConfigs {
         val rootDebugKeystore = file("${rootDir}/debug.keystore")
-        if (rootDebugKeystore.exists()) {
+        val debugKeystoreBase64 = file("${rootDir}/debug.keystore.base64")
+        val resolvedDebugKeystore = when {
+            rootDebugKeystore.exists() -> rootDebugKeystore
+            debugKeystoreBase64.exists() -> layout.buildDirectory.file("signing/debug.keystore").get().asFile.apply {
+                parentFile.mkdirs()
+                val encoded = debugKeystoreBase64.readText().replace(Regex("\\s+"), "")
+                writeBytes(Base64.getDecoder().decode(encoded))
+            }
+            else -> null
+        }
+        if (resolvedDebugKeystore != null && resolvedDebugKeystore.exists()) {
             create("debugConfig") {
-                storeFile = rootDebugKeystore
+                storeFile = resolvedDebugKeystore
                 storePassword = "android"
                 keyAlias = "androiddebugkey"
                 keyPassword = "android"

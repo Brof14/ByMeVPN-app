@@ -85,10 +85,10 @@ fun TrialScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 22.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ShieldLogo(size = 78.dp, isActive = true)
+            ShieldLogo(size = 80.dp, isActive = true)
 
             Spacer(Modifier.height(12.dp))
 
@@ -96,7 +96,7 @@ fun TrialScreen(
                 text = if (trialAlreadyUsed) {
                     t("Пробный период использован", "Free trial already used")
                 } else {
-                    t("3 дня ByMeVPN бесплатно", "3 days of ByMeVPN free")
+                    t("3 дня бесплатно", "3 days free")
                 },
                 color = AppColors.TextPrimary,
                 fontSize = 22.sp,
@@ -104,21 +104,21 @@ fun TrialScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
                 text = if (trialAlreadyUsed) {
                     if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
                         t("Выберите тариф, чтобы продолжить пользоваться VPN.", "Choose a plan to continue using VPN.")
                     } else {
-                        t("Войдите в аккаунт с активной подпиской или обновите статус.", "Sign in with an active subscription or refresh your status.")
+                        t("Войдите в аккаунт с активной подпиской или обновите статус.", "Sign in with an active subscription or refresh status.")
                     }
                 } else {
-                    t("Проверьте скорость и стабильность без привязки карты.", "Test speed and stability with no card required.")
+                    t("Полный доступ без карты и автосписаний.", "Full access with no card or auto-charges.")
                 },
                 color = AppColors.TextSecondary,
                 fontSize = 13.sp,
-                lineHeight = 19.sp,
+                lineHeight = 18.sp,
                 textAlign = TextAlign.Center
             )
 
@@ -127,18 +127,18 @@ fun TrialScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(20.dp))
                     .background(AppGradients.AccentCard)
-                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(18.dp))
+                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                TrialFeatureRow(t("Полный доступ ко всем серверам на 3 дня", "Full access to all servers for 3 days"))
-                TrialFeatureRow(t("Быстрое подключение по VLESS Reality", "Fast VLESS Reality connection"))
-                TrialFeatureRow(t("Без автосписаний и привязки карты", "No automatic charges or card required"))
+                TrialFeatureRow(t("Все серверы без ограничений на 3 дня", "All servers unlocked for 3 days"))
+                TrialFeatureRow(t("Быстрые протоколы VLESS Reality и Hysteria2", "Fast VLESS Reality and Hysteria2 protocols"))
+                TrialFeatureRow(t("Без привязки карты и автопродления", "No card or auto-renewal required"))
             }
 
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(20.dp))
 
             if (offerTrial) {
                 ByMePrimaryButton(

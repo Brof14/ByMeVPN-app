@@ -28,11 +28,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.bymevpn.R
 import com.example.bymevpn.theme.AppColors
@@ -47,7 +49,8 @@ fun VpnPowerButton(
     isRussian: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    successPulseKey: Int = 0
+    successPulseKey: Int = 0,
+    maxSize: Dp = 248.dp
 ) {
     val haptics = rememberByMeHaptics()
     val interactionSource = remember { MutableInteractionSource() }
@@ -81,8 +84,8 @@ fun VpnPowerButton(
         } else {
             Brush.linearGradient(
                 listOf(
-                    Color(0xFF1F4278),
-                    Color(0xFF193563)
+                    Color(0xFF21467E),
+                    Color(0xFF17315C)
                 )
             )
         }
@@ -92,23 +95,24 @@ fun VpnPowerButton(
         if (connected) {
             Brush.radialGradient(
                 colors = listOf(
-                    Color(0x2E00D8FF),
-                    Color(0x1842F59B),
+                    Color(0x2800D8FF),
+                    Color(0x1442F59B),
                     Color.Transparent
                 )
             )
         } else if (connecting) {
             Brush.radialGradient(
                 colors = listOf(
-                    Color(0x240077FF),
-                    Color(0x1000D8FF),
+                    Color(0x220077FF),
+                    Color(0x0E00D8FF),
                     Color.Transparent
                 )
             )
         } else {
             Brush.radialGradient(
                 colors = listOf(
-                    Color(0x180077FF),
+                    Color(0x140077FF),
+                    Color(0x060077FF),
                     Color.Transparent
                 )
             )
@@ -131,7 +135,7 @@ fun VpnPowerButton(
 
     Box(
         modifier = modifier
-            .sizeIn(maxWidth = 264.dp, maxHeight = 264.dp)
+            .sizeIn(maxWidth = maxSize, maxHeight = maxSize)
             .aspectRatio(1f)
             .fillMaxWidth()
             .clip(CircleShape)
@@ -165,9 +169,9 @@ fun VpnPowerButton(
             painter = painterResource(R.drawable.byme_connect_shield_transparent),
             contentDescription = null,
             modifier = Modifier
-                .fillMaxSize(0.93f)
+                .fillMaxSize(0.92f)
                 .graphicsLayer {
-                    alpha = 0.68f + 0.32f * progress
+                    alpha = 0.72f + 0.28f * progress
                     scaleX = 0.96f + 0.04f * progress
                     scaleY = 0.96f + 0.04f * progress
                 }
@@ -176,7 +180,8 @@ fun VpnPowerButton(
             CircularProgressIndicator(
                 modifier = Modifier.fillMaxSize(0.97f),
                 color = ringColor,
-                strokeWidth = 2.5.dp
+                strokeWidth = 2.5.dp,
+                strokeCap = StrokeCap.Round
             )
         }
     }

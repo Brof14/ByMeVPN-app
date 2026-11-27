@@ -88,6 +88,9 @@ internal fun PlanDuration.matchesConfirmedPlan(plan: PlanItem, devices: Int): Bo
         plan.days == totalDays &&
         plan.priceRub > 0
 
+internal fun filterPlansByDeviceCount(plans: List<PlanItem>, devices: Int): List<PlanItem> =
+    plans.filter { plan -> PlanDuration.values().any { it.matchesConfirmedPlan(plan, devices) } }
+
 internal fun bestValuePlan(plans: List<PlanItem>, devices: Int): PlanDuration? {
     val confirmed = PlanDuration.values().mapNotNull { duration ->
         plans.firstOrNull { duration.matchesConfirmedPlan(it, devices) }
@@ -181,7 +184,7 @@ fun PricingScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 10.dp),
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -197,9 +200,9 @@ fun PricingScreen(
                     Box(
                         modifier = Modifier
                             .size(38.dp)
-                            .clip(RoundedCornerShape(13.dp))
+                            .clip(RoundedCornerShape(12.dp))
                             .background(AppColors.TopBarBackBg)
-                            .border(1.dp, AppColors.TopBarBackBorder, RoundedCornerShape(13.dp)),
+                            .border(1.dp, AppColors.TopBarBackBorder, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         ChevronLeftIcon(color = AppColors.TextSoft, size = 18.dp)
@@ -211,11 +214,11 @@ fun PricingScreen(
                     color = AppColors.TextPrimary,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.9).sp
+                    letterSpacing = (-0.8).sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
                 Text(
@@ -226,33 +229,33 @@ fun PricingScreen(
                     color = AppColors.TextSecondary,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
-                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
                 )
             } else {
             // Main Content
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 22.dp)
+                    .padding(horizontal = 20.dp)
             ) {
                 Text(
                     text = t("Устройства", "Devices"),
-                    color = AppColors.TextSecondary,
+                    color = AppColors.TextKicker,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Device segment tabs
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 51.dp)
-                        .clip(RoundedCornerShape(15.dp))
+                        .heightIn(min = 48.dp)
+                        .clip(RoundedCornerShape(16.dp))
                         .background(AppColors.BgSurface)
-                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(15.dp))
-                        .padding(5.dp),
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
+                        .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     DeviceCountTab(
@@ -429,19 +432,19 @@ fun PricingScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(RoundedCornerShape(16.dp))
                         .background(AppColors.BgSurface)
-                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 14.dp, vertical = 11.dp),
+                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CreditCardIcon(color = AppColors.SkyBlue, size = 17.dp)
+                    CreditCardIcon(color = AppColors.SkyBlue, size = 16.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = t("Карта или СБП через ЮKassa", "Card or SBP via YooKassa"),
@@ -451,7 +454,7 @@ fun PricingScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(12.dp))
 
                 // Transparent Price Row
                 Row(

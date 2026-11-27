@@ -2,6 +2,10 @@ package com.example.bymevpn.vpn
 
 import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.VpnService
 import android.util.Log
 import com.example.bymevpn.data.api.ByMeApiClient
@@ -11,6 +15,7 @@ import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import com.example.bymevpn.data.subscription.ProfileApiRoutingPolicy
 import com.example.bymevpn.vpn.xray.XrayVpnEngine
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +33,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.sync.Mutex
@@ -36,6 +42,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
 import java.security.MessageDigest
 import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.resume
 
 /**
  * High-level VPN facade coordinating UI states, server selection, and Xray VLESS+Reality lifecycle.
@@ -44,7 +51,6 @@ class VpnManager private constructor(private val context: Context) {
 
     companion object {
         private const val TAG = "VpnManager"
-        private const val PING_CACHE_TTL_MS = 10 * 60 * 1000L
         private const val PING_CACHE_PREFS = "vpn_latency_cache"
         private const val PING_CACHE_PREFIX = "probe_"
 
@@ -129,16 +135,23 @@ class VpnManager private constructor(private val context: Context) {
     private var automaticPingJob: Job? = null
     private var initialPingStarted = false
     @Volatile private var connectionRequested = false
+    @Volatile private var activeReconnectLoop = false
+    @Volatile private var reconnectAttemptSignal: CompletableDeferred<Boolean>? = null
     private val serverLoadMutex = Mutex()
     @Volatile private var automaticSelection = storage.isAutomaticServerSelectionEnabled()
     private val pingMutex = Mutex()
 
     init {
-        scope.launch {
-            loadServers()
+        scope.launch(Dispatchers.IO) {
+            val hasAccountOrProfile = !storage.getAccessToken().isNullOrBlank() || storage.isExternalProfileMode()
+            if (hasAccountOrProfile) {
+                loadServers()
+            }
             while (isActive) {
                 delay(6L * 60 * 60 * 1000)
-                loadServers()
+                if (!storage.getAccessToken().isNullOrBlank() || storage.isExternalProfileMode()) {
+                    loadServers()
+                }
             }
         }
         // Observe engine statistics
@@ -173,15 +186,13 @@ class VpnManager private constructor(private val context: Context) {
         storage.saveSelectedServerCode(null)
         val servers = _availableServers.value
         if (servers.isEmpty()) return@withContext null
-        val pings = refreshAllPings()
+        val pings = refreshAllPings(force = true)
 
-        val successfulPings = pings.filterValues { it > 0 }
-        val bestNode = successfulPings.minByOrNull { it.value }?.let { entry ->
-            servers.find { it.nodeCode == entry.key }
+        val latestServers = _availableServers.value.ifEmpty { servers }
+        val winner = PingSelectionPolicy.pickBestServer(latestServers, pings)
+        if (winner != null && (pings[winner.nodeCode] ?: winner.pingMs) <= 0) {
+            Log.i(TAG, "Automatic server selection used fallback node because latency probes did not produce a positive result")
         }
-
-        val winner = bestNode ?: servers.firstOrNull()
-        if (bestNode == null) Log.i(TAG, "Automatic server selection used the panel's first server because latency probes did not produce a result")
         winner?.also {
             withContext(Dispatchers.Main) {
                 if (automaticSelection) applyServerSelection(it)
@@ -281,9 +292,10 @@ class VpnManager private constructor(private val context: Context) {
                 val cacheKey = pingCacheKey(node.nodeCode, cfg)
                 cacheKeys[node.nodeCode] = cacheKey
                 val checkedAt = cache.getLong("${cacheKey}_at", 0L)
+                val cachedValue = cache.getInt("${cacheKey}_ping", -1)
                 val age = now - checkedAt
-                if (!force && checkedAt > 0L && age in 0 until PING_CACHE_TTL_MS) {
-                    cachedPings[node.nodeCode] = cache.getInt("${cacheKey}_ping", -1)
+                if (!force && checkedAt > 0L && PingSelectionPolicy.shouldUseCachedPing(cachedValue, age)) {
+                    cachedPings[node.nodeCode] = cachedValue
                 } else {
                     targets += node.nodeCode to cfg
                 }
@@ -339,10 +351,18 @@ class VpnManager private constructor(private val context: Context) {
                     }
                     withContext(Dispatchers.Main) {
                         _availableServers.value = _availableServers.value.map { node ->
-                            if (node.nodeCode == nodeCode) node.copy(pingMs = if (ping > 0) ping else -2) else node
+                            if (node.nodeCode == nodeCode) {
+                                node.copy(
+                                    pingMs = if (ping > 0) ping else -2,
+                                    connectionCheck = if (ping > 0 && node.connectionCheck < 0) 0 else node.connectionCheck
+                                )
+                            } else node
                         }
                         _currentServer.value?.takeIf { it.nodeCode == nodeCode }?.let { current ->
-                            _currentServer.value = current.copy(pingMs = if (ping > 0) ping else -2)
+                            _currentServer.value = current.copy(
+                                pingMs = if (ping > 0) ping else -2,
+                                connectionCheck = if (ping > 0 && current.connectionCheck < 0) 0 else current.connectionCheck
+                            )
                         }
                     }
                 }
@@ -378,11 +398,12 @@ class VpnManager private constructor(private val context: Context) {
         val key = pingCacheKey(nodeCode, config)
         val cache = context.getSharedPreferences(PING_CACHE_PREFS, Context.MODE_PRIVATE)
         val checkedAt = cache.getLong("${key}_at", 0L)
-        if (checkedAt <= 0L || now - checkedAt !in 0 until PING_CACHE_TTL_MS) return null
+        val cachedValue = cache.getInt("${key}_ping", -1)
+        if (checkedAt <= 0L || !PingSelectionPolicy.shouldUseCachedPing(cachedValue, now - checkedAt)) return null
 
         // Keep a recent failed measurement distinguishable from a server that
         // has never been checked, just as refreshAllPings does.
-        return cache.getInt("${key}_ping", -1).let { if (it > 0) it else -2 }
+        return cachedValue.let { if (it > 0) it else -2 }
     }
 
     fun setServers(servers: List<ServerNode>) {
@@ -402,7 +423,7 @@ class VpnManager private constructor(private val context: Context) {
             storage.setAutomaticServerSelectionEnabled(true)
             storage.saveSelectedServerCode(null)
         }
-        val defaultServer = preferred ?: sorted.firstOrNull()
+        val defaultServer = preferred ?: PingSelectionPolicy.pickBestServer(sorted) ?: sorted.firstOrNull()
         val currentCode = _currentServer.value?.nodeCode
         _currentServer.value = sorted.firstOrNull { it.nodeCode == currentCode } ?: defaultServer
         if (sorted.isNotEmpty() && !initialPingStarted) {
@@ -411,8 +432,7 @@ class VpnManager private constructor(private val context: Context) {
             automaticPingJob = scope.launch {
                 val pings = refreshAllPings(onlyWhenDisconnected = true)
                 if (automaticSelection && _state.value == VpnConnectionState.DISCONNECTED) {
-                    val winner = _availableServers.value.filter { (pings[it.nodeCode] ?: -1) > 0 }
-                        .minByOrNull { pings[it.nodeCode] ?: Int.MAX_VALUE }
+                    val winner = PingSelectionPolicy.pickBestServer(_availableServers.value, pings)
                     if (winner != null) applyServerSelection(winner)
                 }
             }
@@ -651,12 +671,18 @@ class VpnManager private constructor(private val context: Context) {
         if (_state.value == VpnConnectionState.CONNECTING || _state.value == VpnConnectionState.CONNECTED || _state.value == VpnConnectionState.DISCONNECTING) {
             return
         }
+        activeReconnectLoop = false
+        reconnectJob?.cancel()
+        reconnectJob = null
+        connectInternal(fromReconnect = false)
+    }
 
+    private fun connectInternal(fromReconnect: Boolean) {
         automaticPingJob?.cancel()
         automaticPingJob = null
         connectionRequested = true
         _state.value = VpnConnectionState.CONNECTING
-        _errorMessage.value = null
+        if (!fromReconnect) _errorMessage.value = null
         connectionJob = scope.launch {
 
             try {
@@ -834,8 +860,13 @@ class VpnManager private constructor(private val context: Context) {
                 coroutineContext.ensureActive()
                 Log.e(TAG, "VPN connection failed: ${e.javaClass.simpleName}")
                 ByMeVpnService.stop(context)
-                _state.value = VpnConnectionState.ERROR
-                _errorMessage.value = e.message ?: (if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Ошибка подключения" else "Connection error")
+                val msg = e.message ?: (if (com.example.bymevpn.data.LocaleManager.isRussian(context)) "Ошибка подключения" else "Connection error")
+                if (activeReconnectLoop) {
+                    reconnectAttemptSignal?.complete(false)
+                } else {
+                    _state.value = VpnConnectionState.ERROR
+                    _errorMessage.value = msg
+                }
             }
         }
     }
@@ -849,6 +880,9 @@ class VpnManager private constructor(private val context: Context) {
                 ByMeVpnService.stop(context)
                 return@launch
             }
+            activeReconnectLoop = false
+            reconnectAttemptSignal?.complete(true)
+            reconnectAttemptSignal = null
             reconnectJob?.cancel()
             reconnectJob = null
             if (server != null) {
@@ -918,13 +952,17 @@ class VpnManager private constructor(private val context: Context) {
                 _currentServer.value = failed.copy(connectionCheck = -1)
                 _availableServers.value = _availableServers.value.map { if (it.nodeCode == failed.nodeCode) it.copy(connectionCheck = -1) else it }
             }
-            _state.value = VpnConnectionState.ERROR
-            _errorMessage.value = error
-            stopTimer()
+            if (activeReconnectLoop) {
+                reconnectAttemptSignal?.complete(false)
+            } else {
+                _state.value = VpnConnectionState.ERROR
+                _errorMessage.value = error
+                stopTimer()
+            }
         }
     }
 
-    /** A live tunnel failed its periodic end-to-end check. Retry briefly when enabled. */
+    /** A live tunnel failed its periodic or handover check. Retry reactively when enabled. */
     fun onTunnelConnectivityLost(server: ServerNode?) {
         scope.launch(Dispatchers.Main) {
             if (!connectionRequested || _state.value != VpnConnectionState.CONNECTED) return@launch
@@ -932,65 +970,121 @@ class VpnManager private constructor(private val context: Context) {
             server?.let { _currentServer.value = it }
             stopTimer()
             reconnectJob?.cancel()
+            activeReconnectLoop = true
             _state.value = VpnConnectionState.CONNECTING
             reconnectJob = scope.launch(Dispatchers.Main) {
                 val isRu = com.example.bymevpn.data.LocaleManager.isRussian(context)
                 val settings = settingsRepo.settingsFlow.first()
                 if (!settings.autoReconnect) {
+                    activeReconnectLoop = false
+                    connectionRequested = false
                     _state.value = VpnConnectionState.ERROR
                     _errorMessage.value = if (isRu)
                         "Связь с VPN потеряна. Проверьте интернет и подключитесь снова."
                     else "VPN connection was lost. Check your internet and reconnect."
                     return@launch
                 }
-                val retryDelaysSeconds = longArrayOf(2, 4, 8, 16, 30)
-                for (waitSeconds in retryDelaysSeconds) {
-                    if (!isNetworkAvailable()) {
-                        _state.value = VpnConnectionState.CONNECTING
-                        _errorMessage.value = if (isRu) "Ждём восстановления интернета…" else "Waiting for internet…"
-                    } else {
-                        _state.value = VpnConnectionState.CONNECTING
-                        _errorMessage.value = if (isRu) "Восстанавливаем VPN-соединение…" else "Reconnecting VPN…"
-                    }
-                    delay(waitSeconds * 1000)
-                    if (_state.value == VpnConnectionState.CONNECTED) return@launch
 
-                    _state.value = VpnConnectionState.DISCONNECTED
-                    connect()
-                    val outcome = withTimeoutOrNull(90_000) {
-                        state.first { it == VpnConnectionState.CONNECTED || it == VpnConnectionState.ERROR }
-                    }
-                    if (outcome == VpnConnectionState.CONNECTED) return@launch
-                    if (outcome == null) {
-                        // Never start another tunnel while the previous start is still pending.
-                        connectionRequested = false
+                try {
+                    for (attemptIndex in ReconnectPolicy.RETRY_BACKOFF_MS.indices) {
+                        if (!connectionRequested || _state.value == VpnConnectionState.CONNECTED) return@launch
+
+                        val online = isNetworkAvailable()
+                        if (!online) {
+                            _errorMessage.value = if (isRu) "Ждём восстановления интернета…" else "Waiting for internet…"
+                            val restored = awaitNetworkAvailable(timeoutMs = 30_000L)
+                            if (!connectionRequested) return@launch
+                            if (!restored) continue
+                            delay(500L)
+                        } else {
+                            val waitMs = ReconnectPolicy.nextWaitBeforeAttemptMs(attemptIndex, hasNetwork = true)
+                            _errorMessage.value = if (isRu) "Восстанавливаем VPN-соединение…" else "Reconnecting VPN…"
+                            if (waitMs > 0L) delay(waitMs)
+                        }
+
+                        if (!connectionRequested || _state.value == VpnConnectionState.CONNECTED) return@launch
+
+                        // Ensure previous service/engine teardown completes before launching the next attempt.
+                        withTimeoutOrNull(5_000L) {
+                            while (ByMeVpnService.isServiceRunning || engine.isRunning) {
+                                delay(50L)
+                            }
+                        }
+                        if (!connectionRequested) return@launch
+
+                        val attemptSignal = CompletableDeferred<Boolean>()
+                        reconnectAttemptSignal = attemptSignal
+                        connectInternal(fromReconnect = true)
+                        val connected = withTimeoutOrNull(45_000L) { attemptSignal.await() } ?: false
+                        reconnectAttemptSignal = null
+                        if (connected || _state.value == VpnConnectionState.CONNECTED) {
+                            return@launch
+                        }
                         connectionJob?.cancel()
                         ByMeVpnService.stop(context)
-                        break
                     }
-                }
 
-                if (_state.value != VpnConnectionState.CONNECTED) {
-                    _state.value = VpnConnectionState.ERROR
-                    _errorMessage.value = if (isRu)
-                        "Не удалось восстановить VPN. Проверьте интернет или выберите другой сервер."
-                    else "Could not restore the VPN. Check your internet or choose another server."
+                    if (connectionRequested && _state.value != VpnConnectionState.CONNECTED) {
+                        connectionRequested = false
+                        _state.value = VpnConnectionState.ERROR
+                        _errorMessage.value = if (isRu)
+                            "Не удалось восстановить VPN. Проверьте интернет или выберите другой сервер."
+                        else "Could not restore the VPN. Check your internet or choose another server."
+                    }
+                } finally {
+                    activeReconnectLoop = false
+                    reconnectAttemptSignal = null
                 }
             }
         }
     }
 
+    private suspend fun awaitNetworkAvailable(timeoutMs: Long = 30_000L): Boolean {
+        if (isNetworkAvailable()) return true
+        val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            ?: return false
+        return withTimeoutOrNull(timeoutMs) {
+            suspendCancellableCoroutine { cont ->
+                val request = NetworkRequest.Builder()
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
+                    .build()
+                val callback = object : ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: Network) {
+                        if (isNetworkAvailable() && cont.isActive) cont.resume(true)
+                    }
+
+                    override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                        if (isNetworkAvailable() && cont.isActive) cont.resume(true)
+                    }
+                }
+                try {
+                    connectivity.registerNetworkCallback(request, callback)
+                } catch (_: Exception) {
+                    if (cont.isActive) cont.resume(false)
+                    return@suspendCancellableCoroutine
+                }
+                cont.invokeOnCancellation {
+                    runCatching { connectivity.unregisterNetworkCallback(callback) }
+                }
+                if (isNetworkAvailable() && cont.isActive) {
+                    cont.resume(true)
+                }
+            }
+        } ?: isNetworkAvailable()
+    }
+
     private fun isNetworkAvailable(): Boolean {
-        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
             ?: return false
         return connectivityManager.allNetworks.any { network ->
             val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return@any false
-            val hasPhysicalTransport = capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) ||
-                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) ||
-                capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET)
+            val hasPhysicalTransport = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
             UnderlyingNetworkPolicy.isUsable(
-                hasInternet = capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET),
-                isVpn = capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN),
+                hasInternet = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET),
+                isVpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
                 hasPhysicalTransport = hasPhysicalTransport
             )
         }
@@ -1052,6 +1146,9 @@ class VpnManager private constructor(private val context: Context) {
 
     private fun disconnectInternal() {
         connectionRequested = false
+        activeReconnectLoop = false
+        reconnectAttemptSignal?.cancel()
+        reconnectAttemptSignal = null
         bootstrapPromotionJob?.cancel()
         bootstrapPromotionJob = null
         connectionJob?.cancel()
