@@ -194,16 +194,20 @@ jobs:
           APK по архитектурам нужны для более компактных загрузок и автообновления. Файл `.aab` предназначен для загрузки через Google Play Console, а не для ручной установки. Каталог и обновления приложения используют `update.json`.
           EOF
           gh release create "v$VERSION" dist/*.apk dist/*.aab dist/update.json \
+            dist/SHA256SUMS.txt dist/*-sbom.cdx.json dist/*-native-runtime-provenance.md \
             --target "$GITHUB_SHA" \
             --title "ByMeVPN v$VERSION (Android)" \
             --notes-file dist/release-notes.md
 
-      - name: Keep technical verification files in Actions
+      - name: Upload signed APKs and release metadata as Actions artifact
         if: steps.version_change.outputs.changed == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: ByMeVPN-${{ steps.release_version.outputs.version }}-technical-verification
+          name: ByMeVPN-${{ steps.release_version.outputs.version }}-release
           path: |
+            dist/*.apk
+            dist/*.aab
+            dist/update.json
             dist/SHA256SUMS.txt
             dist/*-sbom.cdx.json
             dist/*-native-runtime-provenance.md
