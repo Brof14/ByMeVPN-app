@@ -86,7 +86,6 @@ class SecureTokenStorage private constructor(context: Context) {
 
     /** Stable across refresh-token rotations; changes on login, logout or account reset. */
     @Synchronized
-    @Synchronized
     fun getAccountSessionId(): String {
         val existing = prefs.getString(KEY_ACCOUNT_SESSION_ID, null)
         if (!existing.isNullOrBlank()) return existing
