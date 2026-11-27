@@ -344,42 +344,13 @@ fun SignInScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                ShieldLogo(
-                    size = if (compactScreen) 52.dp else 60.dp,
-                    isActive = true
+                AuthBrandPanel(
+                    isRu = isRu,
+                    isSignUp = false,
+                    compact = compactScreen
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Text(
-                    text = buildAnnotatedString {
-                        withStyle(
-                            SpanStyle(
-                                color = AppColors.TextPrimary,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        ) { append("ByMe") }
-                        withStyle(
-                            SpanStyle(
-                                color = AppColors.SkyBlue,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        ) { append("VPN") }
-                    },
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    text = if (isRu) "Вход в аккаунт" else "Sign in to your account",
-                    color = AppColors.TextSecondary,
-                    fontSize = 13.5.sp
-                )
-
-                Spacer(modifier = Modifier.height(if (compactScreen) 18.dp else 22.dp))
+                Spacer(modifier = Modifier.height(if (compactScreen) 16.dp else 20.dp))
 
                 Column(
                     modifier = Modifier
