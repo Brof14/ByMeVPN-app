@@ -25,11 +25,19 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Prepare shared debug keystore for Google Sign-In
+      - name: Prepare shared debug keystore for Google Sign-In (optional)
+        id: debug-keystore
         shell: bash
         run: |
-          test -s debug.keystore.base64
-          base64 --decode debug.keystore.base64 > debug.keystore
+          set -euo pipefail
+          if [ -s debug.keystore.base64 ]; then
+            base64 --decode debug.keystore.base64 > debug.keystore
+            echo "shared=true" >> "$GITHUB_OUTPUT"
+            echo "Using the repository's registered debug signing key."
+          else
+            echo "shared=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::debug.keystore.base64 is not configured; Gradle will use its standard runner-local debug key. Google Sign-In fingerprint validation is skipped for this CI-only build."
+          fi
       - name: Check native libv2ray.aar presence
         shell: bash
         run: |
@@ -39,7 +47,20 @@ jobs:
             echo "::warning::app/libs/libv2ray.aar is missing; debug checks will compile against stub Libv2ray."
           fi
       - run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:bundlePlay cyclonedxBom --no-daemon
+      - name: Verify debug APK is signed
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -print -quit)"
+          test -n "$apk"
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          test -n "$sdk"
+          apksigner="$(find "$sdk/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          "$apksigner" verify --verbose "$apk"
+
       - name: Verify debug APK certificate matches registered Google OAuth SHA-1
+        if: steps.debug-keystore.outputs.shared == 'true'
         env:
           EXPECTED_DEBUG_SHA256: D7A05338F720A169E763165F3A29AC6D05DB3476616652229FA73E2D6CEC3752
         shell: bash
@@ -59,16 +80,22 @@ jobs:
         with:
           name: bymevpn-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-dependency-sbom
           path: build/reports/cyclonedx/bom.json
+          if-no-files-found: error
+          retention-days: 14
       # Keep this test build separate from an already installed production app.
       - run: gradle :app:assembleDebug -PsideBySideDebug=true -PpreviewSuffix=preview2 --no-daemon
       - uses: actions/upload-artifact@v4
         with:
           name: bymevpn-debug-side-by-side
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
 
   signed-build:
     if: github.event_name == 'workflow_dispatch' && inputs.build_signed
