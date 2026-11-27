@@ -30,6 +30,14 @@ jobs:
         run: |
           test -s debug.keystore.base64
           base64 --decode debug.keystore.base64 > debug.keystore
+      - name: Check native libv2ray.aar presence
+        shell: bash
+        run: |
+          if [ -s app/libs/libv2ray.aar ]; then
+            echo "Native app/libs/libv2ray.aar detected."
+          else
+            echo "::warning::app/libs/libv2ray.aar is missing; debug checks will compile against stub Libv2ray."
+          fi
       - run: gradle :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:bundlePlay cyclonedxBom --no-daemon
       - name: Verify debug APK certificate matches registered Google OAuth SHA-1
         env:

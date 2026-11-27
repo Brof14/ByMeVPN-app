@@ -24,18 +24,20 @@ import org.json.JSONObject
 object PingTester {
     internal const val MAX_CONCURRENT_PROBES = 4
     private const val PER_URL_TIMEOUT_MS = 2_400L
-    private val nativeProbeExecutor = ThreadPoolExecutor(
-        MAX_CONCURRENT_PROBES,
-        MAX_CONCURRENT_PROBES * 2,
-        30L,
-        TimeUnit.SECONDS,
-        LinkedBlockingQueue(),
-        { task -> Thread(task, "bymevpn-ping").apply { isDaemon = true } }
-    )
     private val probeUrls = listOf(
         "https://cp.cloudflare.com/generate_204",
         "https://www.google.com/generate_204"
     )
+    private val nativeProbeExecutor = ThreadPoolExecutor(
+        MAX_CONCURRENT_PROBES * probeUrls.size,
+        MAX_CONCURRENT_PROBES * probeUrls.size,
+        30L,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue(),
+        { task -> Thread(task, "bymevpn-ping").apply { isDaemon = true } }
+    ).apply {
+        allowCoreThreadTimeOut(true)
+    }
 
     private fun measureSingleUrl(probeConfig: String, url: String): Int {
         val future: Future<Int> = try {
@@ -59,6 +61,18 @@ object PingTester {
         }
     }
 
+    internal suspend fun probeTargetUrlsConcurrently(
+        urls: List<String> = probeUrls,
+        probeBlock: suspend (String) -> Int
+    ): List<Int> = coroutineScope {
+        urls.map { url ->
+            async {
+                currentCoroutineContext().ensureActive()
+                probeBlock(url)
+            }
+        }.awaitAll()
+    }
+
     suspend fun measureTunnelDelays(
         targets: List<Pair<String, VpnSessionConfig>>,
         onChecking: suspend (String) -> Unit = {},
@@ -76,8 +90,7 @@ object PingTester {
                             val generated = XrayConfigGenerator.generateJson(config)
                             val outbound = generated.getJSONArray("outbounds").getJSONObject(0)
                             val probeConfig = JSONObject().put("outbounds", JSONArray().put(outbound)).toString()
-                            val samples = probeUrls.map { url ->
-                                currentCoroutineContext().ensureActive()
+                            val samples = probeTargetUrlsConcurrently { url ->
                                 measureSingleUrl(probeConfig, url)
                             }
                             PingSelectionPolicy.aggregateLatencySamples(samples)

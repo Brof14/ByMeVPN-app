@@ -62,5 +62,26 @@ class GoogleCredentialErrorClassifierTest {
                 message = "No credentials available"
             )
         )
+        assertEquals(
+            "GOOGLE_AUTH_CONFIG_ERROR",
+            GoogleCredentialErrorClassifier.classify(
+                type = "android.credentials.GetCredentialException.TYPE_UNKNOWN",
+                message = "12500: SIGN_IN_FAILED"
+            )
+        )
+        assertEquals(
+            "USER_CANCELLED",
+            GoogleCredentialErrorClassifier.classify(
+                type = "android.credentials.GetCredentialException.TYPE_UNKNOWN",
+                message = "12501: SIGN_IN_CANCELLED"
+            )
+        )
+        assertEquals(
+            "GOOGLE_AUTH_INTERRUPTED",
+            GoogleCredentialErrorClassifier.classify(
+                type = "android.credentials.GetCredentialException.TYPE_UNKNOWN",
+                message = "12502: SIGN_IN_CURRENTLY_IN_PROGRESS"
+            )
+        )
     }
 }

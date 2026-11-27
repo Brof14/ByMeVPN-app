@@ -107,6 +107,13 @@ android {
         }
     }
     val hasLibv2rayAar = file("libs/libv2ray.aar").exists()
+    val requireNativeLibv2ray = providers.gradleProperty("requireNativeLibv2ray").orNull == "true"
+    require(!requireNativeLibv2ray || hasLibv2rayAar) {
+        "Native app/libs/libv2ray.aar is required when -PrequireNativeLibv2ray=true is set."
+    }
+    if (!hasLibv2rayAar) {
+        logger.warn("WARNING: app/libs/libv2ray.aar is missing; building with stub Libv2ray (VPN tunnel disabled).")
+    }
     sourceSets.getByName("debug").java.srcDir("src/direct/kotlin")
     sourceSets.getByName("release").java.srcDir("src/direct/kotlin")
     if (!hasLibv2rayAar) {

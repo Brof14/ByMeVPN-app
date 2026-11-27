@@ -33,8 +33,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -46,6 +48,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -63,13 +66,19 @@ import com.example.bymevpn.components.EyeIcon
 import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
+import com.example.bymevpn.components.PaperPlaneIcon
 import com.example.bymevpn.components.ShieldLogo
+import com.example.bymevpn.components.TelegramSignInDialog
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.api.AccountActionErrorMessages
 import com.example.bymevpn.data.api.ApiConfig
+import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
+import com.example.bymevpn.data.auth.TelegramLinkOpener
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val EMAIL_REGEX = Regex("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
@@ -99,6 +108,21 @@ fun SignUpScreen(
     var authError by remember { mutableStateOf<String?>(null) }
     var isEmailLoading by remember { mutableStateOf(false) }
     var isGoogleLoading by remember { mutableStateOf(false) }
+    var isTelegramLoading by remember { mutableStateOf(false) }
+    var telegramLoginJob by remember { mutableStateOf<Job?>(null) }
+    var telegramStatusText by remember { mutableStateOf<String?>(null) }
+    var telegramBotUrl by remember { mutableStateOf<String?>(null) }
+    var telegramWaitSeconds by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(isTelegramLoading) {
+        if (isTelegramLoading) {
+            telegramWaitSeconds = 0
+            while (isTelegramLoading) {
+                delay(1000)
+                telegramWaitSeconds += 1
+            }
+        }
+    }
 
     fun submitSignUp() {
         focusManager.clearFocus()
@@ -143,7 +167,84 @@ fun SignUpScreen(
         }
     }
 
-    val anyLoading = isEmailLoading || isGoogleLoading
+    fun startTelegramSignUp() {
+        focusManager.clearFocus()
+        isTelegramLoading = true
+        authError = null
+        telegramStatusText = if (isRu) "Открываем Telegram..." else "Opening Telegram..."
+        telegramLoginJob = scope.launch {
+            val sessionRes = AccountRepository.createTelegramAuthSession(context)
+            if (sessionRes.isSuccess) {
+                val session = sessionRes.getOrThrow()
+                if (!TelegramLinkOpener.open(context, session.botUrl)) {
+                    isTelegramLoading = false
+                    telegramStatusText = null
+                    authError = if (isRu) "Не удалось открыть Telegram. Попробуйте ещё раз." else "Could not open Telegram. Please try again."
+                    return@launch
+                }
+                telegramBotUrl = session.botUrl
+                telegramStatusText = if (isRu) "Ожидаем подтверждение в боте…" else "Waiting for confirmation in the bot…"
+
+                var confirmed = false
+                var transientFailures = 0
+                var checkError: Throwable? = null
+                for (attempt in 1..40) {
+                    val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
+                    if (checkRes.isSuccess && checkRes.getOrNull() != null) {
+                        confirmed = true
+                        break
+                    }
+                    val error = checkRes.exceptionOrNull()
+                    if (error != null) {
+                        if (TelegramAuthPollPolicy.shouldRetry(error, transientFailures)) {
+                            transientFailures++
+                            delay(1500)
+                            continue
+                        }
+                        checkError = error
+                        break
+                    }
+                    if (attempt % 7 == 0) {
+                        telegramStatusText = if (isRu) "Всё ещё ждём подтверждение в боте…" else "Still waiting for the bot confirmation…"
+                    }
+                    delay(1500)
+                }
+                isTelegramLoading = false
+                telegramStatusText = null
+                telegramBotUrl = null
+                if (confirmed) {
+                    onSignUpSuccess()
+                } else if (checkError != null) {
+                    authError = AccountActionErrorMessages.telegramSignInCheck(checkError, isRu)
+                } else {
+                    authError = if (isRu) "Подтверждение не получено. Начните вход заново и нажмите «Старт» в боте." else "Confirmation was not received. Start again and tap Start in the bot."
+                }
+            } else {
+                isTelegramLoading = false
+                telegramStatusText = null
+                authError = AccountActionErrorMessages.telegramSignInStart(sessionRes.exceptionOrNull(), isRu)
+            }
+        }
+    }
+
+    if (isTelegramLoading) {
+        TelegramSignInDialog(
+            isRu = isRu,
+            statusText = telegramStatusText,
+            waitSeconds = telegramWaitSeconds,
+            onOpenTelegramAgain = {
+                telegramBotUrl?.let { TelegramLinkOpener.open(context, it) }
+            },
+            onCancel = {
+                telegramLoginJob?.cancel()
+                isTelegramLoading = false
+                telegramStatusText = null
+                telegramBotUrl = null
+            }
+        )
+    }
+
+    val anyLoading = isEmailLoading || isGoogleLoading || isTelegramLoading
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -338,60 +439,100 @@ fun SignUpScreen(
                     }
                 }
 
-                if (ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
-                    Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
-                        Text(
-                            text = if (isRu) "или" else "or",
-                            color = AppColors.TextMuted,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(horizontal = 12.dp)
-                        )
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
+                    Text(
+                        text = if (isRu) "или войти через" else "or continue with",
+                        color = AppColors.TextMuted,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    if (ApiConfig.GOOGLE_AUTH_SERVER_VERIFIED) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(13.dp))
+                                .background(AppColors.BgSurface)
+                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(13.dp))
+                                .clickable(enabled = !anyLoading) {
+                                    focusManager.clearFocus()
+                                    isGoogleLoading = true
+                                    authError = null
+                                    scope.launch {
+                                        val result = AccountRepository.loginWithGoogle(context)
+                                        isGoogleLoading = false
+                                        if (result.isSuccess) {
+                                            onSignUpSuccess()
+                                        } else {
+                                            val message = AccountActionErrorMessages.googleSignIn(result.exceptionOrNull(), isRu)
+                                            authError = message.takeIf { it.isNotBlank() }
+                                        }
+                                    }
+                                }
+                                .testTag("google_login_button"),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isGoogleLoading) {
+                                CircularProgressIndicator(color = AppColors.TextPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            } else {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    GoogleLogoIcon(size = 18.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Google",
+                                        color = AppColors.TextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(12.dp))
 
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
+                            .weight(1f)
                             .height(48.dp)
                             .clip(RoundedCornerShape(13.dp))
                             .background(AppColors.BgSurface)
                             .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(13.dp))
-                            .clickable(enabled = !anyLoading) {
-                                focusManager.clearFocus()
-                                isGoogleLoading = true
-                                authError = null
-                                scope.launch {
-                                    val result = AccountRepository.loginWithGoogle(context)
-                                    isGoogleLoading = false
-                                    if (result.isSuccess) {
-                                        onSignUpSuccess()
-                                    } else {
-                                        val message = AccountActionErrorMessages.googleSignIn(result.exceptionOrNull(), isRu)
-                                        authError = message.takeIf { it.isNotBlank() }
-                                    }
-                                }
-                            },
+                            .clickable(enabled = !anyLoading) { startTelegramSignUp() }
+                            .testTag("telegram_login_button"),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (isGoogleLoading) {
-                            CircularProgressIndicator(color = AppColors.TextPrimary, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        if (isTelegramLoading) {
+                            CircularProgressIndicator(
+                                color = AppColors.SkyBlue,
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
                         } else {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                GoogleLogoIcon(size = 18.dp)
-                                Spacer(modifier = Modifier.width(10.dp))
+                                PaperPlaneIcon(color = AppColors.TelegramBlue, size = 17.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isRu) "Продолжить с Google" else "Continue with Google",
+                                    text = "Telegram",
                                     color = AppColors.TextPrimary,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.SemiBold

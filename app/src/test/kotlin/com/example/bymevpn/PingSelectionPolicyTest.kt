@@ -1,11 +1,16 @@
 package com.example.bymevpn
 
+import com.example.bymevpn.data.PingTester
 import com.example.bymevpn.data.api.ServerNode
 import com.example.bymevpn.vpn.PingSelectionPolicy
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.max
 
 class PingSelectionPolicyTest {
 
@@ -63,5 +68,24 @@ class PingSelectionPolicyTest {
 
         val picked = PingSelectionPolicy.pickBestServer(listOf(loaded, lightlyLoaded))
         assertEquals("n2", picked?.nodeCode)
+    }
+
+    @Test
+    fun probeTargetUrlsConcurrentlyRunsUrlsInParallel() = runBlocking {
+        val active = AtomicInteger(0)
+        val peak = AtomicInteger(0)
+
+        val results = PingTester.probeTargetUrlsConcurrently(
+            urls = listOf("https://alpha.test", "https://beta.test")
+        ) { url ->
+            val current = active.incrementAndGet()
+            peak.updateAndGet { prev -> max(prev, current) }
+            delay(80)
+            active.decrementAndGet()
+            if (url.startsWith("https://alpha")) 42 else 88
+        }
+
+        assertEquals(2, peak.get())
+        assertEquals(listOf(42, 88), results)
     }
 }

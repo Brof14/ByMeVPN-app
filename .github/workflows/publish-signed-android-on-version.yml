@@ -114,7 +114,8 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SERVER_ES256_PUBLIC_KEY"
-          gradle :app:assembleRelease :app:bundlePlay cyclonedxBom --no-daemon
+          test -s app/libs/libv2ray.aar
+          gradle :app:assembleRelease :app:bundlePlay cyclonedxBom -PrequireNativeLibv2ray=true --no-daemon
 
       - name: Verify APK signature and fingerprint
         if: steps.version_change.outputs.changed == 'true'

@@ -38,6 +38,7 @@ internal object GoogleCredentialErrorClassifier {
         return when {
             t.contains("CANCELLATION", ignoreCase = true) ||
                 msg.contains("[16]") ||
+                msg.contains("12501") ||
                 msg.contains("CANCELED", ignoreCase = true) ||
                 msg.contains("CANCELLED", ignoreCase = true) -> "USER_CANCELLED"
 
@@ -46,6 +47,7 @@ internal object GoogleCredentialErrorClassifier {
                 msg.contains("28444") ||
                 msg.contains("[28436]") ||
                 msg.contains("28436") ||
+                msg.contains("12500") ||
                 msg.contains("DEVELOPER_ERROR", ignoreCase = true) ||
                 msg.contains("Developer console", ignoreCase = true) ||
                 msg.contains("Caller not whitelisted", ignoreCase = true) ||
@@ -58,6 +60,7 @@ internal object GoogleCredentialErrorClassifier {
 
             t.contains("INTERRUPTED", ignoreCase = true) ||
                 msg.contains("[8]") ||
+                msg.contains("12502") ||
                 msg.contains("INTERNAL_ERROR", ignoreCase = true) -> "GOOGLE_AUTH_INTERRUPTED"
 
             t.contains("NO_CREDENTIAL", ignoreCase = true) ||
@@ -152,6 +155,14 @@ class GoogleAuthHelper(private val context: Context) {
         val fallbackResult = executeCredentialRequest(credentialManager, uiContext, fallbackRequest)
         if (fallbackResult is GoogleAuthResult.Success || fallbackResult is GoogleAuthResult.Cancelled) {
             return@withContext fallbackResult
+        }
+        val primaryError = primaryResult as? GoogleAuthResult.Error
+        val fallbackError = fallbackResult as? GoogleAuthResult.Error
+        if (primaryError != null &&
+            fallbackError?.code == "GOOGLE_AUTH_FAILED" &&
+            primaryError.code != "GOOGLE_AUTH_FAILED"
+        ) {
+            return@withContext primaryError
         }
         fallbackResult
     }
