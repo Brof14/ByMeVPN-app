@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -287,11 +288,11 @@ fun DevicesScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(89.dp)
-                                .clip(RoundedCornerShape(17.dp))
+                                .heightIn(min = 66.dp)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(AppColors.BgSurface)
-                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
-                                .padding(horizontal = 16.dp),
+                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(16.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(14.dp)
                         ) {

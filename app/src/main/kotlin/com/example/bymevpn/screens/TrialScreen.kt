@@ -85,12 +85,12 @@ fun TrialScreen(
                 .weight(1f)
                 .verticalScroll(rememberScrollState())
                 .navigationBarsPadding()
-                .padding(horizontal = 26.dp, vertical = 16.dp),
+                .padding(horizontal = 22.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ShieldLogo(size = 92.dp, isActive = true)
+            ShieldLogo(size = 78.dp, isActive = true)
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
             Text(
                 text = if (trialAlreadyUsed) {
@@ -99,12 +99,12 @@ fun TrialScreen(
                     t("3 дня ByMeVPN бесплатно", "3 days of ByMeVPN free")
                 },
                 color = AppColors.TextPrimary,
-                fontSize = 24.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
             Text(
                 text = if (trialAlreadyUsed) {
@@ -122,23 +122,23 @@ fun TrialScreen(
                 textAlign = TextAlign.Center
             )
 
-            Spacer(Modifier.height(22.dp))
+            Spacer(Modifier.height(16.dp))
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(20.dp))
+                    .clip(RoundedCornerShape(18.dp))
                     .background(AppGradients.AccentCard)
-                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(20.dp))
-                    .padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .border(1.dp, AppColors.BorderAccent, RoundedCornerShape(18.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 TrialFeatureRow(t("Полный доступ ко всем серверам на 3 дня", "Full access to all servers for 3 days"))
                 TrialFeatureRow(t("Быстрое подключение по VLESS Reality", "Fast VLESS Reality connection"))
                 TrialFeatureRow(t("Без автосписаний и привязки карты", "No automatic charges or card required"))
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(18.dp))
 
             if (offerTrial) {
                 ByMePrimaryButton(

@@ -97,42 +97,41 @@ fun SupportScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 18.dp, bottom = 22.dp),
+                        .padding(top = 10.dp, bottom = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(64.dp)
-                            .clip(RoundedCornerShape(21.dp))
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(18.dp))
                             .background(AppColors.BgSurfaceAccent),
                         contentAlignment = Alignment.Center
                     ) {
-                        ChatHeartIcon(color = AppColors.SkyBlue, size = 30.dp)
+                        ChatHeartIcon(color = AppColors.SkyBlue, size = 26.dp)
                     }
 
-                    Spacer(modifier = Modifier.height(18.dp))
+                    Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = t("Мы рядом, если\nнужна помощь", "We're here\nto help"),
+                        text = t("Поддержка ByMeVPN", "ByMeVPN Support"),
                         color = AppColors.TextPrimary,
-                        fontSize = 28.sp,
+                        fontSize = 23.sp,
                         fontWeight = FontWeight.Bold,
-                        lineHeight = 33.sp,
                         textAlign = TextAlign.Center
                     )
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = t("Напишите нам о проблеме или задайте вопрос по работе ByMeVPN.", "Contact us with a question or a problem using ByMeVPN."),
+                        text = t("Поможем с подключением, тарифами и устройствами.", "Help with connection, plans, and devices."),
                         color = AppColors.TextSecondary,
                         fontSize = 12.5.sp,
                         lineHeight = 18.sp,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp)
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     ByMePrimaryButton(
                         text = t("Написать в поддержку", "Contact support"),
@@ -232,15 +231,7 @@ fun SupportScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
-
-                Text(
-                    text = t("Поддержка ByMeVPN", "ByMeVPN support"),
-                    color = AppColors.TextMuted,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)
-                )
+                Spacer(modifier = Modifier.height(20.dp))
             }
 
             ByMeBottomNav(

@@ -53,20 +53,25 @@ fun LiveSpeedWave(
     isRussian: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "wave_phase")
-    val phase by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue = 6.28318f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(if (isConnected) 1600 else 6000, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "phase_anim"
-    )
+    val hasActiveTraffic = isConnected && (downloadBps > 0L || uploadBps > 0L)
+    val phase = if (hasActiveTraffic) {
+        val infiniteTransition = rememberInfiniteTransition(label = "wave_phase")
+        val animated by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = 6.28318f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(1600, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "phase_anim"
+        )
+        animated
+    } else 0f
 
-    val downBitrateStr = if (downloadBps > 0) formatBitrate(downloadBps, isRussian) else formatVolume(bytesIn, isConnected, isRussian)
-    val upBitrateStr = if (uploadBps > 0) formatBitrate(uploadBps, isRussian) else formatVolume(bytesOut, isConnected, isRussian)
-    val totalVolumeStr = "↓ ${formatVolume(bytesIn, isConnected, isRussian)} • ↑ ${formatVolume(bytesOut, isConnected, isRussian)}"
+    val downBitrateStr = formatBitrate(downloadBps, isRussian)
+    val upBitrateStr = formatBitrate(uploadBps, isRussian)
+    val totalCombinedStr = formatVolume(bytesIn + bytesOut, isConnected, isRussian)
+    val breakdownStr = "↓ ${formatVolume(bytesIn, isConnected, isRussian)} • ↑ ${formatVolume(bytesOut, isConnected, isRussian)}"
 
     val density = LocalDensity.current
     val wavePath = remember { Path() }
@@ -107,7 +112,7 @@ fun LiveSpeedWave(
             val h = size.height
             val midY = h * 0.5f
 
-            if (isConnected) {
+            if (hasActiveTraffic) {
                 wavePath.rewind()
                 wavePath2.rewind()
 
@@ -177,7 +182,11 @@ fun LiveSpeedWave(
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = if (isRussian) "Всего передано: $totalVolumeStr" else "Transferred: $totalVolumeStr",
+                text = if (isRussian) {
+                    "Всего передано: $totalCombinedStr ($breakdownStr)"
+                } else {
+                    "Total transferred: $totalCombinedStr ($breakdownStr)"
+                },
                 color = AppColors.TextMuted,
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.Medium
@@ -194,15 +203,22 @@ internal fun formatBitrate(bps: Long, isRussian: Boolean): String {
     val unitK = if (isRussian) "Кбит/с" else "Kbps"
     return if (mbit >= 1.0) {
         String.format(java.util.Locale.US, "%.1f %s", mbit, unitM)
+    } else if (kbit < 1.0) {
+        String.format(java.util.Locale.US, "%.1f %s", kbit, unitK)
     } else {
         String.format(java.util.Locale.US, "%.0f %s", kbit, unitK)
     }
 }
 
 internal fun formatVolume(totalBytes: Long, isConnected: Boolean, isRussian: Boolean): String {
+    val unitKb = if (isRussian) "КБ" else "KB"
     val unitMb = if (isRussian) "МБ" else "MB"
     val unitGb = if (isRussian) "ГБ" else "GB"
     if (!isConnected || totalBytes <= 0L) return "0 $unitMb"
+    if (totalBytes < 1024L * 1024L) {
+        val kb = (totalBytes / 1024.0).coerceAtLeast(1.0)
+        return String.format(java.util.Locale.US, "%.0f %s", kb, unitKb)
+    }
     val mb = totalBytes.toDouble() / (1024.0 * 1024.0)
     return if (mb < 1000.0) {
         String.format(java.util.Locale.US, "%.1f %s", mb, unitMb)

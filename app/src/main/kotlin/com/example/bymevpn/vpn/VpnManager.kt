@@ -150,6 +150,20 @@ class VpnManager private constructor(private val context: Context) {
                 _uploadSpeedBps.value = stats.uploadSpeedBps
             }
         }
+        // Keep Android Quick Settings tile synchronized with VPN state changes
+        scope.launch {
+            _state.collect {
+                ByMeVpnTileService.requestTileSync(context)
+            }
+        }
+    }
+
+    internal fun onSubscriptionServersUpdated(servers: List<ServerNode>) {
+        if (servers.isEmpty()) return
+        scope.launch(Dispatchers.Main) {
+            setServers(servers)
+            _serversError.value = null
+        }
     }
 
     suspend fun autoSelectFastestServer(): ServerNode? = withContext(Dispatchers.IO) {
@@ -467,7 +481,12 @@ class VpnManager private constructor(private val context: Context) {
                     return@withContext Result.success(saved)
                 }
                 // Nothing saved yet: refresh in the background so it cannot delay the API request below.
-                scope.launch { subscriptionManager.refreshStatus() }
+                scope.launch {
+                    if (subscriptionManager.refreshStatus().isSuccess) {
+                        val refreshed = storage.getServerNodes()
+                        if (refreshed.isNotEmpty()) onSubscriptionServersUpdated(refreshed)
+                    }
+                }
             }
 
             // API-only accounts also need an offline list, scoped to the signed-in account.
@@ -728,10 +747,22 @@ class VpnManager private constructor(private val context: Context) {
                 }
                 coroutineContext.ensureActive()
                 if (latestServers.isNotEmpty()) {
+                    val subUrlPresent = !storage.getSubscriptionUrl().isNullOrBlank()
+                    val existingOrSaved = _availableServers.value.ifEmpty { storage.getServerNodes() }
+                    val mergedServers = if (externalProfile) {
+                        latestServers
+                    } else {
+                        ServerListMergePolicy.chooseServers(
+                            apiNodes = latestServers,
+                            subscriptionNodes = existingOrSaved,
+                            hasSubscriptionUrl = subUrlPresent
+                        )
+                    }
                     val preferredCode = targetServer.nodeCode
-                    targetServer = latestServers.firstOrNull { it.nodeCode == preferredCode }
-                        ?: latestServers.first()
-                    setServers(latestServers)
+                    targetServer = mergedServers.firstOrNull { it.nodeCode == preferredCode }
+                        ?: latestServers.firstOrNull { it.nodeCode == preferredCode }
+                        ?: mergedServers.first()
+                    setServers(mergedServers)
                     _currentServer.value = targetServer
                 }
 

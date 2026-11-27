@@ -3,12 +3,7 @@ package com.example.bymevpn.components
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -42,7 +37,6 @@ import androidx.compose.ui.unit.dp
 import com.example.bymevpn.R
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
-import kotlinx.coroutines.launch
 
 private val CustomEaseOut = CubicBezierEasing(0.23f, 1f, 0.32f, 1f)
 
@@ -60,14 +54,14 @@ fun VpnPowerButton(
     val isPressed by interactionSource.collectIsPressedAsState()
 
     val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.95f else 1f,
+        targetValue = if (isPressed) 0.96f else 1f,
         animationSpec = spring(dampingRatio = 0.85f, stiffness = 500f),
         label = "vpn_power_press"
     )
 
     val progress by animateFloatAsState(
         targetValue = if (connected) 1f else 0f,
-        animationSpec = tween(280, easing = CustomEaseOut),
+        animationSpec = tween(240, easing = CustomEaseOut),
         label = "vpn_power_state"
     )
 
@@ -77,7 +71,7 @@ fun VpnPowerButton(
             connecting -> AppColors.SkyBlue
             else -> AppColors.BorderAccent
         },
-        animationSpec = tween(280),
+        animationSpec = tween(240),
         label = "vpn_power_ring"
     )
 
@@ -98,71 +92,46 @@ fun VpnPowerButton(
         if (connected) {
             Brush.radialGradient(
                 colors = listOf(
-                    Color(0x3600D8FF),
-                    Color(0x2042F59B),
+                    Color(0x2E00D8FF),
+                    Color(0x1842F59B),
                     Color.Transparent
                 )
             )
         } else if (connecting) {
             Brush.radialGradient(
                 colors = listOf(
-                    Color(0x2E0077FF),
-                    Color(0x1600D8FF),
+                    Color(0x240077FF),
+                    Color(0x1000D8FF),
                     Color.Transparent
                 )
             )
         } else {
             Brush.radialGradient(
                 colors = listOf(
-                    Color(0x200077FF),
+                    Color(0x180077FF),
                     Color.Transparent
                 )
             )
         }
     }
 
-    val connectingScale = if (connecting) {
-        val transition = rememberInfiniteTransition(label = "vpn_connecting")
-        val scale by transition.animateFloat(
-            initialValue = 0.98f,
-            targetValue = 1.02f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(650, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "vpn_connecting_pulse"
-        )
-        scale
-    } else 1f
-
     val successScale = remember { Animatable(1f) }
-    val successRipple = remember { Animatable(1f) }
-    val successRippleAlpha = remember { Animatable(0f) }
 
     LaunchedEffect(successPulseKey) {
         if (successPulseKey > 0) {
             haptics.tunnelConnected()
-            successRipple.snapTo(0.75f)
-            successRippleAlpha.snapTo(0.70f)
-            successScale.snapTo(0.88f)
-            launch {
-                successRipple.animateTo(1.38f, tween(650, easing = CustomEaseOut))
-            }
-            launch {
-                successRippleAlpha.animateTo(0f, tween(650, easing = CustomEaseOut))
-            }
-            successScale.animateTo(1.08f, animationSpec = tween(200, easing = CustomEaseOut))
-            successScale.animateTo(1f, animationSpec = tween(280, easing = CustomEaseOut))
+            successScale.animateTo(1.03f, animationSpec = tween(140, easing = CustomEaseOut))
+            successScale.animateTo(1f, animationSpec = tween(200, easing = CustomEaseOut))
         } else if (!connected) {
             successScale.snapTo(1f)
         }
     }
 
-    val totalScale = connectingScale * successScale.value * pressScale
+    val totalScale = successScale.value * pressScale
 
     Box(
         modifier = modifier
-            .sizeIn(maxWidth = 286.dp, maxHeight = 286.dp)
+            .sizeIn(maxWidth = 264.dp, maxHeight = 264.dp)
             .aspectRatio(1f)
             .fillMaxWidth()
             .clip(CircleShape)
@@ -192,18 +161,6 @@ fun VpnPowerButton(
             ),
         contentAlignment = Alignment.Center
     ) {
-        if (successRippleAlpha.value > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        scaleX = successRipple.value
-                        scaleY = successRipple.value
-                        alpha = successRippleAlpha.value
-                    }
-                    .border(2.5.dp, ringColor, CircleShape)
-            )
-        }
         Image(
             painter = painterResource(R.drawable.byme_connect_shield_transparent),
             contentDescription = null,
@@ -218,7 +175,7 @@ fun VpnPowerButton(
         if (connecting) {
             CircularProgressIndicator(
                 modifier = Modifier.fillMaxSize(0.97f),
-                color = AppColors.SkyBlue,
+                color = ringColor,
                 strokeWidth = 2.5.dp
             )
         }

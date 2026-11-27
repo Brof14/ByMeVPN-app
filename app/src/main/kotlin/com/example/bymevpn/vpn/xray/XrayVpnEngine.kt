@@ -1,6 +1,9 @@
 package com.example.bymevpn.vpn.xray
 
 import android.content.Context
+import android.net.TrafficStats
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import com.example.bymevpn.data.api.VpnSessionConfig
 import com.example.bymevpn.vpn.ConnectivityProbePolicy
@@ -61,6 +64,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
     private var coreController: CoreController? = null
     private var activeConfig: VpnSessionConfig? = null
     private var statsJob: Job? = null
+    private val statsTracker = XrayStatsTracker()
     private val engineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     override val isRunning: Boolean
@@ -121,6 +125,7 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
         var startupStage = "config"
         try {
             _state.value = VpnConnectionState.CONNECTING
+            _statistics.value = VpnStatistics()
             activeConfig = config
 
             if (config.server.isBlank() || config.uuid.isBlank()) {
@@ -297,46 +302,33 @@ class XrayVpnEngine private constructor(private val context: Context) : VpnEngin
 
     private fun startStatsCollector() {
         stopStatsCollector()
+        val uid = Process.myUid()
+        val initialRawStats = runCatching { coreController?.queryAllOutboundTrafficStats().orEmpty() }.getOrDefault("")
+        val initialRx = TrafficStats.getUidRxBytes(uid)
+        val initialTx = TrafficStats.getUidTxBytes(uid)
+        statsTracker.reset(
+            initialRawStats = initialRawStats,
+            initialUidRxBytes = initialRx,
+            initialUidTxBytes = initialTx,
+            nowElapsedMs = SystemClock.elapsedRealtime()
+        )
         statsJob = engineScope.launch {
-            var lastUp = 0L
-            var lastDown = 0L
-            var lastTime = System.currentTimeMillis()
-
             while (isActive && isRunning) {
-                delay(2000)
+                delay(1000)
+                if (!isActive || !isRunning) break
                 try {
                     val rawStats = coreController?.queryAllOutboundTrafficStats() ?: ""
-                    var totalUp = 0L
-                    var totalDown = 0L
-                    if (rawStats.isNotBlank()) {
-                        rawStats.split(";").forEach { entry ->
-                            val parts = entry.split(",")
-                            if (parts.size == 3) {
-                                val direction = parts[1]
-                                val value = parts[2].toLongOrNull() ?: 0L
-                                if (direction.contains("uplink", ignoreCase = true)) {
-                                    totalUp += value
-                                } else if (direction.contains("downlink", ignoreCase = true)) {
-                                    totalDown += value
-                                }
-                            }
-                        }
-                    }
-
-                    val now = System.currentTimeMillis()
-                    val durationSec = ((now - lastTime) / 1000.0).coerceAtLeast(1.0)
-                    val speedUp = ((totalUp - lastUp).coerceAtLeast(0L) / durationSec).toLong()
-                    val speedDown = ((totalDown - lastDown).coerceAtLeast(0L) / durationSec).toLong()
-
-                    lastUp = totalUp
-                    lastDown = totalDown
-                    lastTime = now
-
+                    val snapshot = statsTracker.recordSample(
+                        rawStats = rawStats,
+                        nowElapsedMs = SystemClock.elapsedRealtime(),
+                        uidRxBytes = TrafficStats.getUidRxBytes(uid),
+                        uidTxBytes = TrafficStats.getUidTxBytes(uid)
+                    )
                     _statistics.value = VpnStatistics(
-                        bytesIn = totalDown,
-                        bytesOut = totalUp,
-                        downloadSpeedBps = speedDown,
-                        uploadSpeedBps = speedUp
+                        bytesIn = snapshot.totalBytesIn,
+                        bytesOut = snapshot.totalBytesOut,
+                        downloadSpeedBps = snapshot.downloadSpeedBps,
+                        uploadSpeedBps = snapshot.uploadSpeedBps
                     )
                 } catch (e: CancellationException) {
                     throw e

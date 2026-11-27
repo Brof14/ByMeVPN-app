@@ -120,5 +120,25 @@ class AccountActionErrorMessagesTest {
             ApiError("GOOGLE_CREDENTIAL_UNAVAILABLE", "Unavailable"), false
         )
         assertTrue(unavailableEn.contains("unavailable"))
+
+        val configErrRu = AccountActionErrorMessages.googleSignIn(
+            ApiError("GOOGLE_AUTH_CONFIG_ERROR", "DEV_ERROR"), true
+        )
+        assertTrue(configErrRu.contains("конфигурации"))
+
+        val configErrEn = AccountActionErrorMessages.googleSignIn(
+            ApiError("GOOGLE_AUTH_CONFIG_ERROR", "DEV_ERROR"), false
+        )
+        assertTrue(configErrEn.contains("configuration error"))
+
+        val interruptedRu = AccountActionErrorMessages.googleSignIn(
+            ApiError("GOOGLE_AUTH_INTERRUPTED", "Interrupted"), true
+        )
+        assertTrue(interruptedRu.contains("прерван"))
+
+        val interruptedEn = AccountActionErrorMessages.googleSignIn(
+            ApiError("GOOGLE_AUTH_INTERRUPTED", "Interrupted"), false
+        )
+        assertTrue(interruptedEn.contains("interrupted"))
     }
 }

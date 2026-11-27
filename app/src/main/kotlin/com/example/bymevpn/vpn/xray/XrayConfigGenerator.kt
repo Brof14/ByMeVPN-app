@@ -164,7 +164,7 @@ object XrayConfigGenerator {
                     }
                     put("tlsSettings", tlsSettings)
 
-                    if (config.encryption.isNotBlank()) {
+                    if (config.encryption.isNotBlank() && !config.encryption.equals("none", ignoreCase = true)) {
                         require(config.encryption.equals("salamander", ignoreCase = true)) { "Unsupported Hysteria obfuscation" }
                         put("finalmask", JSONObject().apply {
                             put("udp", JSONArray().put(JSONObject().apply {
@@ -180,8 +180,13 @@ object XrayConfigGenerator {
                 // VLESS is selected only for a supported protocol, never as a fallback.
                 val security = config.security.lowercase()
                 require(security in setOf("none", "tls", "reality")) { "Unsupported VLESS security" }
-                val network = config.network.ifBlank { "tcp" }.lowercase()
-                require(network in setOf("tcp", "raw", "grpc", "xhttp", "ws", "websocket", "httpupgrade")) {
+                val rawNetwork = config.network.ifBlank { "tcp" }.trim().lowercase()
+                val network = when (rawNetwork) {
+                    "splithttp" -> "xhttp"
+                    "websocket" -> "ws"
+                    else -> rawNetwork
+                }
+                require(network in setOf("tcp", "raw", "grpc", "xhttp", "ws", "httpupgrade")) {
                     "Unsupported VLESS transport"
                 }
                 require(security != "reality" || network in setOf("tcp", "raw", "grpc", "xhttp")) {
@@ -197,7 +202,9 @@ object XrayConfigGenerator {
                     put(JSONObject().apply {
                         put("id", config.uuid)
                         put("encryption", config.encryption.ifEmpty { "none" })
-                        if (config.flow.isNotBlank()) {
+                        // XTLS Vision flow is only valid on TCP/RAW transports; setting it on
+                        // XHTTP/gRPC/WS causes Xray-core startup failure.
+                        if (config.flow.isNotBlank() && network in setOf("tcp", "raw")) {
                             put("flow", config.flow)
                         }
                     })
@@ -224,13 +231,9 @@ object XrayConfigGenerator {
                         })
                     }
                     if (network == "xhttp") {
-                        put("xhttpSettings", JSONObject().apply {
-                            if (config.transportPath.isNotBlank()) put("path", config.transportPath)
-                            if (config.transportHost.isNotBlank()) put("host", config.transportHost)
-                            if (config.transportMode.isNotBlank()) put("mode", config.transportMode)
-                        })
+                        put("xhttpSettings", buildXhttpSettings(config))
                     }
-                    if (network == "ws" || network == "websocket") {
+                    if (network == "ws") {
                         put("wsSettings", JSONObject().apply {
                             if (config.transportPath.isNotBlank()) put("path", config.transportPath)
                             if (config.transportHost.isNotBlank()) {
@@ -353,6 +356,35 @@ object XrayConfigGenerator {
         })
 
         return root
+    }
+
+    private fun buildXhttpSettings(config: VpnSessionConfig): JSONObject {
+        val result = JSONObject()
+        val rawExtra = config.transportExtra.trim()
+        if (rawExtra.isNotEmpty()) {
+            val parsed = runCatching { JSONObject(rawExtra) }.getOrNull()
+            if (parsed != null) {
+                val isFullXhttpSettings = parsed.has("extra") ||
+                    parsed.has("path") ||
+                    parsed.has("host") ||
+                    parsed.has("mode")
+                if (isFullXhttpSettings) {
+                    val keys = parsed.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        if (key != "xhttpSettings" && key != "xhttp_settings") {
+                            result.put(key, parsed.get(key))
+                        }
+                    }
+                } else if (parsed.length() > 0) {
+                    result.put("extra", parsed)
+                }
+            }
+        }
+        if (config.transportPath.isNotBlank()) result.put("path", config.transportPath)
+        if (config.transportHost.isNotBlank()) result.put("host", config.transportHost)
+        if (config.transportMode.isNotBlank()) result.put("mode", config.transportMode)
+        return result
     }
 
     /**

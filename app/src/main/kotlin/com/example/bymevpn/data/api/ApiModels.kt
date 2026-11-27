@@ -137,7 +137,10 @@ data class ServerNode(
     val protocolLabel: String get() {
         val transport = when {
             protocol.contains("Hysteria", ignoreCase = true) -> "UDP"
+            network.equals("xhttp", ignoreCase = true) || network.equals("splithttp", ignoreCase = true) -> "XHTTP"
             network.equals("grpc", ignoreCase = true) -> "gRPC"
+            network.equals("ws", ignoreCase = true) || network.equals("websocket", ignoreCase = true) -> "WS"
+            network.equals("httpupgrade", ignoreCase = true) -> "HTTPUpgrade"
             network.equals("tcp", ignoreCase = true) || network.equals("raw", ignoreCase = true) -> "TCP"
             network.equals("udp", ignoreCase = true) -> "UDP"
             else -> ""
@@ -172,7 +175,8 @@ data class VpnSessionConfig(
     val transportPath: String = "",
     val transportHost: String = "",
     val transportMode: String = "",
-    val alpn: String = ""
+    val alpn: String = "",
+    val transportExtra: String = ""
 )
 
 data class DeviceItem(
@@ -399,6 +403,41 @@ object ApiJsonParsers {
     }
 
     fun parseVpnSessionConfig(json: JSONObject): VpnSessionConfig {
+        val rawNetwork = json.optString("network", "tcp").trim().lowercase(java.util.Locale.ROOT)
+        val normalizedNetwork = when (rawNetwork) {
+            "splithttp" -> "xhttp"
+            "websocket" -> "ws"
+            "" -> "tcp"
+            else -> rawNetwork
+        }
+        val xhttpObj = json.optJSONObject("xhttpSettings") ?: json.optJSONObject("xhttp_settings")
+        val extraObj = json.optJSONObject("extra") ?: json.optJSONObject("transport_extra")
+        val rawExtraStr = json.optString("extra").ifBlank { json.optString("transport_extra", "") }
+        val extraStr = when {
+            xhttpObj != null -> JSONObject(xhttpObj.toString()).apply {
+                if (extraObj != null && !has("extra")) {
+                    put("extra", extraObj)
+                } else if (rawExtraStr.isNotBlank() && !has("extra")) {
+                    val parsedExtra = runCatching { JSONObject(rawExtraStr) }.getOrNull()
+                    if (parsedExtra != null) put("extra", parsedExtra)
+                }
+            }.toString()
+            extraObj != null -> extraObj.toString()
+            else -> rawExtraStr
+        }
+        val path = json.optString("serviceName").ifBlank {
+            json.optString("service_name").ifBlank {
+                json.optString("transport_path").ifBlank {
+                    json.optString("path").ifBlank { xhttpObj?.optString("path", "").orEmpty() }
+                }
+            }
+        }
+        val host = json.optString("host").ifBlank {
+            json.optString("transport_host").ifBlank { xhttpObj?.optString("host", "").orEmpty() }
+        }
+        val mode = json.optString("mode").ifBlank {
+            json.optString("transport_mode").ifBlank { xhttpObj?.optString("mode", "").orEmpty() }
+        }
         return VpnSessionConfig(
             protocol = json.optString("protocol", "vless"),
             server = json.optString("server", json.optString("endpoint", "")),
@@ -411,18 +450,15 @@ object ApiJsonParsers {
             publicKey = json.optString("public_key", json.optString("server_public_key", "")),
             shortId = json.optString("short_id", ""),
             fingerprint = json.optString("fingerprint", "chrome"),
-            network = json.optString("network", "tcp"),
-            transportPath = json.optString("serviceName").ifBlank {
-                json.optString("service_name").ifBlank {
-                    json.optString("transport_path").ifBlank { json.optString("path", "") }
-                }
-            },
-            transportHost = json.optString("host").ifBlank { json.optString("transport_host", "") },
-            transportMode = json.optString("mode").ifBlank { json.optString("transport_mode", "") },
+            network = normalizedNetwork,
+            transportPath = path,
+            transportHost = host,
+            transportMode = mode,
             alpn = json.optJSONArray("alpn")?.let { values ->
                 (0 until values.length()).map { values.optString(it) }
                     .filter { it.isNotBlank() }.joinToString(",")
             } ?: json.optString("alpn", ""),
+            transportExtra = extraStr,
             expiresAt = json.optString("expires_at").ifEmpty { null }
         )
     }

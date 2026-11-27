@@ -352,8 +352,15 @@ class ByMeApiClient(private val context: Context) {
                         expectedAccountToken = accountToken
                     ).getOrThrow()
                     if (registeringDevice) subManager.refreshStatus(forceBackend = true)
-                    if (awaitSubscriptionRefresh && imported.servers.isNotEmpty()) {
-                        return imported.servers
+                    if (imported.servers.isNotEmpty()) {
+                        val merged = com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
+                            apiNodes = parsed,
+                            subscriptionNodes = imported.servers,
+                            hasSubscriptionUrl = true
+                        )
+                        com.example.bymevpn.vpn.VpnManager.getInstance(context)
+                            .onSubscriptionServersUpdated(merged)
+                        return merged
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
@@ -369,21 +376,37 @@ class ByMeApiClient(private val context: Context) {
                     }
                 }
             } else {
-                // Nodes are already available: never delay the server list for a subscription fetch.
+                // Nodes are already available: never delay the server list for a subscription fetch,
+                // and push refreshed multi-node subscription lists to VpnManager when completed.
                 backgroundScope.launch {
                     try {
-                        subManager.applySubscriptionUrl(
+                        val imported = subManager.applySubscriptionUrl(
                             subUrl,
                             includeDeviceHeaders = true,
                             expectedAccountToken = accountToken
-                        )
+                        ).getOrNull()
+                        if (imported != null && imported.servers.isNotEmpty() &&
+                            storage.getAccessToken().orEmpty() == accountToken
+                        ) {
+                            val merged = com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
+                                apiNodes = parsed,
+                                subscriptionNodes = imported.servers,
+                                hasSubscriptionUrl = true
+                            )
+                            com.example.bymevpn.vpn.VpnManager.getInstance(context)
+                                .onSubscriptionServersUpdated(merged)
+                        }
                     } catch (e: Exception) {
                         Log.w(TAG, "Background subscription refresh failed: ${safeError(e)}")
                     }
                 }
             }
         }
-        return parsed
+        return com.example.bymevpn.vpn.ServerListMergePolicy.chooseServers(
+            apiNodes = parsed,
+            subscriptionNodes = if (subUrl.isNotBlank()) storage.getServerNodes() else emptyList(),
+            hasSubscriptionUrl = subUrl.isNotBlank()
+        )
     }
 
     suspend fun createVpnSession(nodeCode: String): VpnSessionConfig {

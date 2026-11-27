@@ -1,17 +1,22 @@
 package com.example.bymevpn.vpn
 
 import android.app.PendingIntent
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import androidx.annotation.RequiresApi
 import com.example.bymevpn.MainActivity
+import com.example.bymevpn.data.LocaleManager
 import com.example.bymevpn.data.storage.SecureTokenStorage
+import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 
 /**
@@ -20,7 +25,21 @@ import kotlinx.coroutines.launch
 @RequiresApi(Build.VERSION_CODES.N)
 class ByMeVpnTileService : TileService() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    companion object {
+        fun requestTileSync(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                val appContext = context.applicationContext
+                runCatching {
+                    requestListeningState(
+                        appContext,
+                        ComponentName(appContext, ByMeVpnTileService::class.java)
+                    )
+                }
+            }
+        }
+    }
+
+    private val serviceScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var stateObserver: Job? = null
 
     override fun onStartListening() {
@@ -38,38 +57,56 @@ class ByMeVpnTileService : TileService() {
         super.onStopListening()
     }
 
+    override fun onDestroy() {
+        stateObserver?.cancel()
+        serviceScope.cancel()
+        super.onDestroy()
+    }
+
     override fun onClick() {
         super.onClick()
+        if (isLocked) {
+            unlockAndRun { handleTileClick() }
+        } else {
+            handleTileClick()
+        }
+    }
+
+    private fun handleTileClick() {
         val vpnManager = VpnManager.getInstance(applicationContext)
         val state = vpnManager.state.value
 
         when (state) {
             VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> {
                 vpnManager.disconnect()
-                updateTileState(Tile.STATE_INACTIVE)
+                updateTileState()
             }
             VpnConnectionState.DISCONNECTED, VpnConnectionState.ERROR, VpnConnectionState.DISCONNECTING -> {
-                if (VpnManager.isVpnPrepared(applicationContext) &&
-                    SecureTokenStorage.getInstance(applicationContext).isVpnDisclosureAccepted()) {
+                val canStart = VpnManager.isVpnPrepared(applicationContext) &&
+                    SecureTokenStorage.getInstance(applicationContext).isVpnDisclosureAccepted() &&
+                    SubscriptionManager.getInstance(applicationContext).canConnect()
+                if (canStart) {
                     VpnManager.startVpn(applicationContext)
-                    // The tile reflects tunnel callbacks, not an optimistic connection attempt.
-                    updateTileState(Tile.STATE_INACTIVE)
+                    updateTileState()
                 } else {
-                    // Open main activity to request system VPN permission
-                    val intent = Intent(applicationContext, MainActivity::class.java).apply {
-                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-                    }
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                        val pendingIntent = PendingIntent.getActivity(
-                            applicationContext, 0, intent,
-                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-                        )
-                        startActivityAndCollapse(pendingIntent)
-                    } else {
-                        startActivityAndCollapseLegacy(intent)
-                    }
+                    openAppFromTile()
                 }
             }
+        }
+    }
+
+    private fun openAppFromTile() {
+        val intent = Intent(applicationContext, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            val pendingIntent = PendingIntent.getActivity(
+                applicationContext, 0, intent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            startActivityAndCollapse(pendingIntent)
+        } else {
+            startActivityAndCollapseLegacy(intent)
         }
     }
 
@@ -79,18 +116,23 @@ class ByMeVpnTileService : TileService() {
         startActivityAndCollapse(intent)
     }
 
-    private fun updateTileState(forcedState: Int? = null) {
+    private fun updateTileState() {
         val tile = qsTile ?: return
-        val isRunning = VpnManager.getInstance(applicationContext).state.value == VpnConnectionState.CONNECTED
-        val targetState = forcedState ?: if (isRunning) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
-        val isRu = com.example.bymevpn.data.LocaleManager.isRussian(applicationContext)
+        val state = VpnManager.getInstance(applicationContext).state.value
+        val isRu = LocaleManager.isRussian(applicationContext)
 
-        tile.state = targetState
+        tile.state = when (state) {
+            VpnConnectionState.CONNECTED, VpnConnectionState.CONNECTING -> Tile.STATE_ACTIVE
+            VpnConnectionState.DISCONNECTED, VpnConnectionState.DISCONNECTING, VpnConnectionState.ERROR -> Tile.STATE_INACTIVE
+        }
         tile.label = "ByMeVPN"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            tile.subtitle = when {
-                targetState == Tile.STATE_ACTIVE -> if (isRu) "Защищено" else "Protected"
-                else -> if (isRu) "Отключено" else "Disconnected"
+            tile.subtitle = when (state) {
+                VpnConnectionState.CONNECTED -> if (isRu) "Защищено" else "Protected"
+                VpnConnectionState.CONNECTING -> if (isRu) "Подключение…" else "Connecting…"
+                VpnConnectionState.DISCONNECTING -> if (isRu) "Отключение…" else "Disconnecting…"
+                VpnConnectionState.ERROR -> if (isRu) "Ошибка" else "Error"
+                VpnConnectionState.DISCONNECTED -> if (isRu) "Отключено" else "Disconnected"
             }
         }
         tile.updateTile()

@@ -196,7 +196,8 @@ object XraySubscriptionParser {
             cityEn = cleanRemark,
             protocol = protoBadge,
             remark = cleanRemark,
-            displayName = dispName
+            displayName = dispName,
+            network = "udp"
         )
 
         val config = VpnSessionConfig(
@@ -226,16 +227,22 @@ object XraySubscriptionParser {
         val port = parts.port
         val queryParams = parts.queryParams
 
-        val security = queryParams["security"] ?: if (queryParams.containsKey("pbk")) "reality" else "tls"
+        val security = queryParams["security"]?.takeIf { it.isNotBlank() } ?: if (queryParams.containsKey("pbk")) "reality" else "tls"
         val flow = queryParams["flow"] ?: ""
         val pbk = queryParams["pbk"] ?: ""
         val sid = queryParams["sid"] ?: ""
-        val sni = queryParams["sni"] ?: queryParams["host"] ?: host
-        val fp = queryParams["fp"] ?: "firefox"
-        val type = queryParams["type"] ?: "tcp"
-        val encryption = queryParams["encryption"] ?: "none"
+        val sni = queryParams["sni"]?.takeIf { it.isNotBlank() } ?: queryParams["host"]?.takeIf { it.isNotBlank() } ?: host
+        val fp = queryParams["fp"]?.takeIf { it.isNotBlank() } ?: "chrome"
+        val rawType = (queryParams["type"] ?: "tcp").trim().lowercase(Locale.ROOT)
+        val type = when (rawType) {
+            "splithttp" -> "xhttp"
+            "websocket" -> "ws"
+            "" -> "tcp"
+            else -> rawType
+        }
+        val encryption = queryParams["encryption"]?.takeIf { it.isNotBlank() } ?: "none"
 
-        val nodeCode = "node_${index}_${host.replace(".", "_")}_$port"
+        val nodeCode = "node_${index}_${host.replace(".", "_").replace(":", "_")}_$port"
         val (country, countryCode, flag) = detectLocation(remark)
         val secLower = security.lowercase()
         val protoBadge = if (secLower == "reality") "VLESS Reality" else if (secLower == "tls") "VLESS TLS" else "VLESS"
@@ -259,7 +266,8 @@ object XraySubscriptionParser {
             cityEn = cleanRemark,
             protocol = protoBadge,
             remark = cleanRemark,
-            displayName = dispName
+            displayName = dispName,
+            network = type
         )
 
         val config = VpnSessionConfig(
@@ -278,7 +286,8 @@ object XraySubscriptionParser {
             transportPath = queryParams["servicename"] ?: queryParams["path"] ?: "",
             transportHost = queryParams["host"] ?: "",
             transportMode = queryParams["mode"] ?: "",
-            alpn = queryParams["alpn"] ?: ""
+            alpn = queryParams["alpn"] ?: "",
+            transportExtra = queryParams["extra"] ?: ""
         )
 
         return Pair(serverNode, config)

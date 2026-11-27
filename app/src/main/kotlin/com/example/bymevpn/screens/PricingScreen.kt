@@ -58,7 +58,9 @@ import androidx.compose.runtime.collectAsState
 import com.example.bymevpn.theme.AppColors
 import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 enum class PlanDuration(
     val title: String,
@@ -114,7 +116,7 @@ fun PricingScreen(
     var selectedPlan by remember { mutableStateOf(PlanDuration.Month1) }
     val selectedProvider = "yookassa" // Only payment method accepted by the current backend.
     var serverPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
-    var displayPlans by remember { mutableStateOf(ByMeApiClient(context).getCachedPlans(2)) }
+    var displayPlans by remember { mutableStateOf<List<PlanItem>>(emptyList()) }
     var plansLoading by remember { mutableStateOf(true) }
     var priceError by remember { mutableStateOf(false) }
     var mobileCatalogNotDeployed by remember { mutableStateOf(false) }
@@ -130,7 +132,7 @@ fun PricingScreen(
         }
         val api = ByMeApiClient(context)
         serverPlans = emptyList()
-        displayPlans = api.getCachedPlans(selectedDeviceCount)
+        displayPlans = withContext(Dispatchers.IO) { api.getCachedPlans(selectedDeviceCount) }
         priceError = false
         mobileCatalogNotDeployed = false
         plansLoading = true
@@ -179,9 +181,9 @@ fun PricingScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 26.dp, vertical = 14.dp),
+                    .padding(horizontal = 22.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -204,24 +206,16 @@ fun PricingScreen(
                     }
                 }
 
-                Column {
-                    Text(
-                        text = t("Выберите тариф", "Choose a plan"),
-                        color = AppColors.TextPrimary,
-                        fontSize = 27.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-1.15).sp
-                    )
-                    Spacer(modifier = Modifier.height(3.dp))
-                    Text(
-                        text = t("Одна подписка для всех ваших устройств", "One plan for all your devices"),
-                        color = AppColors.TextSecondary,
-                        fontSize = 12.sp
-                    )
-                }
+                Text(
+                    text = t("Выберите тариф", "Choose a plan"),
+                    color = AppColors.TextPrimary,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.9).sp
+                )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             if (!BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
                 Text(
@@ -232,23 +226,23 @@ fun PricingScreen(
                     color = AppColors.TextSecondary,
                     fontSize = 14.sp,
                     lineHeight = 20.sp,
-                    modifier = Modifier.padding(horizontal = 26.dp, vertical = 12.dp)
+                    modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)
                 )
             } else {
             // Main Content
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 26.dp)
+                    .padding(horizontal = 22.dp)
             ) {
                 Text(
-                    text = t("Количество устройств", "Number of devices"),
+                    text = t("Устройства", "Devices"),
                     color = AppColors.TextSecondary,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
 
                 // Device segment tabs
                 Row(
@@ -318,7 +312,7 @@ fun PricingScreen(
                             fontSize = 12.sp
                         )
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Text(
                     text = t("Срок подписки", "Subscription length"),
@@ -327,7 +321,7 @@ fun PricingScreen(
                     fontWeight = FontWeight.SemiBold
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // 4 Plan options
                 PlanDuration.values().forEach { plan ->
@@ -344,13 +338,13 @@ fun PricingScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 5.dp)
+                            .padding(vertical = 4.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .heightIn(min = 92.dp)
-                                .clip(RoundedCornerShape(18.dp))
+                                .heightIn(min = 68.dp)
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(
                                     if (isSelected && isPopular) AppColors.BgSurfaceElevated
                                     else if (isSelected) AppColors.BgSurfaceAccent
@@ -359,13 +353,13 @@ fun PricingScreen(
                                 .border(
                                     width = 1.dp,
                                     color = if (isSelected) AppColors.BorderActiveGreen else AppColors.BorderDefault,
-                                    shape = RoundedCornerShape(18.dp)
+                                    shape = RoundedCornerShape(16.dp)
                                 )
                                 .clickable {
                                     ByMeHaptics.selection(context)
                                     selectedPlan = plan
                                 }
-                                .padding(horizontal = 18.dp),
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -373,14 +367,14 @@ fun PricingScreen(
                                 Text(
                                     text = if (isRu) plan.title else when (plan) { PlanDuration.Month1 -> "1 month"; PlanDuration.Month4 -> "3 + 1 months"; PlanDuration.Month8 -> "6 + 2 months"; PlanDuration.Month15 -> "12 + 3 months" },
                                     color = AppColors.TextPrimary,
-                                    fontSize = 15.sp,
+                                    fontSize = 14.5.sp,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
+                                Spacer(modifier = Modifier.height(3.dp))
                                 Text(
-                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / месяц ${plan.bonusSubtitle}", "$monthlyRate RUB/month · +${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus month(s)"),
+                                    text = if (verifiedPrice == null) t("Тариф пока недоступен", "Plan unavailable") else if (plan == PlanDuration.Month1) t("$monthlyRate ₽ за месяц", "$monthlyRate RUB per month") else t("$monthlyRate ₽ / мес. ${plan.bonusSubtitle}", "$monthlyRate RUB/mo · +${when (plan) { PlanDuration.Month4 -> 1; PlanDuration.Month8 -> 2; PlanDuration.Month15 -> 3; else -> 0 }} bonus mo."),
                                     color = AppColors.TextSecondary,
-                                    fontSize = 12.5.sp
+                                    fontSize = 12.sp
                                 )
                             }
 
@@ -435,15 +429,7 @@ fun PricingScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
-
-                Text(
-                    text = t("Способ оплаты", "Payment method"),
-                    color = AppColors.TextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-                )
+                Spacer(modifier = Modifier.height(10.dp))
 
                 Row(
                     modifier = Modifier
@@ -451,11 +437,11 @@ fun PricingScreen(
                         .clip(RoundedCornerShape(14.dp))
                         .background(AppColors.BgSurface)
                         .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(14.dp))
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                        .padding(horizontal = 14.dp, vertical = 11.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CreditCardIcon(color = AppColors.SkyBlue, size = 18.dp)
+                    CreditCardIcon(color = AppColors.SkyBlue, size = 17.dp)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = t("Карта или СБП через ЮKassa", "Card or SBP via YooKassa"),
@@ -465,13 +451,13 @@ fun PricingScreen(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Transparent Price Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 10.dp),
+                        .padding(top = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -483,7 +469,7 @@ fun PricingScreen(
                     Text(
                         text = currentPriceLabel,
                         color = AppColors.TextPrimary,
-                        fontSize = 25.sp,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -503,19 +489,18 @@ fun PricingScreen(
                     },
                     color = AppColors.TextMuted,
                     fontSize = 11.5.sp,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 18.dp)
+                    modifier = Modifier.padding(top = 3.dp, bottom = 10.dp)
                 )
 
                 if (BuildConfig.EXTERNAL_CHECKOUT_ENABLED) {
                 Text(
                     text = t(
-                        "Разовый платёж. Новое автопродление и привязка карты через Android не включаются.",
-                        "One-time checkout. Android does not enable new auto-renewal or save your card."
+                        "Разовый платёж · без автосписаний",
+                        "One-time payment · no auto-renewal"
                     ),
                     color = AppColors.TextSecondary,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                    modifier = Modifier.padding(bottom = 14.dp)
+                    fontSize = 11.5.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
                 )
 
                 // CTA Button

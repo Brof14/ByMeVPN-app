@@ -16,6 +16,16 @@ object AccountActionErrorMessages {
             } else {
                 "Google sign-in is unavailable on this device. Sign in with email or Telegram."
             }
+            apiError?.code == "GOOGLE_AUTH_CONFIG_ERROR" -> if (isRussian) {
+                "Ошибка конфигурации входа Google. Проверьте настройки Google Play Services или войдите по почте / через Telegram."
+            } else {
+                "Google sign-in configuration error. Check Google Play Services or sign in with email / Telegram."
+            }
+            apiError?.code == "GOOGLE_AUTH_INTERRUPTED" -> if (isRussian) {
+                "Вход через Google был прерван. Попробуйте ещё раз."
+            } else {
+                "Google sign-in was interrupted. Please try again."
+            }
             apiError?.code == "NETWORK_ERROR" -> if (isRussian) {
                 "Нет соединения. Проверьте интернет и попробуйте войти снова."
             } else {

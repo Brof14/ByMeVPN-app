@@ -163,4 +163,49 @@ class VpnConfigRegressionTest {
             .getJSONObject(0).getJSONObject("streamSettings")
         assertEquals("vpn.Service/Connect", stream.getJSONObject("grpcSettings").getString("serviceName"))
     }
+
+    @Test
+    fun xhttpSessionParsesBackendXhttpSettingsAndExtra() {
+        val config = ApiJsonParsers.parseVpnSessionConfig(JSONObject(
+            """
+            {
+              "protocol": "vless",
+              "server": "edge.example.org",
+              "port": 443,
+              "uuid": "$id",
+              "flow": "xtls-rprx-vision",
+              "security": "reality",
+              "server_name": "front.example.org",
+              "public_key": "key",
+              "network": "splithttp",
+              "xhttpSettings": {
+                "path": "/api/xhttp",
+                "host": "cdn.example.org",
+                "mode": "packet-up",
+                "noGRPCHeader": true
+              },
+              "extra": {
+                "scMinPostsIntervalMs": 30
+              }
+            }
+            """.trimIndent()
+        ))
+
+        assertEquals("xhttp", config.network)
+        assertEquals("/api/xhttp", config.transportPath)
+        assertEquals("cdn.example.org", config.transportHost)
+        assertEquals("packet-up", config.transportMode)
+
+        val proxy = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds").getJSONObject(0)
+        val user = proxy.getJSONObject("settings").getJSONArray("vnext").getJSONObject(0)
+            .getJSONArray("users").getJSONObject(0)
+        assertFalse(user.has("flow"))
+
+        val xhttp = proxy.getJSONObject("streamSettings").getJSONObject("xhttpSettings")
+        assertEquals("/api/xhttp", xhttp.getString("path"))
+        assertEquals("cdn.example.org", xhttp.getString("host"))
+        assertEquals("packet-up", xhttp.getString("mode"))
+        assertTrue(xhttp.getBoolean("noGRPCHeader"))
+        assertEquals(30, xhttp.getJSONObject("extra").getInt("scMinPostsIntervalMs"))
+    }
 }

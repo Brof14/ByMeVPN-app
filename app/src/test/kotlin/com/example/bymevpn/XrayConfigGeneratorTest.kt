@@ -133,4 +133,55 @@ class XrayConfigGeneratorTest {
         assertNotNull(json.optJSONObject("policy"))
         assertNotNull(json.optJSONObject("dns"))
     }
+
+    @Test
+    fun hysteriaAcceptsDefaultEncryptionNoneWithoutThrowing() {
+        val config = VpnSessionConfig(
+            protocol = "hysteria2",
+            server = "hy2.example.org",
+            port = 443,
+            uuid = "secret-pass",
+            encryption = "none",
+            serverName = "hy2.example.org",
+            publicKey = ""
+        )
+        val proxy = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("hysteria", proxy.getString("protocol"))
+        val stream = proxy.getJSONObject("streamSettings")
+        assertEquals("hysteria", stream.getString("network"))
+        org.junit.Assert.assertFalse(stream.has("finalmask"))
+    }
+
+    @Test
+    fun splithttpAndXhttpNormalizeToXhttpAndOmitVisionFlow() {
+        for (net in listOf("xhttp", "splithttp")) {
+            val config = VpnSessionConfig(
+                protocol = "vless",
+                server = "cdn.example.org",
+                port = 443,
+                uuid = "11111111-2222-3333-4444-555555555555",
+                flow = "xtls-rprx-vision",
+                security = "reality",
+                serverName = "cdn.example.org",
+                publicKey = "pubkey",
+                network = net,
+                transportPath = "/xhttp-path",
+                transportHost = "edge.example.org",
+                transportMode = "auto",
+                transportExtra = """{"scMaxEachPostBytes":1000000}"""
+            )
+            val proxy = XrayConfigGenerator.generateJson(config).getJSONArray("outbounds").getJSONObject(0)
+            val user = proxy.getJSONObject("settings").getJSONArray("vnext").getJSONObject(0)
+                .getJSONArray("users").getJSONObject(0)
+            org.junit.Assert.assertFalse("Vision flow must not be emitted for $net", user.has("flow"))
+
+            val stream = proxy.getJSONObject("streamSettings")
+            assertEquals("xhttp", stream.getString("network"))
+            val xhttpSettings = stream.getJSONObject("xhttpSettings")
+            assertEquals("/xhttp-path", xhttpSettings.getString("path"))
+            assertEquals("edge.example.org", xhttpSettings.getString("host"))
+            assertEquals("auto", xhttpSettings.getString("mode"))
+            assertEquals(1000000, xhttpSettings.getJSONObject("extra").getInt("scMaxEachPostBytes"))
+        }
+    }
 }

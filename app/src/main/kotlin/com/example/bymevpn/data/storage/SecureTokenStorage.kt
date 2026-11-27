@@ -397,6 +397,7 @@ class SecureTokenStorage private constructor(context: Context) {
         put("transportHost", cfg.transportHost)
         put("transportMode", cfg.transportMode)
         put("alpn", cfg.alpn)
+        put("transportExtra", cfg.transportExtra)
         put(KEY_CONFIG_SAVED_AT, savedAt)
     }
 
@@ -428,7 +429,8 @@ class SecureTokenStorage private constructor(context: Context) {
             transportPath = obj.optString("transportPath", ""),
             transportHost = obj.optString("transportHost", ""),
             transportMode = obj.optString("transportMode", ""),
-            alpn = obj.optString("alpn", "")
+            alpn = obj.optString("alpn", ""),
+            transportExtra = obj.optString("transportExtra", "")
         )
     }
 

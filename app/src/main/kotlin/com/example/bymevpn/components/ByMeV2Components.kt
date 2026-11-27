@@ -231,10 +231,16 @@ fun ByMeBottomNav(
         modifier = modifier
             .fillMaxWidth()
             .background(AppColors.NavBackground)
-            .border(width = 1.dp, color = AppColors.NavBorder)
             .navigationBarsPadding()
-            .heightIn(min = 72.dp)
+            .heightIn(min = 68.dp)
     ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(AppColors.NavBorder)
+                .align(Alignment.TopCenter)
+        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()

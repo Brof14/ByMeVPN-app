@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Pure client-side AccountRepository coordinating user session and device lists.
@@ -39,8 +40,12 @@ object AccountRepository {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _isInitialized = MutableStateFlow(false)
+    val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
+
     private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private var isInitialized = false
+    @Volatile
+    private var isInitializedFlag = false
 
     private fun refreshAfterLogin(context: Context) {
         val appContext = context.applicationContext
@@ -56,18 +61,32 @@ object AccountRepository {
     }
 
     fun init(context: Context) {
-        if (isInitialized) return
-        isInitialized = true
+        if (isInitializedFlag) return
+        isInitializedFlag = true
 
         val storage = SecureTokenStorage.getInstance(context)
         val cachedUser = storage.getCachedUser()
         if (cachedUser != null) {
             _currentUser.value = cachedUser
         }
+        _isInitialized.value = true
 
         // Network refresh is coordinated from MainActivity.onResume. Starting a
         // second independent refresh here duplicated profile/device/status calls
         // on every cold launch and could race the entitlement-gated server fetch.
+    }
+
+    suspend fun initAsync(context: Context) {
+        if (_isInitialized.value) return
+        val appContext = context.applicationContext
+        val cachedUser = withContext(Dispatchers.IO) {
+            SecureTokenStorage.getInstance(appContext).getCachedUser()
+        }
+        if (cachedUser != null) {
+            _currentUser.value = cachedUser
+        }
+        isInitializedFlag = true
+        _isInitialized.value = true
     }
 
     suspend fun loginWithEmail(context: Context, email: String, pass: String): Result<UserProfile> {

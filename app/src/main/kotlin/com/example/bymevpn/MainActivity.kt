@@ -19,6 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -83,24 +84,31 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(R.style.AppTheme)
         super.onCreate(savedInstanceState)
-        AccountRepository.init(applicationContext)
-        handleIntent(intent)
         enableEdgeToEdge()
+        lifecycleScope.launch {
+            AccountRepository.initAsync(applicationContext)
+            handleIntent(intent)
+        }
         setContent {
             ByMeVPNTheme {
-                Box(Modifier.fillMaxSize()) {
-                    MainAppNav(onRestoreViaTelegram = {
-                        startTelegramLoginFromConnection(allowAccountSwitch = true)
-                    })
-                    pendingExternalSubscription?.let { rawImport ->
-                        ExternalSubscriptionImportDialog(
-                            sourceHost = externalImportHost(rawImport),
-                            onDismiss = { pendingExternalSubscription = null },
-                            onConfirm = {
-                                pendingExternalSubscription = null
-                                importExternalSubscription(rawImport)
-                            }
-                        )
+                val repoInitialized by AccountRepository.isInitialized.collectAsState()
+                if (!repoInitialized) {
+                    Box(Modifier.fillMaxSize().background(AppColors.BgCanvas))
+                } else {
+                    Box(Modifier.fillMaxSize()) {
+                        MainAppNav(onRestoreViaTelegram = {
+                            startTelegramLoginFromConnection(allowAccountSwitch = true)
+                        })
+                        pendingExternalSubscription?.let { rawImport ->
+                            ExternalSubscriptionImportDialog(
+                                sourceHost = externalImportHost(rawImport),
+                                onDismiss = { pendingExternalSubscription = null },
+                                onConfirm = {
+                                    pendingExternalSubscription = null
+                                    importExternalSubscription(rawImport)
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -110,7 +118,14 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleIntent(intent)
+        if (AccountRepository.isInitialized.value) {
+            handleIntent(intent)
+        } else {
+            lifecycleScope.launch {
+                AccountRepository.initAsync(applicationContext)
+                handleIntent(intent)
+            }
+        }
     }
 
     private fun handleIntent(intent: Intent?) {
