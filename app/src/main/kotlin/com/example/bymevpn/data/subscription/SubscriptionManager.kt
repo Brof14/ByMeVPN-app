@@ -209,11 +209,12 @@ class SubscriptionManager private constructor(private val context: Context) {
                 }
             }
 
-            val requestedOwner = storage.getCachedUser()?.id
+            val requestedSessionId = storage.getAccountSessionId()
             val status = apiClient.getSubscriptionStatus()
-            val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
-                if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
-                else { _subscriptionStatus.value = status; storage.saveCachedSubscription(status); true }
+            val saved = storage.withCurrentAccountSession(requestedSessionId) {
+                _subscriptionStatus.value = status
+                storage.saveCachedSubscription(status)
+                true
             }
             check(saved == true) { "Account changed while loading subscription" }
             Result.success(status)
@@ -243,7 +244,7 @@ class SubscriptionManager private constructor(private val context: Context) {
     suspend fun applySubscriptionUrl(
         urlOrConfig: String,
         includeDeviceHeaders: Boolean = false,
-        expectedAccountToken: String? = null
+        expectedAccountSessionId: String? = null
     ): Result<ParsedSubscription> = subscriptionApplyMutex.withLock {
         withContext(Dispatchers.IO) {
         _isSyncing.value = true
@@ -291,8 +292,8 @@ class SubscriptionManager private constructor(private val context: Context) {
                 }
                 true
             }
-            val saved = if (expectedAccountToken != null) {
-                storage.withCurrentAccount(expectedAccountToken, saveResult) == true
+            val saved = if (expectedAccountSessionId != null) {
+                storage.withCurrentAccountSession(expectedAccountSessionId, saveResult) == true
             } else saveResult()
             check(saved) { "Account changed while loading subscription" }
             Result.success(parsed)
@@ -371,7 +372,7 @@ class SubscriptionManager private constructor(private val context: Context) {
         return trialActivationMutex.withLock {
             _isSyncing.value = true
             try {
-                val requestedOwner = storage.getCachedUser()?.id
+                val requestedSessionId = storage.getAccountSessionId()
                 val cached = _subscriptionStatus.value
                 if (TrialActivationPolicy.isConfirmedActiveTrial(cached, System.currentTimeMillis())) {
                     return@withLock Result.success(cached!!)
@@ -405,9 +406,10 @@ class SubscriptionManager private constructor(private val context: Context) {
                     }
                     activeStatus = refreshed
                 }
-                val saved = storage.withCurrentAccount(storage.getAccessToken().orEmpty()) {
-                    if (requestedOwner.isNullOrBlank() || storage.getCachedUser()?.id != requestedOwner) false
-                    else { _subscriptionStatus.value = activeStatus; storage.saveCachedSubscription(activeStatus); true }
+                val saved = storage.withCurrentAccountSession(requestedSessionId) {
+                    _subscriptionStatus.value = activeStatus
+                    storage.saveCachedSubscription(activeStatus)
+                    true
                 }
                 check(saved == true) { "Account changed while activating trial" }
                 Result.success(activeStatus)
