@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -76,13 +75,27 @@ internal fun AuthBrandPanel(
 
         Text(
             text = when {
-                isRu && isSignUp -> "Ваш доступ к интернету — под вашим контролем"
+                isRu && isSignUp -> "Создайте аккаунт"
+                isRu -> "Вход в аккаунт"
+                isSignUp -> "Create your account"
+                else -> "Sign in to your account"
+            },
+            color = AppColors.TextPrimary,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(Modifier.height(4.dp))
+
+        Text(
+            text = when {
+                isRu && isSignUp -> "Управляйте подключением с одного аккаунта"
                 isRu -> "Безопасное подключение начинается здесь"
-                isSignUp -> "Your connection, protected and in your control"
+                isSignUp -> "Manage your connection from one account"
                 else -> "Your secure connection starts here"
             },
             color = AppColors.TextSecondary,
-            fontSize = 13.sp,
+            fontSize = 12.5.sp,
             lineHeight = 18.sp,
             textAlign = TextAlign.Center
         )
