@@ -128,9 +128,17 @@ fun AccountScreen(
         scope.launch {
             try {
                 val result = coroutineScope {
-                    launch { AccountRepository.refreshProfile(context) }
-                    launch { AccountRepository.refreshDevices(context) }
-                    subManager.refreshStatus(forceBackend = true)
+                    val profileRefresh = launch { AccountRepository.refreshProfile(context) }
+                    val devicesRefresh = launch { AccountRepository.refreshDevices(context) }
+                    val statusResult = subManager.refreshStatus(forceBackend = true)
+                    if (statusResult.getOrNull()?.isUsable == true) {
+                        runCatching {
+                            com.example.bymevpn.vpn.VpnManager.getInstance(context).loadServers()
+                        }
+                    }
+                    profileRefresh.join()
+                    devicesRefresh.join()
+                    statusResult
                 }
                 Toast.makeText(
                     context,
@@ -146,9 +154,16 @@ fun AccountScreen(
 
     LaunchedEffect(Unit) {
         coroutineScope {
-            launch { AccountRepository.refreshProfile(context) }
-            launch { AccountRepository.refreshDevices(context) }
-            launch { subManager.refreshStatus(forceBackend = true) }
+            val profileRefresh = launch { AccountRepository.refreshProfile(context) }
+            val devicesRefresh = launch { AccountRepository.refreshDevices(context) }
+            val status = subManager.refreshStatus(forceBackend = true).getOrNull()
+            if (status?.isUsable == true) {
+                runCatching {
+                    com.example.bymevpn.vpn.VpnManager.getInstance(context).loadServers()
+                }
+            }
+            profileRefresh.join()
+            devicesRefresh.join()
         }
     }
 
