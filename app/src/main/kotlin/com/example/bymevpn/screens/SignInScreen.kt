@@ -531,7 +531,7 @@ fun SignInScreen(
                                 .height(58.dp)
                                 .clip(RoundedCornerShape(17.dp))
                                 .background(AppColors.BgSurface)
-                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(13.dp))
+                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                                 .clickable(enabled = !anyLoading) { startGoogleSignIn() }
                                 .testTag("google_login_button"),
                             contentAlignment = Alignment.Center
@@ -608,13 +608,13 @@ fun SignInScreen(
                     Text(
                         text = if (isRu) "Нет аккаунта? " else "Don't have an account? ",
                         color = AppColors.TextSecondary,
-                        fontSize = 13.5.sp
+                        fontSize = 14.5.sp
                     )
                     Text(
                         text = if (isRu) "Создать" else "Sign Up",
                         color = AppColors.SkyBlue,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
