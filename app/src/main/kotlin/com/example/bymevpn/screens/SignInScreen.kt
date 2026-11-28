@@ -220,7 +220,7 @@ fun SignInScreen(
                     if (attempt % 10 == 0) {
                         telegramStatusText = if (isRu) "Всё ещё ждём подтверждение в боте…" else "Still waiting for the bot confirmation…"
                     }
-                    delay(1500)
+                    delay(TelegramAuthPollPolicy.POLL_INTERVAL_MS)
                 }
                 isTelegramLoading = false
                 telegramStatusText = null
