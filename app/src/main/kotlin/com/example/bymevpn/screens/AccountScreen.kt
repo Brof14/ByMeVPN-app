@@ -90,6 +90,7 @@ fun AccountScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
     val isCheckingSubscription by subManager.isSyncing.collectAsState()
+    val lastSubscriptionRefreshError by subManager.lastRefreshError.collectAsState()
     val devices by AccountRepository.userDevices.collectAsState()
     val deviceListUnavailable by AccountRepository.deviceListUnavailable.collectAsState()
 
@@ -327,6 +328,8 @@ fun AccountScreen(
                         isRu = isRu,
                         isChecking = isCheckingSubscription || refreshingAccount,
                         accessConfirmationRequired = accessConfirmationRequired,
+                        status = subscription,
+                        lastError = lastSubscriptionRefreshError,
                         onRetry = { refreshAccountData() },
                         modifier = Modifier.fillMaxWidth()
                     )
