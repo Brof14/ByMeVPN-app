@@ -132,17 +132,17 @@ object AppGradients {
     // Disabled CTA Gradient
     val DisabledButton = Brush.horizontalGradient(
         colors = listOf(
-            Color(0xFF142342),
-            Color(0xFF172B4F)
+            Color(0xFF26323B),
+            Color(0xFF202B34)
         )
     )
 
     // Glass-beveled Sapphire Accent Card
     val AccentCard = Brush.linearGradient(
         colors = listOf(
-            Color(0xFF0E214A),
-            Color(0xFF091838),
-            Color(0xFF1A2631)
+            Color(0xFF1B2933),
+            Color(0xFF17232C),
+            Color(0xFF121C24)
         )
     )
 
