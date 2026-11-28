@@ -8,6 +8,12 @@ import org.junit.Test
 
 class TelegramAuthPollPolicyTest {
     @Test
+    fun confirmationPollingIsFasterButRemainsBounded() {
+        assertTrue(TelegramAuthPollPolicy.POLL_INTERVAL_MS in 500L..1000L)
+        assertTrue(TelegramAuthPollPolicy.MAX_POLL_ATTEMPTS in 60..80)
+    }
+
+    @Test
     fun retriesOnlyTemporaryFailuresAndStopsAfterBoundedAttempts() {
         assertTrue(TelegramAuthPollPolicy.shouldRetry(ApiError("NETWORK_ERROR", "hidden"), 0))
         assertTrue(TelegramAuthPollPolicy.shouldRetry(ApiError("HTTP_503", "hidden", 503), 1))
