@@ -46,7 +46,7 @@ data class SubscriptionRefreshError(
         } else {
             "The server cannot confirm access right now. Please try again shortly."
         }
-        httpStatusCode in 500..599 -> if (isRu) {
+        httpStatusCode != null && httpStatusCode in 500..599 -> if (isRu) {
             "На сервере ByMeVPN временная ошибка (HTTP $httpStatusCode). Повторите запрос позже."
         } else {
             "The ByMeVPN server returned a temporary error (HTTP $httpStatusCode). Please retry later."
