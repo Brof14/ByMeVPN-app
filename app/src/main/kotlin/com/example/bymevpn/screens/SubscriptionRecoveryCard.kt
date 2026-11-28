@@ -41,6 +41,7 @@ internal fun SubscriptionRecoveryCard(
     val reason = status?.trialUnavailableReason
     val title = when {
         isChecking -> if (isRu) "Обновляем подписку" else "Updating subscription"
+        lastError != null -> if (isRu) "Не удалось обновить подписку" else "Could not refresh subscription"
         accessConfirmationRequired -> if (isRu) "Подтвердите устройство" else "Confirm this device"
         status?.isUndetermined == true && reason == "subscription_verification_required" ->
             if (isRu) "Не подтверждён срок подписки" else "Subscription expiry is not confirmed"
@@ -52,6 +53,7 @@ internal fun SubscriptionRecoveryCard(
         } else {
             "Retrieving the latest account information."
         }
+        lastError != null -> lastError.userMessage(isRu)
         accessConfirmationRequired -> if (isRu) {
             "Подписка активна. Серверу нужно подтвердить это устройство перед подключением."
         } else {
@@ -67,7 +69,6 @@ internal fun SubscriptionRecoveryCard(
         } else {
             "The server could not retrieve subscription details. Your paid access period is unchanged."
         }
-        lastError != null -> lastError.userMessage(isRu)
         else -> if (isRu) {
             "Сервер не вернул подтверждённый статус. Данные аккаунта и оплаченный срок не изменены."
         } else {
