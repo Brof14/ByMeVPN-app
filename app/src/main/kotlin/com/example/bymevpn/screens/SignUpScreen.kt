@@ -109,6 +109,10 @@ fun SignUpScreen(
     var telegramBotUrl by remember { mutableStateOf<String?>(null) }
     var telegramWaitSeconds by remember { mutableIntStateOf(0) }
 
+    LaunchedEffect(Unit) {
+        AccountRepository.prefetchGoogleSignInNonce(context)
+    }
+
     LaunchedEffect(isTelegramLoading) {
         if (isTelegramLoading) {
             telegramWaitSeconds = 0
@@ -183,7 +187,7 @@ fun SignUpScreen(
                 var confirmed = false
                 var transientFailures = 0
                 var checkError: Throwable? = null
-                for (attempt in 1..40) {
+                for (attempt in 1..TelegramAuthPollPolicy.MAX_POLL_ATTEMPTS) {
                     val checkRes = AccountRepository.checkTelegramAuthSession(context, session.sessionToken)
                     if (checkRes.isSuccess && checkRes.getOrNull() != null) {
                         confirmed = true
@@ -193,13 +197,13 @@ fun SignUpScreen(
                     if (error != null) {
                         if (TelegramAuthPollPolicy.shouldRetry(error, transientFailures)) {
                             transientFailures++
-                            delay(1500)
+                            delay(TelegramAuthPollPolicy.POLL_INTERVAL_MS)
                             continue
                         }
                         checkError = error
                         break
                     }
-                    if (attempt % 7 == 0) {
+                    if (attempt % 10 == 0) {
                         telegramStatusText = if (isRu) "Всё ещё ждём подтверждение в боте…" else "Still waiting for the bot confirmation…"
                     }
                     delay(1500)
