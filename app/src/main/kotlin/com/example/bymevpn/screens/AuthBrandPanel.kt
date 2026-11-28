@@ -28,7 +28,7 @@ internal fun AuthBrandPanel(
         modifier = modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        ShieldLogo(size = if (compact) 76.dp else 88.dp, isActive = true)
+        ShieldLogo(size = if (compact) 74.dp else 86.dp, isActive = true)
 
         Spacer(Modifier.height(8.dp))
 
@@ -36,9 +36,9 @@ internal fun AuthBrandPanel(
             Text(
                 text = "ByMe",
                 color = AppColors.TextPrimary,
-                fontSize = 28.sp,
+                fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = (-1.0).sp
+                letterSpacing = (-1.1).sp
             )
             Text(
                 text = "VPN",
