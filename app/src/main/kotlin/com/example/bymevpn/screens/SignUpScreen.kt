@@ -474,7 +474,7 @@ fun SignUpScreen(
                                 .height(58.dp)
                                 .clip(RoundedCornerShape(17.dp))
                                 .background(AppColors.BgSurface)
-                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(13.dp))
+                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                                 .clickable(enabled = !anyLoading) {
                                     focusManager.clearFocus()
                                     isGoogleLoading = true
@@ -561,13 +561,13 @@ fun SignUpScreen(
                     Text(
                         text = if (isRu) "Уже есть аккаунт? " else "Already have an account? ",
                         color = AppColors.TextSecondary,
-                        fontSize = 13.5.sp
+                        fontSize = 14.5.sp
                     )
                     Text(
                         text = if (isRu) "Войти" else "Sign In",
                         color = AppColors.SkyBlue,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
