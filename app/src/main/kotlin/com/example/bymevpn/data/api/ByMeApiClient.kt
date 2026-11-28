@@ -573,19 +573,34 @@ class ByMeApiClient(private val context: Context) {
                 if (ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()) {
                     setRequestProperty("X-Entitlement-Version", "es256-v1")
                 }
-                val installId = storage.getInstallId(context)
-                if (installId.isNotBlank()) {
-                    setRequestProperty("X-HWID", installId)
+                val signedEntitlementsEnabled = ApiConfig.SERVER_ES256_PUBLIC_KEY.isNotBlank()
+                val includeHwid = ApiDeviceHeaderPolicy.includeHwid(
+                    method = method,
+                    endpoint = endpoint,
+                    signedEntitlementsEnabled = signedEntitlementsEnabled
+                )
+                val includeDeviceMetadata = ApiDeviceHeaderPolicy.includeDeviceMetadata(
+                    method = method,
+                    endpoint = endpoint,
+                    signedEntitlementsEnabled = signedEntitlementsEnabled
+                )
+                if (includeHwid) {
+                    val installId = storage.getInstallId(context)
+                    if (installId.isNotBlank()) {
+                        setRequestProperty("X-HWID", installId)
+                    }
                 }
-                setRequestProperty("X-Device-OS", "Android")
-                setRequestProperty(
-                    "X-Ver-OS",
-                    android.os.Build.VERSION.RELEASE?.ifBlank { "unknown" } ?: "unknown"
-                )
-                setRequestProperty(
-                    "X-Device-Model",
-                    storage.getDeviceModel().ifBlank { "Android device" }
-                )
+                if (includeDeviceMetadata) {
+                    setRequestProperty("X-Device-OS", "Android")
+                    setRequestProperty(
+                        "X-Ver-OS",
+                        android.os.Build.VERSION.RELEASE?.ifBlank { "unknown" } ?: "unknown"
+                    )
+                    setRequestProperty(
+                        "X-Device-Model",
+                        storage.getDeviceModel().ifBlank { "Android device" }
+                    )
+                }
 
                 if (requiresAuth || authTokenOverride != null) {
                     val token = authTokenOverride ?: tokenAtRequest
