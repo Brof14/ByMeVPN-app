@@ -6,18 +6,27 @@ plugins {
     kotlin("plugin.compose")
 }
 
-val serverEntitlementPublicKey = providers.gradleProperty("serverEntitlementPublicKey")
+// Signed device-bound entitlements are opt-in until the matching private key
+// is confirmed on the production API. Public releases intentionally remain on
+// the same legacy API contract as the working Windows client by default.
+val signedEntitlementsEnabled = providers.gradleProperty("enableSignedEntitlements").orNull == "true"
+val configuredServerEntitlementPublicKey = providers.gradleProperty("serverEntitlementPublicKey")
     .orElse(providers.environmentVariable("SERVER_ES256_PUBLIC_KEY"))
     .getOrElse("")
+val serverEntitlementPublicKey = if (signedEntitlementsEnabled) {
+    configuredServerEntitlementPublicKey
+} else {
+    ""
+}
 val escapedEntitlementPublicKey = serverEntitlementPublicKey
     .replace("\\", "\\\\")
     .replace("\"", "\\\"")
     .replace("\r", "\\r")
     .replace("\n", "\\n")
-require(serverEntitlementPublicKey.isBlank() ||
+require(!signedEntitlementsEnabled ||
     (serverEntitlementPublicKey.startsWith("-----BEGIN PUBLIC KEY-----") &&
         serverEntitlementPublicKey.trimEnd().endsWith("-----END PUBLIC KEY-----"))) {
-    "SERVER_ES256_PUBLIC_KEY must be a PEM-encoded public key"
+    "Set enableSignedEntitlements=true and provide a PEM SERVER_ES256_PUBLIC_KEY to opt in."
 }
 
 android {
@@ -29,8 +38,8 @@ android {
         minSdk = 24
         targetSdk = 36
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        versionCode = 58
-        versionName = "1.0.57"
+        versionCode = 59
+        versionName = "1.0.58"
         buildConfigField("String", "SERVER_ES256_PUBLIC_KEY", "\"$escapedEntitlementPublicKey\"")
     }
 

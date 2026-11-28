@@ -110,10 +110,8 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY || secrets.SERVER_ES256_PUBLIC_KEY }}
         run: |
           set -euo pipefail
-          test -n "$SERVER_ES256_PUBLIC_KEY"
           test -s app/libs/libv2ray.aar
           gradle :app:assembleRelease :app:bundlePlay cyclonedxBom -PrequireNativeLibv2ray=true --no-daemon
 
@@ -173,7 +171,7 @@ jobs:
                   abi: asset(f"ByMeVPN-v{version_name}-{abi}.apk")
                   for abi in ("arm64-v8a", "armeabi-v7a", "x86", "x86_64")
               } | {"universal": asset(universal)},
-              "release_notes": f"ByMeVPN {version_name} — точнее проверяется срок подписки по данным панели; обновлены экраны входа, регистрации и восстановления доступа."
+              "release_notes": f"ByMeVPN {version_name} — исправлена совместимость проверки подписки на Android; ускорена авторизация Google и Telegram."
           }
           Path("dist/update.json").write_text(
               json.dumps(manifest, ensure_ascii=False, separators=(",", ":")) + "\n",
@@ -189,9 +187,9 @@ jobs:
         run: |
           set -euo pipefail
           cat > dist/release-notes.md <<'EOF'
-          **Что исправлено:** приложение получает более понятное состояние подписки и показывает конкретную причину, когда сервер не может её подтвердить. Серверная логика использует положительное значение `expire` из `Subscription-Userinfo`, если в записи клиента панели отсутствует срок действия. Неизвестный срок не считается активной подпиской без подтверждения.
+          **Подписка:** Android использует тот же совместимый API-контракт, что и Windows. Проверка подписки больше не зависит от неподтверждённого ES256 signer/device gate на production VPS. Подписанные разрешения остаются доступными для отдельного включения после проверки серверной конфигурации.
 
-          **Дизайн:** обновлены экраны входа и регистрации, увеличена читаемость полей и основных действий. Упрощён экран восстановления подписки: убрана вложенная панель последней проверки, а сетевые ошибки показывают понятное сообщение и код обращения.
+          **Авторизация:** запрос Google nonce запускается заранее при открытии экрана входа и используется один раз. Подтверждение входа через Telegram проверяется чаще — интервал сокращён с 1,5 до 0,9 секунды, количество попыток ограничено.
 
           **Для установки:** скачайте универсальный APK — файл `ByMeVPN-v...apk` без суффикса архитектуры. Для меньшего размера можно выбрать `arm64-v8a` — этот вариант подходит большинству современных телефонов.
 

@@ -68,9 +68,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          SERVER_ES256_PUBLIC_KEY: ${{ vars.SERVER_ES256_PUBLIC_KEY || secrets.SERVER_ES256_PUBLIC_KEY }}
         run: |
-          test -n "$SERVER_ES256_PUBLIC_KEY"
           test -s app/libs/libv2ray.aar
           gradle :app:assembleRelease -PrequireNativeLibv2ray=true --no-daemon
       - name: Verify APK and generate update manifest
@@ -117,7 +115,7 @@ jobs:
               'download_url': universal['download_url'],
               'sha256': universal['sha256'],
               'abi_downloads': {**downloads, 'universal': universal},
-              'release_notes': f'ByMeVPN {version} — исправления стабильности авторизации и состояния подписки.'
+              'release_notes': f'ByMeVPN {version} — Android использует совместимый контракт проверки подписки; ускорена авторизация Google и Telegram.'
           }
           Path('dist/update.json').write_text(json.dumps(manifest, ensure_ascii=False, separators=(',', ':')) + '\n')
           PY
@@ -129,7 +127,7 @@ jobs:
           gh release create "$RELEASE_REF" dist/*.apk dist/update.json \
             --verify-tag \
             --title "ByMeVPN $RELEASE_REF" \
-            --notes "Улучшена отзывчивость, обновление пинга и размер APK-загрузки для устройств."
+            --notes "Android использует совместимый API-контракт проверки подписки. Запрос Google nonce предварительно загружается, подтверждение Telegram проверяется чаще."
       - uses: actions/upload-artifact@v4
         with:
           name: ByMeVPN-direct-${{ github.ref_name }}

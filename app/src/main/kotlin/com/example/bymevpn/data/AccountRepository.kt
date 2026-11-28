@@ -1,6 +1,7 @@
 package com.example.bymevpn.data
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ByMeApiClient
@@ -13,6 +14,7 @@ import com.example.bymevpn.data.storage.SecureTokenStorage
 import com.example.bymevpn.data.subscription.SubscriptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -22,6 +24,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -47,6 +51,15 @@ object AccountRepository {
     val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
     private val repoScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private data class GoogleNonceTicket(
+        val createdAtElapsedMs: Long,
+        val request: Deferred<String>
+    )
+    private val googleNonceMutex = Mutex()
+    private var pendingGoogleNonce: GoogleNonceTicket? = null
+    private var googleSignInInProgress = false
+    private const val GOOGLE_NONCE_MAX_AGE_MS = 240_000L
+
     @Volatile
     private var isInitializedFlag = false
 
@@ -61,6 +74,73 @@ object AccountRepository {
                 com.example.bymevpn.vpn.VpnManager.getInstance(appContext).loadServers()
             }
         }
+    }
+
+    /**
+     * Starts the one-time Google challenge request while the auth screen is idle.
+     * The nonce is held for at most four minutes, consumed once, and never persisted.
+     */
+    fun prefetchGoogleSignInNonce(context: Context) {
+        val appContext = context.applicationContext
+        repoScope.launch {
+            googleNonceMutex.withLock {
+                if (googleSignInInProgress) return@withLock
+                val now = SystemClock.elapsedRealtime()
+                val current = pendingGoogleNonce
+                if (current != null &&
+                    now - current.createdAtElapsedMs in 0 until GOOGLE_NONCE_MAX_AGE_MS &&
+                    !current.request.isCancelled
+                ) return@withLock
+
+                current?.request?.cancel()
+                val request = repoScope.async {
+                    ByMeApiClient(appContext).createGoogleAuthNonce()
+                }
+                pendingGoogleNonce = GoogleNonceTicket(now, request)
+                request.invokeOnCompletion { cause ->
+                    if (cause != null) {
+                        repoScope.launch {
+                            googleNonceMutex.withLock {
+                                if (pendingGoogleNonce?.request === request) {
+                                    pendingGoogleNonce = null
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun takeGoogleSignInNonce(context: Context): String {
+        val appContext = context.applicationContext
+        val request = googleNonceMutex.withLock {
+            googleSignInInProgress = true
+            val now = SystemClock.elapsedRealtime()
+            val current = pendingGoogleNonce
+            pendingGoogleNonce = null
+            if (current != null &&
+                now - current.createdAtElapsedMs in 0 until GOOGLE_NONCE_MAX_AGE_MS &&
+                !current.request.isCancelled
+            ) {
+                current.request
+            } else {
+                current?.request?.cancel()
+                repoScope.async {
+                    ByMeApiClient(appContext).createGoogleAuthNonce()
+                }
+            }
+        }
+        return try {
+            request.await()
+        } catch (error: Exception) {
+            googleNonceMutex.withLock { googleSignInInProgress = false }
+            throw error
+        }
+    }
+
+    private suspend fun finishGoogleSignInNonce() {
+        googleNonceMutex.withLock { googleSignInInProgress = false }
     }
 
     fun init(context: Context) {
@@ -150,7 +230,7 @@ object AccountRepository {
         var stage = "request_nonce"
         return try {
             val api = ByMeApiClient(context)
-            val nonce = api.createGoogleAuthNonce()
+            val nonce = takeGoogleSignInNonce(context)
             stage = "google_credential"
             val helper = GoogleAuthHelper(context)
             when (val authResult = helper.signInWithGoogle(nonce)) {
@@ -177,6 +257,7 @@ object AccountRepository {
             )
             Result.failure(e)
         } finally {
+            finishGoogleSignInNonce()
             _isLoading.value = false
         }
     }
