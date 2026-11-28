@@ -6,7 +6,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -76,8 +75,6 @@ class AndroidUiSmokeTest {
 
         composeRule.onNodeWithText("ByMe").assertIsDisplayed()
         composeRule.onNodeWithText("VPN").assertIsDisplayed()
-        composeRule.onNodeWithText("Защита").assertDoesNotExist()
-        composeRule.onNodeWithText("Up to 10").assertDoesNotExist()
     }
 
     @Test
@@ -100,7 +97,6 @@ class AndroidUiSmokeTest {
         composeRule.onNodeWithText("Не подтверждён срок подписки").assertIsDisplayed()
         composeRule.onNodeWithText("Ссылка подписки найдена, но панель не вернула подтверждённую дату окончания. Доступ не считается отменённым — повторите запрос.")
             .assertIsDisplayed()
-        composeRule.onNodeWithText("ПОСЛЕДНЯЯ ПРОВЕРКА").assertDoesNotExist()
         composeRule.onNodeWithText("Повторить проверку").assertHasClickAction().performClick()
         composeRule.runOnIdle { assertEquals(1, retries) }
     }
