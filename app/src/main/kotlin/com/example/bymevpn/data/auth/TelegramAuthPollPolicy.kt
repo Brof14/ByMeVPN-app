@@ -4,6 +4,9 @@ import com.example.bymevpn.data.api.ApiError
 
 /** Bound retries for temporary transport/server errors while polling a confirmed Telegram session. */
 object TelegramAuthPollPolicy {
+    // Faster confirmation without approaching the backend's 300-request/10-minute IP quota.
+    const val POLL_INTERVAL_MS = 900L
+    const val MAX_POLL_ATTEMPTS = 70
     const val MAX_TRANSIENT_RETRIES = 2
 
     fun shouldRetry(error: Throwable, retriesAlreadyUsed: Int): Boolean {
