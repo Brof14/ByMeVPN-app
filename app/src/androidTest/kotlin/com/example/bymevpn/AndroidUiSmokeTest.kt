@@ -15,6 +15,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.example.bymevpn.components.ByMeSettingRow
+import com.example.bymevpn.data.api.SubscriptionStatus
+import com.example.bymevpn.screens.AuthBrandPanel
+import com.example.bymevpn.screens.SubscriptionRecoveryCard
 import com.example.bymevpn.components.VpnPowerButton
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -62,6 +65,40 @@ class AndroidUiSmokeTest {
             .assertHasClickAction()
             .performClick()
         composeRule.runOnIdle { assertEquals(1, taps) }
+    }
+
+    @Test
+    fun authBrandHeaderUsesOnlyTheProductMarkAndWordmark() {
+        composeRule.setContent {
+            AuthBrandPanel(compact = false)
+        }
+
+        composeRule.onNodeWithText("ByMe").assertIsDisplayed()
+        composeRule.onNodeWithText("VPN").assertIsDisplayed()
+    }
+
+    @Test
+    fun subscriptionRecoveryHasNoNestedLastCheckPanel() {
+        var retries = 0
+        composeRule.setContent {
+            SubscriptionRecoveryCard(
+                isRu = true,
+                isChecking = false,
+                accessConfirmationRequired = false,
+                status = SubscriptionStatus(
+                    status = "unknown",
+                    trialUnavailableReason = "subscription_verification_required"
+                ),
+                lastError = null,
+                onRetry = { retries++ }
+            )
+        }
+
+        composeRule.onNodeWithText("Не подтверждён срок подписки").assertIsDisplayed()
+        composeRule.onNodeWithText("Ссылка подписки найдена, но панель не вернула подтверждённую дату окончания. Доступ не считается отменённым — повторите запрос.")
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Повторить проверку").assertHasClickAction().performClick()
+        composeRule.runOnIdle { assertEquals(1, retries) }
     }
 
     @Test

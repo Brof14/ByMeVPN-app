@@ -51,15 +51,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.bymevpn.components.EyeIcon
@@ -67,7 +64,6 @@ import com.example.bymevpn.components.GoogleLogoIcon
 import com.example.bymevpn.components.LockIcon
 import com.example.bymevpn.components.MailIcon
 import com.example.bymevpn.components.PaperPlaneIcon
-import com.example.bymevpn.components.ShieldLogo
 import com.example.bymevpn.components.TelegramSignInDialog
 import com.example.bymevpn.data.AccountRepository
 import com.example.bymevpn.data.LocaleManager
@@ -76,7 +72,6 @@ import com.example.bymevpn.data.api.ApiConfig
 import com.example.bymevpn.data.auth.TelegramAuthPollPolicy
 import com.example.bymevpn.data.auth.TelegramLinkOpener
 import com.example.bymevpn.theme.AppColors
-import com.example.bymevpn.theme.AppGradients
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -271,156 +266,183 @@ fun SignUpScreen(
                     .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                AuthBrandPanel(
-                    isRu = isRu,
-                    isSignUp = true,
-                    compact = compactScreen
+                AuthBrandPanel(compact = compactScreen)
+
+                Spacer(modifier = Modifier.height(if (compactScreen) 16.dp else 22.dp))
+
+                Text(
+                    text = if (isRu) "Создать аккаунт" else "Create account",
+                    color = AppColors.TextPrimary,
+                    fontSize = if (compactScreen) 30.sp else 34.sp,
+                    lineHeight = if (compactScreen) 36.sp else 40.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.8).sp
                 )
 
-                Spacer(modifier = Modifier.height(if (compactScreen) 16.dp else 20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(AppColors.BgSurface)
-                        .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(20.dp))
-                        .padding(18.dp)
-                ) {
-                    SignUpInputField(
-                        value = email,
-                        onValueChange = {
-                            email = it
-                            emailError = null
-                            authError = null
-                        },
-                        hintText = if (isRu) "Email" else "Email address",
-                        leadingIcon = { MailIcon(color = if (emailError != null) AppColors.StatusError else AppColors.TextMuted, size = 18.dp) },
-                        keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Next,
-                        isError = emailError != null
-                    )
+                Text(
+                    text = if (isRu) "Один аккаунт для всех ваших устройств" else "One account for all your devices",
+                    color = AppColors.TextSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 19.sp
+                )
 
-                    if (emailError != null) {
-                        Text(
-                            text = emailError ?: "",
-                            color = AppColors.StatusError,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(start = 4.dp, top = 5.dp)
+                Spacer(modifier = Modifier.height(if (compactScreen) 18.dp else 24.dp))
+
+                SignUpInputField(
+                    value = email,
+                    onValueChange = {
+                        email = it
+                        emailError = null
+                        authError = null
+                    },
+                    hintText = if (isRu) "Email" else "Email",
+                    leadingIcon = {
+                        MailIcon(
+                            color = if (emailError != null) AppColors.StatusError else AppColors.TextMuted,
+                            size = 22.dp
                         )
-                    }
+                    },
+                    keyboardType = KeyboardType.Email,
+                    imeAction = ImeAction.Next,
+                    isError = emailError != null
+                )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                if (emailError != null) {
+                    Text(
+                        text = emailError.orEmpty(),
+                        color = AppColors.StatusError,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 5.dp)
+                    )
+                }
 
-                    SignUpInputField(
-                        value = password,
-                        onValueChange = {
-                            password = it
-                            passwordError = null
-                            authError = null
-                        },
-                        hintText = if (isRu) "Пароль (от 6 символов)" else "Password (6+ characters)",
-                        leadingIcon = { LockIcon(color = if (passwordError != null) AppColors.StatusError else AppColors.TextMuted, size = 18.dp) },
-                        trailingIcon = {
-                            IconButton(
-                                onClick = { passwordVisible = !passwordVisible },
-                                modifier = Modifier.size(44.dp).semantics {
-                                    contentDescription = if (passwordVisible) {
-                                        if (isRu) "Скрыть пароль" else "Hide password"
-                                    } else {
-                                        if (isRu) "Показать пароль" else "Show password"
-                                    }
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SignUpInputField(
+                    value = password,
+                    onValueChange = {
+                        password = it
+                        passwordError = null
+                        authError = null
+                    },
+                    hintText = if (isRu) "Пароль (от 6 символов)" else "Password (6+ characters)",
+                    leadingIcon = {
+                        LockIcon(
+                            color = if (passwordError != null) AppColors.StatusError else AppColors.TextMuted,
+                            size = 22.dp
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(
+                            onClick = { passwordVisible = !passwordVisible },
+                            modifier = Modifier.size(48.dp).semantics {
+                                contentDescription = if (passwordVisible) {
+                                    if (isRu) "Скрыть пароль" else "Hide password"
+                                } else {
+                                    if (isRu) "Показать пароль" else "Show password"
                                 }
-                            ) {
-                                EyeIcon(visible = passwordVisible, color = AppColors.TextMuted, size = 18.dp)
                             }
-                        },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Next,
-                        isError = passwordError != null
-                    )
-
-                    if (passwordError != null) {
-                        Text(
-                            text = passwordError ?: "",
-                            color = AppColors.StatusError,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(start = 4.dp, top = 5.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    SignUpInputField(
-                        value = confirmPassword,
-                        onValueChange = {
-                            confirmPassword = it
-                            confirmError = null
-                            authError = null
-                        },
-                        hintText = if (isRu) "Повторите пароль" else "Confirm password",
-                        leadingIcon = { LockIcon(color = if (confirmError != null) AppColors.StatusError else AppColors.TextMuted, size = 18.dp) },
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                        onImeAction = { submitSignUp() },
-                        isError = confirmError != null
-                    )
-
-                    if (confirmError != null) {
-                        Text(
-                            text = confirmError ?: "",
-                            color = AppColors.StatusError,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(start = 4.dp, top = 5.dp)
-                        )
-                    }
-
-                    if (authError != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(AppColors.BadgeRedBg)
-                                .border(1.dp, AppColors.StatusError.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                text = authError ?: "",
-                                color = AppColors.BadgeRedText,
-                                fontSize = 12.5.sp,
-                                lineHeight = 17.sp
-                            )
+                            EyeIcon(visible = passwordVisible, color = AppColors.TextMuted, size = 21.dp)
                         }
-                    }
+                    },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Next,
+                    isError = passwordError != null
+                )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                if (passwordError != null) {
+                    Text(
+                        text = passwordError.orEmpty(),
+                        color = AppColors.StatusError,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 5.dp)
+                    )
+                }
 
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SignUpInputField(
+                    value = confirmPassword,
+                    onValueChange = {
+                        confirmPassword = it
+                        confirmError = null
+                        authError = null
+                    },
+                    hintText = if (isRu) "Повторите пароль" else "Confirm password",
+                    leadingIcon = {
+                        LockIcon(
+                            color = if (confirmError != null) AppColors.StatusError else AppColors.TextMuted,
+                            size = 22.dp
+                        )
+                    },
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardType = KeyboardType.Password,
+                    imeAction = ImeAction.Done,
+                    onImeAction = { submitSignUp() },
+                    isError = confirmError != null
+                )
+
+                if (confirmError != null) {
+                    Text(
+                        text = confirmError.orEmpty(),
+                        color = AppColors.StatusError,
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth().padding(start = 4.dp, top = 5.dp)
+                    )
+                }
+
+                if (authError != null) {
+                    Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp)
-                            .clip(RoundedCornerShape(13.dp))
-                            .background(AppGradients.PrimaryButton)
-                            .clickable(enabled = !anyLoading) { submitSignUp() },
-                        contentAlignment = Alignment.Center
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(AppColors.BadgeRedBg)
+                            .border(1.dp, AppColors.StatusError.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 11.dp)
                     ) {
-                        if (isEmailLoading) {
-                            CircularProgressIndicator(color = AppColors.BrandMintDarkText, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text(
-                                text = if (isRu) "Создать аккаунт" else "Create Account",
-                                color = AppColors.BrandMintDarkText,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                        Text(
+                            text = authError.orEmpty(),
+                            color = AppColors.BadgeRedText,
+                            fontSize = 13.sp,
+                            lineHeight = 18.sp
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(18.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(AppColors.White)
+                        .clickable(enabled = !anyLoading) { submitSignUp() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isEmailLoading) {
+                        CircularProgressIndicator(
+                            color = AppColors.BgCanvas,
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (isRu) "Создать аккаунт" else "Create account",
+                            color = AppColors.BgCanvas,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.2).sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(if (compactScreen) 20.dp else 26.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -428,7 +450,7 @@ fun SignUpScreen(
                 ) {
                     HorizontalDivider(modifier = Modifier.weight(1f), color = AppColors.BorderSubtle, thickness = 1.dp)
                     Text(
-                        text = if (isRu) "или войти через" else "or continue with",
+                        text = if (isRu) "или создать аккаунт через" else "or sign up with",
                         color = AppColors.TextMuted,
                         fontSize = 12.sp,
                         modifier = Modifier.padding(horizontal = 12.dp)
@@ -446,10 +468,10 @@ fun SignUpScreen(
                         Box(
                             modifier = Modifier
                                 .weight(1f)
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(13.dp))
+                                .height(58.dp)
+                                .clip(RoundedCornerShape(17.dp))
                                 .background(AppColors.BgSurface)
-                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(13.dp))
+                                .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(17.dp))
                                 .clickable(enabled = !anyLoading) {
                                     focusManager.clearFocus()
                                     isGoogleLoading = true
@@ -475,13 +497,13 @@ fun SignUpScreen(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.Center
                                 ) {
-                                    GoogleLogoIcon(size = 18.dp)
+                                    GoogleLogoIcon(size = 24.dp)
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(
                                         text = "Google",
                                         color = AppColors.TextPrimary,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
+                                        fontSize = 16.5.sp,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 }
                             }
@@ -491,8 +513,8 @@ fun SignUpScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(48.dp)
-                            .clip(RoundedCornerShape(13.dp))
+                            .height(58.dp)
+                            .clip(RoundedCornerShape(17.dp))
                             .background(AppColors.BgSurface)
                             .border(1.dp, AppColors.BorderDefault, RoundedCornerShape(13.dp))
                             .clickable(enabled = !anyLoading) { startTelegramSignUp() }
@@ -510,13 +532,13 @@ fun SignUpScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.Center
                             ) {
-                                PaperPlaneIcon(color = AppColors.TelegramBlue, size = 17.dp)
+                                PaperPlaneIcon(color = AppColors.TelegramBlue, size = 23.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "Telegram",
                                     color = AppColors.TextPrimary,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontSize = 16.5.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             }
                         }
@@ -536,13 +558,13 @@ fun SignUpScreen(
                     Text(
                         text = if (isRu) "Уже есть аккаунт? " else "Already have an account? ",
                         color = AppColors.TextSecondary,
-                        fontSize = 13.5.sp
+                        fontSize = 14.5.sp
                     )
                     Text(
                         text = if (isRu) "Войти" else "Sign In",
                         color = AppColors.SkyBlue,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.Bold
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -575,11 +597,11 @@ private fun SignUpInputField(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(50.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .height(58.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(AppColors.BgInput)
-            .border(1.dp, borderColor, RoundedCornerShape(12.dp))
-            .padding(horizontal = 14.dp),
+            .border(1.dp, borderColor.copy(alpha = if (isFocused || isError) 0.9f else 0.38f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 18.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
@@ -594,7 +616,7 @@ private fun SignUpInputField(
                     Text(
                         text = hintText,
                         color = AppColors.TextMuted,
-                        fontSize = 14.sp
+                        fontSize = 16.sp
                     )
                 }
 
@@ -604,7 +626,7 @@ private fun SignUpInputField(
                     singleLine = true,
                     textStyle = TextStyle(
                         color = AppColors.TextPrimary,
-                        fontSize = 14.5.sp,
+                        fontSize = 16.5.sp,
                         fontWeight = FontWeight.Medium
                     ),
                     visualTransformation = visualTransformation,

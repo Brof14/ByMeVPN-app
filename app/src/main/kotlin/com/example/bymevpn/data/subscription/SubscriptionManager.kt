@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import com.example.bymevpn.data.api.ApiConfig
+import com.example.bymevpn.data.api.ApiError
 import com.example.bymevpn.data.api.ByMeApiClient
 import com.example.bymevpn.data.api.SubscriptionStatus
 import com.example.bymevpn.data.storage.SecureTokenStorage
@@ -18,6 +19,50 @@ import kotlinx.coroutines.sync.withLock
 import java.net.HttpURLConnection
 import java.net.URL
 import org.json.JSONObject
+
+data class SubscriptionRefreshError(
+    val code: String,
+    val httpStatusCode: Int? = null,
+    val correlationId: String? = null
+) {
+    fun userMessage(isRu: Boolean): String = when {
+        code == "NETWORK_ERROR" -> if (isRu) {
+            "Нет соединения с сервером ByMeVPN. Проверьте интернет и повторите запрос."
+        } else {
+            "Could not reach the ByMeVPN server. Check your connection and try again."
+        }
+        code == "UNAUTHORIZED" || httpStatusCode == 401 -> if (isRu) {
+            "Сеанс аккаунта истёк. Войдите в аккаунт заново."
+        } else {
+            "Your account session expired. Sign in again."
+        }
+        code == "ACCOUNT_CHANGED" -> if (isRu) {
+            "Аккаунт обновился во время проверки. Повторите запрос."
+        } else {
+            "The account changed during verification. Please retry."
+        }
+        httpStatusCode == 503 || code == "ENTITLEMENT_SIGNING_UNAVAILABLE" -> if (isRu) {
+            "Сервер временно не может подтвердить доступ. Повторите запрос немного позже."
+        } else {
+            "The server cannot confirm access right now. Please try again shortly."
+        }
+        httpStatusCode != null && httpStatusCode in 500..599 -> if (isRu) {
+            "На сервере ByMeVPN временная ошибка (HTTP $httpStatusCode). Повторите запрос позже."
+        } else {
+            "The ByMeVPN server returned a temporary error (HTTP $httpStatusCode). Please retry later."
+        }
+        httpStatusCode != null -> if (isRu) {
+            "Сервер не завершил проверку подписки (HTTP $httpStatusCode)."
+        } else {
+            "The server could not complete the subscription check (HTTP $httpStatusCode)."
+        }
+        else -> if (isRu) {
+            "Не удалось завершить проверку подписки. Повторите запрос."
+        } else {
+            "The subscription check could not be completed. Please retry."
+        }
+    }
+}
 
 /**
  * Controls whether a server-list caller must wait for the full panel subscription feed.
@@ -75,6 +120,9 @@ class SubscriptionManager private constructor(private val context: Context) {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    private val _lastRefreshError = MutableStateFlow<SubscriptionRefreshError?>(null)
+    val lastRefreshError: StateFlow<SubscriptionRefreshError?> = _lastRefreshError.asStateFlow()
+
     /**
      * Checks if the user is authorized to connect to VPN tunnels right now.
      * Evaluates status + 72-hour offline expiration limit.
@@ -129,6 +177,7 @@ class SubscriptionManager private constructor(private val context: Context) {
 
     suspend fun refreshStatus(forceBackend: Boolean = false): Result<SubscriptionStatus> = refreshMutex.withLock {
         _isSyncing.value = true
+        _lastRefreshError.value = null
         try {
             val customSubUrl = storage.getSubscriptionUrl()
             if (storage.isExternalProfileMode()) {
@@ -217,11 +266,24 @@ class SubscriptionManager private constructor(private val context: Context) {
                 true
             }
             check(saved == true) { "Account changed while loading subscription" }
+            _lastRefreshError.value = null
             Result.success(status)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to refresh subscription online: ${e.javaClass.simpleName}")
+            val apiError = e as? ApiError
+            val code = apiError?.code ?: "SUBSCRIPTION_CHECK_FAILED"
+            val statusCode = apiError?.httpStatusCode
+            val correlationId = apiError?.correlationId
+            _lastRefreshError.value = SubscriptionRefreshError(
+                code = code,
+                httpStatusCode = statusCode,
+                correlationId = correlationId
+            )
+            Log.w(
+                TAG,
+                "Subscription refresh failed (code=$code, http=$statusCode, correlation=$correlationId)"
+            )
             val cached = storage.getCachedSubscription()
             if (cached != null) {
                 _subscriptionStatus.value = cached

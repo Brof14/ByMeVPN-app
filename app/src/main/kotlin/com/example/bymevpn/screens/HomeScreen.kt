@@ -118,6 +118,7 @@ fun HomeScreen(
     val subManager = remember { SubscriptionManager.getInstance(context) }
     val subscription by subManager.subscriptionStatus.collectAsState()
     val isCheckingSubscription by subManager.isSyncing.collectAsState()
+    val lastSubscriptionRefreshError by subManager.lastRefreshError.collectAsState()
     val currentUser by AccountRepository.currentUser.collectAsState()
     val subscriptionNowMs = remember(subscription) { System.currentTimeMillis() }
     val subscriptionUnknown = SubscriptionPresentationPolicy.isUnknown(subscription)
@@ -434,6 +435,8 @@ fun HomeScreen(
                         },
                         subscriptionUnknown = subscriptionUnknown,
                         accessConfirmationRequired = accessConfirmationRequired,
+                        subscriptionStatus = subscription,
+                        lastRefreshError = lastSubscriptionRefreshError,
                         offerTelegramRecovery = offerTelegramRecovery,
                         isCheckingSubscription = isCheckingSubscription,
                         trialAvailable = isActivatingTrial || TrialActivationPolicy.shouldOfferTrial(subscription),
@@ -555,6 +558,8 @@ private fun HomeNoPlanContent(
     onRetrySubscription: () -> Unit,
     subscriptionUnknown: Boolean,
     accessConfirmationRequired: Boolean,
+    subscriptionStatus: com.example.bymevpn.data.api.SubscriptionStatus?,
+    lastRefreshError: com.example.bymevpn.data.subscription.SubscriptionRefreshError?,
     offerTelegramRecovery: Boolean,
     isCheckingSubscription: Boolean,
     trialAvailable: Boolean,
@@ -584,6 +589,8 @@ private fun HomeNoPlanContent(
                     isRu = isRu,
                     isChecking = isCheckingSubscription,
                     accessConfirmationRequired = accessConfirmationRequired,
+                    status = subscriptionStatus,
+                    lastError = lastRefreshError,
                     onRetry = onRetrySubscription
                 )
             } else {
